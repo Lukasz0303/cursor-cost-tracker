@@ -1,0 +1,15 @@
+---
+description: VS Code / Cursor extension host API conventions
+globs: "src/**/*.ts"
+alwaysApply: false
+---
+# Extension host
+
+- Register all disposables on `context.subscriptions`.
+- Status bar: `StatusBarAlignment.Right`, priority ~100. Current and Today command = `cursorCost.showHistory`. Refresh = `cursorCost.refresh`.
+- Theme colors: `charts.green` / yellow / `charts.red`. Loading: `$(loading~spin)`.
+- `onStartupFinished` — status bar visible after startup.
+- Reuse one `WebviewPanel` (`cursorCost.history`). `retainContextWhenHidden: true`.
+- Configuration only via `cursorCost.*` keys from PRD. Watch `onDidChangeConfiguration`.
+- `extensionKind`: `ui`. Document Remote SSH: no local `state.vscdb` on remote host.
+- No `enabledApiProposals`.

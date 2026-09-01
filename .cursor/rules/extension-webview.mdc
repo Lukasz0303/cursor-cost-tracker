@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+# Webview (Last 100)
+
+- Table columns: TIME, MODEL, COST, TOKENS, INPUT / OUTPUT, KIND. Newest first. Monospace body.
+- Style with `--vscode-*` variables only. No hardcoded marketplace hex palettes.
+- CSP nonce; `default-src 'none'`. No inline handlers without nonce.
+- Host → webview: `{ type: 'data', events }`. Webview → host: `{ type: 'ready' }` | `{ type: 'close' }`.
+- Payload must not include tokens, cookies, or emails beyond what PRD shows in the table.
+- Keep JS small (vanilla). Do not add React.

@@ -1,0 +1,11 @@
+---
+description: Vitest unit tests for parse, format, and status rendering
+globs: "**/*.{test,spec}.ts"
+alwaysApply: false
+---
+# Tests (Vitest)
+
+- Unit-test `parse` and `format` without VS Code or network.
+- Fixtures: anonymized JSON (no tokens). Cover unlimited, missing limit, empty events, month-end working days.
+- Mock `UsageService` when testing status bar text/colors.
+- Do not add `@vscode/test-electron` unless asked. No tests that print secrets.

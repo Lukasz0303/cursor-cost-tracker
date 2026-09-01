@@ -1,0 +1,14 @@
+---
+description: Semantic versioning for the VSIX package
+alwaysApply: false
+---
+## CODING_PRACTICES
+
+### SEMANTIC_VERSIONING
+
+- Single version in `package.json` (the VSIX). Format MAJOR.MINOR.PATCH.
+- MAJOR: breaking contribute/commands or dropped platforms.
+- MINOR: new user-facing features (sidebar, alerts).
+- PATCH: fixes, parse/API resilience.
+- Git tags `vX.Y.Z`. Update CHANGELOG / `release-notes/` via command `7-release-notes`.
+- Keep `engines.vscode` compatible with current Cursor (Help → About).

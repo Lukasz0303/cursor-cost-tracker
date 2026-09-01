@@ -1,0 +1,13 @@
+---
+description: GitHub version control practices for this repo
+alwaysApply: false
+---
+## CODING_PRACTICES
+
+### GITHUB
+
+- Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `test:`).
+- PR descriptions from `.cursor/examples/pr-description-example.md`.
+- Protect `main`: tests / build before merge when CI exists.
+- Do not commit `.vsix` binaries unless a release asset is explicitly requested.
+- Never commit tokens, `state.vscdb` copies, or `.env`.

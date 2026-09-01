@@ -1,0 +1,50 @@
+---
+description: Core product, structure, and coding practices for Cursor Cost Tracker
+alwaysApply: true
+---
+# AI Rules for Cursor Cost Tracker
+
+VS Code/Cursor extension: **Current** and **Today** on the status bar; click opens **Last 100 Cursor queries** in a WebviewPanel. No extra app. Session from local `state.vscdb`. Unofficial Cursor usage APIs.
+
+## Stack
+
+- TypeScript 5 strict, esbuild → `dist/extension.js`, `external: ['vscode']`
+- Status bar: `createStatusBarItem` (Right)
+- History: vanilla HTML/CSS/JS webview — **no React/Vue** in MVP
+- HTTP: `fetch` only (no axios)
+- SQLite: sql.js, copy DB file to memory (Windows-friendly)
+- Tests: Vitest
+- Package: `@vscode/vsce`
+
+## Project structure
+
+When adding code, follow this layout and update `.ai/context/architecture.md` if it changes:
+
+- `src/extension.ts` — activate / deactivate
+- `src/usage/` — session, api, parse, service (polling, cache)
+- `src/ui/` — statusBar, historyPanel
+- `src/format.ts`, `src/config.ts`
+- `media/` — history.html / css / js
+- `test/` — Vitest unit tests
+- `.ai/context/` — product + tech source of truth for agents
+
+## Context
+
+- Default context: `./.ai/context` (start with `README.md` and `prd.md`).
+- Prefer `.ai/context/*` over stale notes elsewhere.
+- After meaningful code changes, update `codebase-snapshot.md`.
+
+## Coding practices
+
+- Guard clauses, early returns, happy path last. No unnecessary `else`.
+- Comments only for non-obvious *why* (API quirks, cents vs dollars). No narrating comments.
+- Language is **English** everywhere: code, logs, UI strings, commits, `.ai/`, and `.cursor/commands/`.
+
+## Product constraints (do not violate)
+
+- Click on Current/Today opens Last 100 immediately — not Quick Pick as default.
+- v1.1: `!` when a query is ≥ user token threshold (default 1M); Ignore persists in globalState.
+- No Advise, auto-fix, workspace LLM scan, or conversation analysis.
+- Never send access token / session cookie to the webview or logs.
+- `activate()` must not block on network.
+- Do not add Activity Bar, Electron, or native sqlite-only path in MVP.

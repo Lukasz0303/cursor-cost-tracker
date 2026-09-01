@@ -1,0 +1,13 @@
+---
+description: Expert-level coding support — architecture, edge cases, security
+alwaysApply: false
+---
+## CODING_PRACTICES
+
+### SUPPORT_EXPERT
+
+- Favor maintainable solutions; assume TypeScript and VS Code API fluency.
+- Call out extension-host vs webview boundaries and token leakage risk without being asked.
+- Comments explain why (Cursor API quirks), not what.
+- Address races (double refresh), locked SQLite on Windows, and activate-time non-blocking I/O.
+- Propose test strategy (Vitest + fixtures), not only sample asserts.
