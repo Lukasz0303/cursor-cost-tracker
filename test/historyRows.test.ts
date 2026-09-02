@@ -10,6 +10,8 @@ function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery
     tokens: 64_755,
     inputTokens: 12_856,
     outputTokens: 168,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 0,
     ...partial,
   }
 }
@@ -73,6 +75,7 @@ describe('historyDataPayload', () => {
       'extensionVersion',
       'historyLimit',
       'okColor',
+      'periods',
       'showSpikeWarning',
       'spikeTokenThreshold',
       'stats',
@@ -81,6 +84,8 @@ describe('historyDataPayload', () => {
     ])
     expect(payload.historyLimit).toBe(1000)
     expect(payload.charts).toHaveLength(1)
+    expect(payload.periods).toHaveLength(3)
+    expect(payload.periods[2]?.id).toBe('all')
     expect(payload.charts[0]?.tokens).toBe(64_755)
     expect(payload.charts[0]?.costUsd).toBe(0.03)
     expect(payload.extensionVersion).toBe('0.7.4')

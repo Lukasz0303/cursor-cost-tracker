@@ -28,6 +28,7 @@ The token **never** goes to the webview.
 | `src/ui/historyRows.ts` | table rows + host payload |
 | `src/ui/periodStats.ts` | Period stats glossary and aggregates |
 | `src/ui/chartSeries.ts` | Charts tab series (tokens/cost over time) |
+| `src/ui/periodCards.ts` | Charts tab Today / This month / All time mix cards |
 | `src/spikes/threshold.ts` | token spike vs setting |
 | `src/spikes/ignoreStore.ts` | v1.1 persisted Ignore keys |
 | `src/format.ts` | dollars, percents, tokens, dates, kind |

@@ -97,7 +97,7 @@ Główna ścieżka: **nie** Quick Pick. Od razu tabela.
 
 Najnowsze na górze, font monospace, CSS `--vscode-*`. Paleta poleceń: `Cursor Cost: Show Usage History`.
 
-Pasek: **Last 100 Cursor queries** (domyślna) | **Statistics** | **Settings**. Statistics to słownik Current/Today plus agregaty cyklu / Last 100. Settings: Warn at, Show warnings, kolory Good/Warning. Last 100 to próbka z API eventów — nie pula Current.
+Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Settings**. Statistics to słownik Current/Today plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie plus karty Today / This month / All time z tej próbki. Settings: Warn at, Show last, Show warnings, kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
 
 **Spike tokenów (v1.1, obowiązkowe po MVP):** kolumna albo `!` na początku wiersza, gdy `tokens >=` próg użytkownika. Akcje w wierszu:
 

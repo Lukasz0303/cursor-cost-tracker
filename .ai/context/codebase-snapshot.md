@@ -1,7 +1,7 @@
 # Codebase snapshot
 
 **Date:** 2026-09-02  
-**State:** Default good/warn colors switch to darker green/red on light themes. Charts tab plots per-query tokens and cost (oldest → newest) plus a cumulative line. History size is configurable (`cursorCost.historyLimit`, default 1000). Open Dashboard and Export CSV use command links. Settings Installed version reads `package.json`.
+**State:** Charts tab has Today / This month / All time mix cards under the graphs. Default good/warn colors switch to darker green/red on light themes. History size is configurable (`cursorCost.historyLimit`, default 1000).
 
 ## What is in the repo
 
@@ -17,7 +17,7 @@ VS Code / Cursor extension: status bar Current / Today / last 3 queries / Refres
 | `test` | `vitest run` |
 | `package` | `npm run build && vsce package --no-dependencies` |
 
-`npm test`: 141 passed, 1 skipped (live `state.vscdb`). Version **0.7.5**.
+`npm test`: 146 passed, 1 skipped (live `state.vscdb`). Version **0.7.5**.
 
 ## Tree
 
@@ -40,6 +40,7 @@ src/ui/historyRows.ts
 src/ui/historyPanel.ts
 src/ui/periodStats.ts
 src/ui/chartSeries.ts
+src/ui/periodCards.ts
 src/spikes/threshold.ts
 media/history.html
 media/history.css

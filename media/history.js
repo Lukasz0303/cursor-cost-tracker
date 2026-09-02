@@ -26,6 +26,7 @@
   const chartTokensEl = document.getElementById('chartTokens')
   const chartCostEl = document.getElementById('chartCost')
   const chartTipEl = document.getElementById('chartTip')
+  const periodCardsEl = document.getElementById('periodCards')
   const settingsViewEl = document.getElementById('settingsView')
   const tabQueriesEl = document.getElementById('tabQueries')
   const tabStatsEl = document.getElementById('tabStats')
@@ -458,6 +459,74 @@
     }
   }
 
+  function periodCardEl(card) {
+    const article = el('article', 'period-card')
+    const title = el('h2', 'period-card-title')
+    setText(title, card.title)
+    article.appendChild(title)
+    const cost = el('p', 'period-card-cost')
+    setText(cost, card.cost)
+    article.appendChild(cost)
+    const hint = el('p', 'period-card-hint')
+    setText(hint, card.costHint)
+    article.appendChild(hint)
+    const summary = el('p', 'period-card-summary')
+    setText(summary, card.summary)
+    article.appendChild(summary)
+
+    const rows = el('dl', 'period-card-rows')
+    const list = card.rows || []
+    for (let i = 0; i < list.length; i++) {
+      const row = list[i]
+      const dt = el('dt', row.total ? 'is-total' : undefined)
+      setText(dt, row.label)
+      const dd = el('dd', row.total ? 'is-total' : undefined)
+      setText(dd, row.value)
+      rows.appendChild(dt)
+      rows.appendChild(dd)
+    }
+    article.appendChild(rows)
+
+    const mix = el('div', 'period-mix')
+    const shares = card.shares || []
+    for (let i = 0; i < shares.length; i++) {
+      const share = shares[i]
+      const pct = Math.max(0, Number(share.percent) || 0)
+      if (pct <= 0) {
+        continue
+      }
+      const seg = el('span', 'period-mix-seg is-' + share.key)
+      seg.style.width = pct + '%'
+      mix.appendChild(seg)
+    }
+    article.appendChild(mix)
+
+    const legend = el('div', 'period-legend')
+    for (let i = 0; i < shares.length; i++) {
+      const share = shares[i]
+      const item = el('span', 'period-legend-item is-' + share.key)
+      setText(item, share.label + ' ' + (Number(share.percent) || 0) + '%')
+      legend.appendChild(item)
+    }
+    article.appendChild(legend)
+    return article
+  }
+
+  function renderPeriodCards(cards) {
+    if (!periodCardsEl) {
+      return
+    }
+    while (periodCardsEl.firstChild) {
+      periodCardsEl.removeChild(periodCardsEl.firstChild)
+    }
+    if (!cards || cards.length === 0) {
+      return
+    }
+    for (let i = 0; i < cards.length; i++) {
+      periodCardsEl.appendChild(periodCardEl(cards[i]))
+    }
+  }
+
   function meterRow(label, value, percent, variant) {
     const pct = Number(percent)
     const fillPct = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0))
@@ -839,6 +908,7 @@
 
     renderStats(stats)
     chartPoints = Array.isArray(settings.charts) ? settings.charts : []
+    renderPeriodCards(settings.periods)
     if (!chartsViewEl.hidden) {
       drawAllCharts()
     }

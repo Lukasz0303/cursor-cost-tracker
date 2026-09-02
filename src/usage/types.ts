@@ -6,6 +6,8 @@ export type UsageQuery = {
   tokens: number
   inputTokens: number
   outputTokens: number
+  cacheWriteTokens: number
+  cacheReadTokens: number
 }
 
 export type SpendDisplay = 'usd' | 'percent'

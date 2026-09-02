@@ -167,6 +167,8 @@ describe('mapEventToQuery', () => {
     expect(query?.tokens).toBe(180)
     expect(query?.inputTokens).toBe(100)
     expect(query?.outputTokens).toBe(50)
+    expect(query?.cacheReadTokens).toBe(10)
+    expect(query?.cacheWriteTokens).toBe(20)
   })
 
   it('keeps a zero-cost row when tokens exist', () => {

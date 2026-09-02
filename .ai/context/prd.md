@@ -96,7 +96,7 @@ Primary path: **not** Quick Pick. Open the table immediately.
 
 Newest first, monospace body, CSS `--vscode-*`. Command Palette: `Cursor Cost: Show Usage History`.
 
-Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Settings**. Statistics is the glossary for Current/Today plus cycle / Last N aggregates. Charts: tokens and cost per query over time plus cumulative. Settings holds Warn at, Show last, Show warnings, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
+Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Settings**. Statistics is the glossary for Current/Today plus cycle / Last N aggregates. Charts: tokens and cost per query over time plus cumulative, then Today / This month / All time mix cards from that Last N sample. Settings holds Warn at, Show last, Show warnings, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
 
 **Token spike (v1.1, required after MVP):** extra column or leading `!` when `tokens >=` the user threshold. Row actions:
 

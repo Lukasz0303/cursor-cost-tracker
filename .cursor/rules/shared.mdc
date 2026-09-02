@@ -22,7 +22,7 @@ When adding code, follow this layout and update `.ai/context/architecture.md` if
 
 - `src/extension.ts` — activate / deactivate
 - `src/usage/` — session, api, parse, service (polling, cache)
-- `src/ui/` — statusBar, historyPanel, periodStats
+- `src/ui/` — statusBar, historyPanel, periodStats, periodCards
 - `src/spikes/` — token threshold (`isSpike`)
 - `src/format.ts`, `src/config.ts`, `src/historyLimit.ts`
 - `media/` — history.html / css / js

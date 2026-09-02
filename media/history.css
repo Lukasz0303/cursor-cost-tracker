@@ -329,6 +329,142 @@ tbody tr:hover {
   white-space: pre-wrap;
 }
 
+.period-cards-note {
+  margin: 0.25rem 0 0;
+}
+
+.period-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.period-card {
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(
+    --vscode-editorWidget-background,
+    var(--vscode-input-background)
+  );
+}
+
+.period-card-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.period-card-cost {
+  margin: 0.4rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.period-card-hint {
+  margin: 0.2rem 0 0.55rem;
+  font-size: 0.78em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.period-card-summary {
+  margin: 0 0 0.7rem;
+  font-size: 0.85em;
+}
+
+.period-card-rows {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.22rem 0.75rem;
+  margin: 0 0 0.8rem;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.period-card-rows dt {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+.period-card-rows dd {
+  margin: 0;
+  text-align: right;
+}
+
+.period-card-rows dt.is-total,
+.period-card-rows dd.is-total {
+  padding-top: 0.4rem;
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.period-mix {
+  display: flex;
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--vscode-input-background);
+}
+
+.period-mix-seg {
+  height: 100%;
+  min-width: 0;
+}
+
+.period-mix-seg.is-input,
+.period-legend-item.is-input::before {
+  background: var(--vscode-charts-blue, #3794ff);
+}
+
+.period-mix-seg.is-output,
+.period-legend-item.is-output::before {
+  background: var(--vscode-charts-orange, #d18616);
+}
+
+.period-mix-seg.is-cacheWrite,
+.period-legend-item.is-cacheWrite::before {
+  background: var(--vscode-charts-purple, #b180d7);
+}
+
+.period-mix-seg.is-cacheRead,
+.period-legend-item.is-cacheRead::before {
+  background: var(--vscode-charts-green, #89d185);
+}
+
+.period-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.period-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.period-legend-item::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+}
+
+@media (max-width: 52rem) {
+  .period-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stats-section h2 {
   margin: 0 0 0.75rem;
   font-size: 0.95rem;

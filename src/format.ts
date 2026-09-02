@@ -14,6 +14,12 @@ export function formatDollars(n: number): string {
   return `${DOLLAR_FORMAT.format(value)} $`
 }
 
+/** Dashboard-style cost, e.g. `$6.29`. */
+export function formatDollarSign(n: number): string {
+  const value = Number.isFinite(n) ? n : 0
+  return `$${DOLLAR_FORMAT.format(value)}`
+}
+
 export function formatPercentUsed(percent: number): string {
   const value = Number.isFinite(percent) ? Math.max(0, Math.round(percent)) : 0
   return `${value}%`

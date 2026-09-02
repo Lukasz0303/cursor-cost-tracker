@@ -6,7 +6,7 @@ This folder describes the **product vision** and **target stack**. Once code exi
 
 - **Title:** Cursor Cost Tracker — *See Cursor AI spend without leaving the editor.*
 - **Shape:** VS Code extension compatible with **Cursor** (primary target).
-- **Value:** Current, Today, and the last 3 queries on the **status bar**; click opens **Last 100 Cursor queries**. `!` on a query ≥ token threshold (default 1M). Ignore of spikes is a follow-up.
+- **Value:** Current, Today, and the last 3 queries on the **status bar**; click opens **Last N Cursor queries** (default 1000). `!` on a query ≥ token threshold (default 1M). Ignore of spikes is a follow-up.
 - **Zero setup:** read the local Cursor session (`state.vscdb`); no `.env` and no API key in settings (MVP).
 - **Full requirements:** [prd.md](./prd.md) (English, canonical) · [prd.pl.md](./prd.pl.md) (Polish).
 
@@ -18,7 +18,7 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 |-------|------|
 | Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, last 3 queries (`cost - tokens`), Refresh; `!` on a query ≥ token threshold (default 1M) |
 | Click Current/Today | Recent queries immediately (not Quick Pick) |
-| History | Four tabs: Last N (default 1000), Statistics, Charts (tokens/cost over time), Settings |
+| History | Four tabs: Last N (default 1000), Statistics, Charts (tokens/cost + period mix cards), Settings |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |
 | Token | extension host only; never `postMessage`, logs, or webview |

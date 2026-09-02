@@ -368,6 +368,8 @@ export function mapEventToQuery(raw: unknown): UsageQuery | null {
     tokens: inputTokens + outputTokens + cacheRead + cacheWrite,
     inputTokens,
     outputTokens,
+    cacheWriteTokens: cacheWrite,
+    cacheReadTokens: cacheRead,
   }
 }
 

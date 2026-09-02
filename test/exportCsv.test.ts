@@ -13,6 +13,8 @@ describe('buildQueriesCsv', () => {
         tokens: 100,
         inputTokens: 80,
         outputTokens: 20,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 0,
       },
       {
         timestamp: 2,
@@ -22,6 +24,8 @@ describe('buildQueriesCsv', () => {
         tokens: 2000,
         inputTokens: 1500,
         outputTokens: 500,
+        cacheWriteTokens: 0,
+        cacheReadTokens: 0,
       },
     ]
     const csv = buildQueriesCsv(queries)

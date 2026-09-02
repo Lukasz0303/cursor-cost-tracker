@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatDateTime,
   formatDollars,
+  formatDollarSign,
   formatKind,
   formatTokens,
   formatCompactTokens,
@@ -17,6 +18,13 @@ describe('formatDollars', () => {
 
   it('treats non-finite values as 0.00 $', () => {
     expect(formatDollars(Number.NaN)).toBe('0.00 $')
+  })
+})
+
+describe('formatDollarSign', () => {
+  it('puts $ in front', () => {
+    expect(formatDollarSign(6.29)).toBe('$6.29')
+    expect(formatDollarSign(3327.71)).toBe('$3,327.71')
   })
 })
 

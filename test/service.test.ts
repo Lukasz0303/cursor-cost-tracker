@@ -31,6 +31,8 @@ function queries() {
       tokens: 10,
       inputTokens: 8,
       outputTokens: 2,
+      cacheWriteTokens: 0,
+      cacheReadTokens: 0,
     },
   ]
 }

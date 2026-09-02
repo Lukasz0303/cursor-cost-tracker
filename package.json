@@ -1,7 +1,7 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "See Cursor AI spend on the status bar. Click opens recent queries.",
+  "description": "Current, Today, and last 3 queries on the status bar. Click opens Last 1000 queries, statistics, and charts.",
   "version": "0.7.5",
   "publisher": "lukasz0303",
   "license": "MIT",
@@ -15,7 +15,9 @@
     "usage",
     "cost",
     "tokens",
-    "status bar"
+    "status bar",
+    "charts",
+    "statistics"
   ],
   "homepage": "https://github.com/Lukasz0303/cursor-cost-tracker#readme",
   "bugs": {

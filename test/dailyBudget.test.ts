@@ -14,6 +14,8 @@ function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery
     tokens: 0,
     inputTokens: 0,
     outputTokens: 0,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 0,
     ...partial,
   }
 }

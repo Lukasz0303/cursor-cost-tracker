@@ -9,6 +9,7 @@ import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery, UsageSnapshot } from '../usage/types'
 import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
 import { toChartSeries, type ChartPoint } from './chartSeries'
+import { toPeriodCards, type PeriodCard } from './periodCards'
 
 export const HISTORY_ROW_KEYS = [
   'time',
@@ -75,6 +76,7 @@ export type HistoryDataPayload = {
   historyLimit: number
   stats: PeriodStatsPayload
   charts: ChartPoint[]
+  periods: PeriodCard[]
 }
 
 export function historyDataPayload(
@@ -111,6 +113,7 @@ export function historyDataPayload(
       historyLimit,
     }),
     charts: toChartSeries(queries, historyLimit),
+    periods: toPeriodCards(queries, { historyLimit }),
   }
   if (message !== undefined && message !== '') {
     payload.message = message
