@@ -161,7 +161,7 @@ v1.2: sidebar; optional Quick Pick.
 | macOS | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
 | Linux | `~/.config/Cursor/User/globalStorage/state.vscdb` |
 
-**Current:** `GET https://cursor.com/api/usage-summary`. Team / company: dollar pool (individual onDemand → plan → team → overall). Personal Pro: dashboard bars `autoPercentUsed` (Cursor Models) and `apiPercentUsed` (Other Models) — not `plan.used/limit`. Unlimited → hide Today.
+**Current:** `GET https://cursor.com/api/usage-summary`. Team / company: dollar pool (individual onDemand → plan → team onDemand → overall). Drop any pool whose limit is above **1,000,000 cents** ($10,000) — that is the org `pooled` / leftover on-demand cap (e.g. $24,800), not the personal $250 seat. Same filter as Stack Manager `isPersonalMonthlyPool`. Never read `teamUsage.pooled`. Personal Pro: dashboard bars `autoPercentUsed` (Cursor Models) and `apiPercentUsed` (Other Models) — not `plan.used/limit`. Unlimited → hide Today.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / working days left`; `todayUsed` = sum of today’s cents (local timezone).
 

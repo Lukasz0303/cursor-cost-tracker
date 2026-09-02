@@ -162,7 +162,7 @@ v1.2: sidebar; opcjonalny Quick Pick.
 | macOS | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
 | Linux | `~/.config/Cursor/User/globalStorage/state.vscdb` |
 
-**Current:** `GET https://cursor.com/api/usage-summary`. Plan firmowy: pula dolarowa (individual onDemand → plan → team → overall). Pro: belki dashboardu `autoPercentUsed` (Cursor Models) i `apiPercentUsed` (Other Models) — nie `plan.used/limit`. Unlimited → ukryj Today.
+**Current:** `GET https://cursor.com/api/usage-summary`. Plan firmowy: pula dolarowa (individual onDemand → plan → team onDemand → overall). Odrzuć pulę z limitem powyżej **1 000 000 centów** (10 000 $) — to budżet org (`pooled` / reszta on-demand, np. 24 800 $), nie osobisty limit 250 $. Ten sam filtr co Stack Manager `isPersonalMonthlyPool`. Nigdy nie czytaj `teamUsage.pooled`. Pro: belki dashboardu `autoPercentUsed` (Cursor Models) i `apiPercentUsed` (Other Models) — nie `plan.used/limit`. Unlimited → ukryj Today.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / dni robocze do końca`; `todayUsed` = suma dzisiejszych centów (lokalna strefa czasowa).
 

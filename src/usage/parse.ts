@@ -36,6 +36,14 @@ function readEnabled(raw: Record<string, unknown>): boolean {
   return raw.enabled !== false
 }
 
+function poolUsedCents(raw: Record<string, unknown>): number | null {
+  return asFiniteNumber(raw.usedCents) ?? asFiniteNumber(raw.used)
+}
+
+function poolLimitCents(raw: Record<string, unknown>): number | null {
+  return asFiniteNumber(raw.limitCents) ?? asFiniteNumber(raw.limit)
+}
+
 function readMoneyPool(
   raw: unknown,
   source: UsagePool['source'],
@@ -44,31 +52,50 @@ function readMoneyPool(
     return null
   }
 
-  const used = asFiniteNumber(raw.usedCents) ?? asFiniteNumber(raw.used)
-  if (used === null) {
+  const used = poolUsedCents(raw)
+  const limit = poolLimitCents(raw)
+  if (used === null && limit === null) {
     return null
   }
 
-  const limit = asFiniteNumber(raw.limitCents) ?? asFiniteNumber(raw.limit)
   const remaining =
     asFiniteNumber(raw.remainingCents) ?? asFiniteNumber(raw.remaining)
 
   return {
-    usedCents: used,
+    usedCents: used ?? 0,
     limitCents: limit,
     remainingCents: remaining,
     source,
   }
 }
 
-function hasFiniteLimit(pool: UsagePool | null): boolean {
-  return pool !== null && pool.limitCents !== null
+/** Same cap as Stack Manager: org pools like $24,800 are 2.48M cents. */
+export const PERSONAL_MONTHLY_POOL_MAX_CENTS = 1_000_000
+
+/**
+ * Personal monthly dollar pool only. Enterprise `teamUsage.onDemand` /
+ * `pooled` often has a five-figure org cap; Stack Manager drops any pool
+ * whose limit is above $10,000 (1M cents) so Current stays `used / $250`.
+ */
+export function isPersonalMonthlyPool(raw: unknown): boolean {
+  if (!isRecord(raw) || !readEnabled(raw)) {
+    return false
+  }
+  const used = poolUsedCents(raw)
+  const limit = poolLimitCents(raw)
+  if (used === null && limit === null) {
+    return false
+  }
+  if (limit === null) {
+    return true
+  }
+  return limit <= PERSONAL_MONTHLY_POOL_MAX_CENTS
 }
 
 /**
  * Cursor returns request-style plan counters and cents-style on-demand in the
- * same shape (`used` / `limit`). Prefer a pool with a finite money cap so we
- * do not treat "on-demand with no limit" as Unlimited when a plan cap exists.
+ * same shape (`used` / `limit`). Candidate order matches Stack Manager:
+ * individual onDemand → plan → team onDemand → overall. Never `teamUsage.pooled`.
  */
 export function pickUsagePool(summary: unknown): UsagePool | null {
   if (!isRecord(summary)) {
@@ -80,30 +107,25 @@ export function pickUsagePool(summary: unknown): UsagePool | null {
     : null
   const team = isRecord(summary.teamUsage) ? summary.teamUsage : null
 
-  const individualOnDemand = individual
-    ? readMoneyPool(individual.onDemand, 'individualOnDemand')
-    : null
-  const plan = individual ? readMoneyPool(individual.plan, 'plan') : null
-  const skipTeam = summary.limitType === 'user'
-  const teamOnDemand =
-    team && !skipTeam ? readMoneyPool(team.onDemand, 'teamOnDemand') : null
-  const overall =
-    readMoneyPool(individual?.overall, 'overall') ??
-    readMoneyPool(summary.overall, 'overall')
-
-  const candidates: Array<UsagePool | null> = [
-    individualOnDemand,
-    plan,
-    teamOnDemand,
-    overall,
+  const candidates: Array<{ raw: unknown; source: UsagePool['source'] }> = [
+    { raw: individual?.onDemand, source: 'individualOnDemand' },
+    { raw: individual?.plan, source: 'plan' },
+    { raw: team?.onDemand, source: 'teamOnDemand' },
+    { raw: individual?.overall, source: 'overall' },
+    { raw: summary.overall, source: 'overall' },
   ]
 
-  const withCap = candidates.find(hasFiniteLimit)
-  if (withCap) {
-    return withCap
+  for (const candidate of candidates) {
+    if (!isPersonalMonthlyPool(candidate.raw)) {
+      continue
+    }
+    const pool = readMoneyPool(candidate.raw, candidate.source)
+    if (pool) {
+      return pool
+    }
   }
 
-  return candidates.find((pool) => pool !== null) ?? null
+  return null
 }
 
 const TEAM_PLAN_NAMES = new Set(['business', 'team', 'enterprise', 'company'])
@@ -408,7 +430,7 @@ export function workingDaysLeftInMonth(from: Date): number {
     }
     count += 1
   }
-  return count
+  return Math.max(1, count)
 }
 
 export function dailyBudgetUsd(
@@ -546,26 +568,7 @@ export function readBillingPoolLines(
 }
 
 function readOnDemandLine(summary: unknown): string | null {
-  if (!isRecord(summary)) {
-    return null
-  }
-  const individual = isRecord(summary.individualUsage)
-    ? summary.individualUsage
-    : null
-  const team = isRecord(summary.teamUsage) ? summary.teamUsage : null
-  const skipTeam = summary.limitType === 'user'
-  const onDemandRaw =
-    (individual && isRecord(individual.onDemand) ? individual.onDemand : null) ??
-    (team && !skipTeam && isRecord(team.onDemand) ? team.onDemand : null)
-  if (!onDemandRaw || !readEnabled(onDemandRaw)) {
-    return null
-  }
-  const pool = readMoneyPool(
-    onDemandRaw,
-    individual && onDemandRaw === individual.onDemand
-      ? 'individualOnDemand'
-      : 'teamOnDemand',
-  )
+  const pool = pickUsagePool(summary)
   if (!pool) {
     return null
   }

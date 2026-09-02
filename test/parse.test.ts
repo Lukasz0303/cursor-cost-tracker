@@ -6,6 +6,7 @@ import {
   asFiniteNumber,
   buildUsageReady,
   centsToUsd,
+  isPersonalMonthlyPool,
   isTeamSpendPlan,
   isUnlimited,
   mapEventToQuery,
@@ -58,16 +59,39 @@ describe('pickUsagePool', () => {
     expect(pool?.source).not.toBe('teamOnDemand')
   })
 
-  it('falls through to plan when onDemand has no finite limit', () => {
+  it('keeps uncapped onDemand instead of falling through to plan', () => {
     const pool = pickUsagePool({
       isUnlimited: false,
       individualUsage: {
-        plan: { used: 1200, limit: 20000, remaining: 18800 },
+        plan: { enabled: true, used: 1200, limit: 20000, remaining: 18800 },
         onDemand: { enabled: true, used: 2309, limit: null, remaining: null },
       },
     })
-    expect(pool?.source).toBe('plan')
-    expect(pool?.usedCents).toBe(1200)
+    expect(pool?.source).toBe('individualOnDemand')
+    expect(pool?.usedCents).toBe(2309)
+    expect(pool?.limitCents).toBeNull()
+  })
+
+  it('skips org-sized enterprise pools so Current stays the personal $250 cap', () => {
+    const pool = pickUsagePool(loadJson('usage-summary.enterprise.json'))
+    expect(pool?.source).toBe('overall')
+    expect(pool?.usedCents).toBe(1346)
+    expect(pool?.limitCents).toBe(25000)
+  })
+
+  it('never selects teamUsage.pooled', () => {
+    const pool = pickUsagePool({
+      membershipType: 'enterprise',
+      limitType: 'team',
+      teamUsage: {
+        pooled: { enabled: true, used: 0, limit: 2_480_000, remaining: 2_480_000 },
+        onDemand: { enabled: true, used: 0, limit: 2_480_000, remaining: 2_480_000 },
+      },
+      individualUsage: {
+        overall: { enabled: true, used: 1346, limit: 25000, remaining: 23654 },
+      },
+    })
+    expect(pool?.source).toBe('overall')
   })
 
   it('skips disabled onDemand', () => {
@@ -93,6 +117,30 @@ describe('pickUsagePool', () => {
     expect(pickUsagePool(null)).toBeNull()
     expect(pickUsagePool('nope')).toBeNull()
     expect(pickUsagePool({})).toBeNull()
+  })
+})
+
+describe('isPersonalMonthlyPool', () => {
+  it('rejects a pool whose limit is above $10,000 in cents', () => {
+    expect(
+      isPersonalMonthlyPool({
+        enabled: true,
+        used: 0,
+        limit: 2_480_000,
+        remaining: 2_480_000,
+      }),
+    ).toBe(false)
+  })
+
+  it('accepts the typical $250 personal cap', () => {
+    expect(
+      isPersonalMonthlyPool({
+        enabled: true,
+        used: 1346,
+        limit: 25000,
+        remaining: 23654,
+      }),
+    ).toBe(true)
   })
 })
 
@@ -320,6 +368,36 @@ describe('buildUsageReady', () => {
     expect(ready.usedUsd).toBe(20)
     expect(ready.limitUsd).toBe(20)
     expect(ready.includedQuotas).toEqual([])
+  })
+
+  it('matches Stack Manager Current/Today math on an enterprise org pool', () => {
+    const now = new Date(2026, 8, 2, 12, 0, 0)
+    const ready = buildUsageReady({
+      summary: loadJson('usage-summary.enterprise.json'),
+      queries: [
+        {
+          timestamp: now.getTime(),
+          model: 'default',
+          kind: 'USAGE_EVENT_KIND_INCLUDED_IN_BUSINESS',
+          costUsd: 2.11,
+          tokens: 1000,
+          inputTokens: 800,
+          outputTokens: 200,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+        },
+      ],
+      now,
+    })
+    expect(ready.plan).toBe('enterprise')
+    expect(ready.spendDisplay).toBe('usd')
+    expect(ready.usedUsd).toBe(13.46)
+    expect(ready.limitUsd).toBe(250)
+    expect(ready.remainingUsd).toBe(236.54)
+    expect(ready.workingDaysLeft).toBe(21)
+    expect(ready.dailyBudgetUsd).toBeCloseTo(236.54 / 21)
+    expect(ready.todayUsedUsd).toBe(2.11)
+    expect(ready.onDemandLine).toBe('13.46 $ / 250.00 $')
   })
 
   it('sets todayUsedUsd null when events are unavailable', () => {

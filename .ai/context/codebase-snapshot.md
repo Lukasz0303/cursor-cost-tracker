@@ -1,7 +1,7 @@
 # Codebase snapshot
 
 **Date:** 2026-09-02  
-**State:** Charts tab has Today / This month / All time mix cards under the graphs. Default good/warn colors switch to darker green/red on light themes. History size is configurable (`cursorCost.historyLimit`, default 1000).
+**State:** Enterprise / team Current uses the personal monthly dollar pool (typically `$13.46 / $250.00`), not the org leftover cap (`$0 / $24,800`). `pickUsagePool` matches Stack Manager: drop any pool with limit > 1,000,000 cents; never `teamUsage.pooled`. Statistics tab cards use equal-height grids, cycle progress, and Last N extras (median, cache hit, cost per 1M, token mix). Charts tab has Today / This month / All time mix cards under the graphs. Default good/warn colors switch to darker green/red on light themes. History size is configurable (`cursorCost.historyLimit`, default 1000).
 
 ## What is in the repo
 
@@ -17,7 +17,7 @@ VS Code / Cursor extension: status bar Current / Today / last 3 queries / Refres
 | `test` | `vitest run` |
 | `package` | `npm run build && vsce package --no-dependencies` |
 
-`npm test`: 146 passed, 1 skipped (live `state.vscdb`). Version **1.0.0**.
+`npm test`: 154 passed, 1 skipped (live `state.vscdb`). Version **1.0.1**.
 
 ## Tree
 

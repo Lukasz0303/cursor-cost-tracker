@@ -43,6 +43,11 @@ describe('workingDaysLeftInMonth', () => {
     expect(workingDaysLeftInMonth(new Date(2025, 1, 1, 12, 0, 0))).toBe(20)
   })
 
+  it('keeps at least one working day when only weekend remains', () => {
+    // 30 Aug 2025 is a Saturday; 31 Aug 2025 is Sunday — Stack Manager uses max(1, count).
+    expect(workingDaysLeftInMonth(new Date(2025, 7, 30, 9, 0, 0))).toBe(1)
+  })
+
   it('includes today when today is a weekday', () => {
     // 1 Sep 2026 is a Tuesday.
     const from = new Date(2026, 8, 1, 8, 0, 0)

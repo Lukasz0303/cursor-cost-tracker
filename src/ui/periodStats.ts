@@ -1,4 +1,5 @@
 import {
+  cycleResetLabel,
   formatCompactTokens,
   formatDateTime,
   formatDollars,
@@ -14,6 +15,7 @@ import {
 } from '../historyLimit'
 import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
+import { sharePercents, type PeriodShare } from './periodCards'
 
 const BREAKDOWN_LIMIT = 8
 
@@ -28,6 +30,8 @@ export const TODAY_TEAM_BODY =
 export const TODAY_TEAM_NO_BUDGET_BODY =
   'No daily budget — the monthly dollar pool is empty.'
 export const SAMPLE_NOTE_SUFFIX = ' is recent queries, not Current.'
+export const CACHE_HIT_HINT =
+  'Share of prompt tokens reused from cache instead of billed as new input. Cached tokens cost less.'
 
 export function sampleNoteForLimit(limit: number): string {
   return `${lastQueriesHeading(limit)}${SAMPLE_NOTE_SUFFIX}`
@@ -72,9 +76,13 @@ export type PeriodGlossaryItem = {
 }
 
 export type PeriodMetric = {
+  id: string
   label: string
   value: string
   hint?: string
+  detail?: string
+  percent?: number
+  shares?: PeriodShare[]
 }
 
 export type PeriodBreakdownRow = {
@@ -92,11 +100,13 @@ export type PeriodStatsPayload = {
   byKind: PeriodBreakdownRow[]
   sampleNote: string
   historyLimit: number
+  queryCount: number
 }
 
 export type PeriodStatsOptions = {
   spikeTokenThreshold: number
   historyLimit?: number
+  now?: Date
 }
 
 function dash(value: string | null | undefined): string {
@@ -104,6 +114,86 @@ function dash(value: string | null | undefined): string {
     return '—'
   }
   return value
+}
+
+function formatPlan(plan: string | null): string {
+  const raw = dash(plan)
+  if (raw === '—') {
+    return raw
+  }
+  return raw
+    .split(/[_\s-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function metric(
+  id: string,
+  label: string,
+  value: string,
+  extra?: Omit<PeriodMetric, 'id' | 'label' | 'value'>,
+): PeriodMetric {
+  return { id, label, value, ...extra }
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) {
+    return 0
+  }
+  const sorted = [...values].sort((left, right) => left - right)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
+  }
+  return sorted[mid] ?? 0
+}
+
+function cacheHitPercent(input: number, cacheRead: number): number {
+  const prompt = input + cacheRead
+  if (!(prompt > 0)) {
+    return 0
+  }
+  return Math.round((cacheRead / prompt) * 100)
+}
+
+function tokenShares(
+  input: number,
+  output: number,
+  cacheWrite: number,
+  cacheRead: number,
+): PeriodShare[] {
+  const percents = sharePercents([input, output, cacheWrite, cacheRead])
+  return [
+    { key: 'input', label: 'Input', percent: percents[0] ?? 0 },
+    { key: 'output', label: 'Output', percent: percents[1] ?? 0 },
+    { key: 'cacheWrite', label: 'Cache write', percent: percents[2] ?? 0 },
+    { key: 'cacheRead', label: 'Cache read', percent: percents[3] ?? 0 },
+  ]
+}
+
+function costPerMillion(costUsd: number, tokens: number): string {
+  if (!(tokens > 0) || !Number.isFinite(costUsd)) {
+    return '—'
+  }
+  return formatDollars((costUsd / tokens) * 1_000_000)
+}
+
+function cycleElapsedPercent(
+  startIso: string | null,
+  endIso: string | null,
+  now: Date,
+): number | undefined {
+  if (startIso === null || startIso === '' || endIso === null || endIso === '') {
+    return undefined
+  }
+  const start = new Date(startIso).getTime()
+  const end = new Date(endIso).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return undefined
+  }
+  const raw = ((now.getTime() - start) / (end - start)) * 100
+  return Math.max(0, Math.min(100, Math.round(raw)))
 }
 
 function isoDay(iso: string | null): string | null {
@@ -199,12 +289,14 @@ function dayKey(ms: number): string {
 
 function busiestDay(queries: UsageQuery[]): PeriodMetric {
   if (queries.length === 0) {
-    return { label: 'Busiest day', value: '—' }
+    return metric('busiest', 'Busiest day', '—')
   }
   const byDay = new Map<string, number>()
+  const byDayCount = new Map<string, number>()
   for (const query of queries) {
     const key = dayKey(query.timestamp)
     byDay.set(key, (byDay.get(key) ?? 0) + query.costUsd)
+    byDayCount.set(key, (byDayCount.get(key) ?? 0) + 1)
   }
   let bestDay = ''
   let bestCost = -1
@@ -214,10 +306,11 @@ function busiestDay(queries: UsageQuery[]): PeriodMetric {
       bestCost = cost
     }
   }
-  return {
-    label: 'Busiest day',
-    value: `${bestDay} · ${formatDollars(bestCost)}`,
-  }
+  const count = byDayCount.get(bestDay) ?? 0
+  return metric('busiest', 'Busiest day', formatDollars(bestCost), {
+    detail: bestDay,
+    hint: count === 1 ? '1 query' : `${formatTokens(count)} queries`,
+  })
 }
 
 function poolPercent(used: number, cap: number | null): number {
@@ -251,6 +344,9 @@ function todayBars(data: UsageReady): PeriodBar[] {
   if (data.todayUsedUsd === null) {
     return []
   }
+  if (data.dailyBudgetUsd === null || data.dailyBudgetUsd <= 0) {
+    return []
+  }
   return [
     {
       label: 'Today',
@@ -282,6 +378,7 @@ function emptyStats(historyLimit: number): PeriodStatsPayload {
     byKind: [],
     sampleNote: sampleNoteForLimit(historyLimit),
     historyLimit,
+    queryCount: 0,
   }
 }
 
@@ -289,15 +386,25 @@ function cycleMetrics(
   data: UsageReady,
   sampleSum: number,
   historyLimit: number,
+  now: Date,
 ): PeriodMetric[] {
   const start = isoDay(data.billingCycleStart)
   const end = isoDay(data.billingCycleEnd)
   const cycle =
     start && end ? `${start} → ${end}` : dash(end ?? start)
+  const reset = cycleResetLabel(data.billingCycleEnd, now)
+  const elapsed = cycleElapsedPercent(
+    data.billingCycleStart,
+    data.billingCycleEnd,
+    now,
+  )
 
   const metrics: PeriodMetric[] = [
-    { label: 'Plan', value: dash(data.plan) },
-    { label: 'Billing cycle', value: cycle },
+    metric('plan', 'Plan', formatPlan(data.plan)),
+    metric('cycle', 'Billing cycle', cycle, {
+      hint: reset ?? undefined,
+      percent: elapsed,
+    }),
   ]
 
   if (isPercentPlan(data)) {
@@ -316,13 +423,14 @@ function cycleMetrics(
     data.workingDaysLeft === null ? '—' : String(data.workingDaysLeft)
 
   metrics.push(
-    { label: 'Remaining', value: remaining },
-    { label: 'Working days left', value: days },
-    { label: 'Daily budget', value: daily },
-    {
-      label: `${lastQueriesHeading(historyLimit)} vs Current`,
-      value: `${formatDollars(sampleSum)} vs ${formatDollars(data.usedUsd)}`,
-    },
+    metric('remaining', 'Remaining', remaining),
+    metric('workingDays', 'Working days left', days),
+    metric('dailyBudget', 'Daily budget', daily),
+    metric(
+      'sampleVsCurrent',
+      `${lastQueriesHeading(historyLimit)} vs Current`,
+      `${formatDollars(sampleSum)} vs ${formatDollars(data.usedUsd)}`,
+    ),
   )
   return metrics
 }
@@ -335,8 +443,8 @@ function sampleMetrics(
   const heading = lastQueriesHeading(historyLimit)
   if (queries.length === 0) {
     return [
-      { label: 'Average per query tokens', value: '0' },
-      { label: `${heading} total`, value: formatDollars(0) },
+      metric('avgTokens', 'Average per query tokens', '0'),
+      metric('total', `${heading} total`, formatDollars(0)),
     ]
   }
 
@@ -344,9 +452,19 @@ function sampleMetrics(
   const tokens = queries.reduce((sum, query) => sum + query.tokens, 0)
   const input = queries.reduce((sum, query) => sum + query.inputTokens, 0)
   const output = queries.reduce((sum, query) => sum + query.outputTokens, 0)
+  const cacheWrite = queries.reduce(
+    (sum, query) => sum + (query.cacheWriteTokens ?? 0),
+    0,
+  )
+  const cacheRead = queries.reduce(
+    (sum, query) => sum + (query.cacheReadTokens ?? 0),
+    0,
+  )
   const spikes = queries.filter((query) =>
     isSpike(query.tokens, spikeTokenThreshold),
   ).length
+  const hit = cacheHitPercent(input, cacheRead)
+  const queryNoun = queries.length === 1 ? 'query' : 'queries'
 
   let priciest = queries[0]
   let heaviest = queries[0]
@@ -360,42 +478,59 @@ function sampleMetrics(
   }
 
   const metrics: PeriodMetric[] = [
-    {
-      label: 'Average per query tokens',
-      value: formatCompactTokens(tokens / queries.length),
-    },
-    {
-      label: `${heading} total`,
-      value: formatDollars(total),
-    },
-    {
-      label: 'Average per query',
-      value: formatDollars(total / queries.length),
-    },
-    {
-      label: QUERIES_OVER_TOKEN_WARNING_LABEL,
-      value: String(spikes),
-      hint: `tokens ≥ ${formatCompactTokens(spikeTokenThreshold)}`,
-    },
-    {
-      label: `Tokens in ${heading}`,
-      value: `${formatCompactTokens(tokens)} · ${formatTokens(input)} in / ${formatTokens(output)} out`,
-    },
+    metric(
+      'avgTokens',
+      'Average per query tokens',
+      formatCompactTokens(tokens / queries.length),
+    ),
+    metric('total', `${heading} total`, formatDollars(total), {
+      hint: `${formatTokens(queries.length)} ${queryNoun}`,
+    }),
+    metric(
+      'avgCost',
+      'Average per query',
+      formatDollars(total / queries.length),
+    ),
+    metric(
+      'medianCost',
+      'Median per query',
+      formatDollars(median(queries.map((query) => query.costUsd))),
+    ),
+    metric(
+      'spikes',
+      QUERIES_OVER_TOKEN_WARNING_LABEL,
+      String(spikes),
+      { hint: `tokens ≥ ${formatCompactTokens(spikeTokenThreshold)}` },
+    ),
+    metric('cacheHit', 'Cache hit', formatPercentUsed(hit), {
+      hint: CACHE_HIT_HINT,
+    }),
+    metric(
+      'costPerMillion',
+      'Cost per 1M tokens',
+      costPerMillion(total, tokens),
+    ),
+    metric('tokens', `Tokens in ${heading}`, formatCompactTokens(tokens), {
+      hint: `${formatTokens(input)} in · ${formatTokens(output)} out`,
+      shares: tokenShares(input, output, cacheWrite, cacheRead),
+    }),
   ]
 
   if (priciest) {
-    metrics.push({
-      label: 'Most expensive query',
-      value: `${formatDollars(priciest.costUsd)} · ${modelLabel(priciest.model)}`,
-      hint: formatDateTime(priciest.timestamp),
-    })
+    metrics.push(
+      metric('priciest', 'Most expensive query', formatDollars(priciest.costUsd), {
+        detail: modelLabel(priciest.model),
+        hint: formatDateTime(priciest.timestamp),
+      }),
+    )
   }
   if (heaviest) {
-    metrics.push({
-      label: 'Heaviest query',
-      value: `${formatCompactTokens(heaviest.tokens)} · ${modelLabel(heaviest.model)}`,
-      hint: formatDateTime(heaviest.timestamp),
-    })
+    metrics.push(
+      metric('heaviest', 'Heaviest query', formatCompactTokens(heaviest.tokens), {
+        detail: modelLabel(heaviest.model),
+        hint: formatDateTime(heaviest.timestamp),
+      }),
+    )
   }
   metrics.push(busiestDay(queries))
   return metrics
@@ -409,6 +544,7 @@ export function toPeriodStats(
   const historyLimit = clampHistoryLimit(
     options.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
+  const now = options.now ?? new Date()
   const sample = newestQueries(queries, historyLimit)
   if (snapshot.status !== 'ready') {
     const empty = emptyStats(historyLimit)
@@ -420,6 +556,7 @@ export function toPeriodStats(
       sample: sampleMetrics(sample, options.spikeTokenThreshold, historyLimit),
       byModel: groupCost(sample, (query) => modelLabel(query.model)),
       byKind: groupCost(sample, (query) => formatKind(query.kind)),
+      queryCount: sample.length,
     }
   }
 
@@ -442,11 +579,12 @@ export function toPeriodStats(
         todayBars(data),
       ),
     ],
-    cycle: cycleMetrics(data, sampleSum, historyLimit),
+    cycle: cycleMetrics(data, sampleSum, historyLimit, now),
     sample: sampleMetrics(sample, options.spikeTokenThreshold, historyLimit),
     byModel: groupCost(sample, (query) => modelLabel(query.model)),
     byKind: groupCost(sample, (query) => formatKind(query.kind)),
     sampleNote: sampleNoteForLimit(historyLimit),
     historyLimit,
+    queryCount: sample.length,
   }
 }

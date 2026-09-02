@@ -1,0 +1,25 @@
+{
+  "version": "1.0.1",
+  "date": "2026-09-02",
+  "gitTag": "v1.0.1",
+  "title": "Release notes — Cursor Cost Tracker (1.0.1)",
+  "intro": "Clearer Statistics cards, extra Last N metrics, and Current that stays on the personal monthly cap for enterprise accounts.",
+  "sections": [
+    {
+      "name": "New features",
+      "items": [
+        "**Statistics** — median cost per query, cache hit, cost per 1M tokens, and an input/output/cache mix bar on the Last N summary.",
+        "**Billing cycle** — elapsed progress and reset date on the cycle chip; plan name shown as a badge."
+      ]
+    },
+    {
+      "name": "Improvements / Fixes",
+      "items": [
+        "**Statistics** cards use even heights, stronger number hierarchy, and a warning tint when queries exceed the token threshold. Today no longer shows a fake full bar when there is no daily budget.",
+        "**Statistics** Status bar and Billing cycle cards no longer overlap. Cache hit now explains that the percent is prompt tokens reused from cache.",
+        "**Current** on enterprise / team accounts uses the personal monthly dollar pool (typically used / $250), not the large org leftover cap.",
+        "**Today** daily budget keeps at least one working day when only a weekend remains in the month."
+      ]
+    }
+  ]
+}
