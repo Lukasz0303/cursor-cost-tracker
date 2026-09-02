@@ -6,7 +6,7 @@ This folder describes the **product vision** and **target stack**. Once code exi
 
 - **Title:** Cursor Cost Tracker — *See Cursor AI spend without leaving the editor.*
 - **Shape:** VS Code extension compatible with **Cursor** (primary target).
-- **Value:** Current and Today on the **status bar**; click opens **Last 100 Cursor queries**. v1.1: `!` on token spikes (default 1M, user-set) + Ignore.
+- **Value:** Current, Today, and the last 3 queries on the **status bar**; click opens **Last 100 Cursor queries**. `!` on a query ≥ token threshold (default 1M). Ignore of spikes is a follow-up.
 - **Zero setup:** read the local Cursor session (`state.vscdb`); no `.env` and no API key in settings (MVP).
 - **Full requirements:** [prd.md](./prd.md) (English, canonical) · [prd.pl.md](./prd.pl.md) (Polish).
 
@@ -16,16 +16,16 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 
 | Topic | Rule |
 |-------|------|
-| Status bar | Current `used $ / limit $`, Today, Refresh; `!` if a non-ignored Last-100 query is ≥ token threshold (v1.1, default 1M) |
-| Click Current/Today | Last 100 immediately (not Quick Pick) |
-| Last 100 | TIME, MODEL, COST, TOKENS, INPUT/OUTPUT, KIND; newest first; spike `!` + Ignore (v1.1) |
+| Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, last 3 queries (`cost - tokens`), Refresh; `!` on a query ≥ token threshold (default 1M) |
+| Click Current/Today | Recent queries immediately (not Quick Pick) |
+| History | Four tabs: Last N (default 1000), Statistics, Charts (tokens/cost over time), Settings |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |
 | Token | extension host only; never `postMessage`, logs, or webview |
 | Polling | 5 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** context + README. **Extension code does not exist yet** — see [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `0.1.0`. See [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 
@@ -34,7 +34,7 @@ Details and rejected options: [tech-stack.md](./tech-stack.md).
 Layers and files: [architecture.md](./architecture.md).  
 Token and CSP: [security.md](./security.md).  
 Open VSX / VSIX: [publishing.md](./publishing.md).  
-**MVP build order:** [../implementation-plans/mvp.md](../implementation-plans/mvp.md) · [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md).
+**MVP build order:** [../implementation-plans/mvp.md](../implementation-plans/mvp.md) · [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md). Per-phase steps: [../implementation-plans/README.md](../implementation-plans/README.md).
 
 ## 3. Where context lives
 
@@ -51,6 +51,7 @@ Open VSX / VSIX: [publishing.md](./publishing.md).
 | [plan.md](./plan.md) | how to keep this folder current |
 | [../implementation-plans/mvp.md](../implementation-plans/mvp.md) | MVP implementation plan (English) |
 | [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md) | same plan in Polish |
+| [../implementation-plans/README.md](../implementation-plans/README.md) | detailed plans per MVP phase 0–7 |
 
 ## 4. House rules
 

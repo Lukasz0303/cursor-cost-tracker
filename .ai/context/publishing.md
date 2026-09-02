@@ -18,10 +18,10 @@ Or: Extensions → Install from VSIX.
 2. Open VSX PAT.
 3. `npx ovsx publish <file.vsix> -p <token>`.
 4. `engines.vscode` ≤ the VS Code version from Cursor Help → About.
-5. `LICENSE` (MIT) **inside** the VSIX — do not exclude it in `.vscodeignore`.
+5. `LICENSE` (MIT) and **`icon.png`** **inside** the VSIX — do not exclude them in `.vscodeignore`.
 
 The Microsoft Marketplace is optional and does not help Cursor users.
 
-128×128 icon, `displayName`, `repository`, `license: MIT` are required for listings.
+Listing requires `displayName`, `repository`, `license: MIT`, and `"icon": "icon.png"`. Product icon: repo-root [`icon.png`](../../icon.png) (PNG, at least 128×128). Do not use Cursor’s cube or the VS Code logo in the icon.
 
 Unofficial API: disclaimer in the README. Do not imply this is an official Cursor product.

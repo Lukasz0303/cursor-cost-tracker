@@ -10,12 +10,12 @@
 
 ## SQLite
 
-- Read-only, copy the file into memory (sql.js), then `SELECT value FROM ItemTable WHERE key = ?`.
+- Read-only. Prefer `node:sqlite` on the live file (no full copy). sql.js copy only when the file is small enough to load. Then `SELECT value FROM ItemTable WHERE key = ?`.
 - Parameterize / escape the key — never concatenate SQL from user input.
 
 ## Webview
 
-- `enableScripts: true`, **no** `enableCommandUris`.
+- `enableScripts: true`. Command URIs allowlisted to `cursorCost.exportCsv` and `cursorCost.openDashboard` (save dialog and external URL need a real click).
 - CSP: `default-src 'none'; style-src ${cspSource}; script-src 'nonce-…'`.
 - No `enabledApiProposals`.
 

@@ -14,6 +14,7 @@ File names in `.ai/context/` use **kebab-case, lowercase** (`architecture.md`, `
 | What the code does | [codebase-snapshot.md](./codebase-snapshot.md) |
 | Agent index | [README.md](./README.md) |
 | MVP implementation | [../implementation-plans/mvp.md](../implementation-plans/mvp.md) · [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md) |
+| MVP phases 0–7 | [../implementation-plans/README.md](../implementation-plans/README.md) |
 | Token spike / Ignore | [../implementation-plans/token-spike.md](../implementation-plans/token-spike.md) · [../implementation-plans/token-spike.pl.md](../implementation-plans/token-spike.pl.md) |
 
 ## When to update

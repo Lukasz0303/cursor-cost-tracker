@@ -2,7 +2,7 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.3  
+**Wersja dokumentu:** 2.6  
 **Data:** 2026-09-01  
 **Status:** decyzja produktowa (MVP)  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
@@ -67,20 +67,23 @@ Po instalacji (zalogowany Cursor) belka pokazuje Current i Today. Klik otwiera t
 Prawa strona belki (`StatusBarAlignment.Right`).
 
 ```
-… │  $(warning) 3.79 $ / 250.00 $  │  Today 3.79 $ / 11.19 $  │  ↻  │
+… │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │  ↻  │
 ```
 
-`$(warning)` / `!` na belce, gdy **przynajmniej jedno nieignorowane** zapytanie z Last 100 ma `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**). Tooltip: liczba spike’ów. Klik nadal otwiera Last 100 (wiersze spike podświetlone). Gdy wszystkie spike’y są **Ignore** albo znikną z Last 100, wykrzyknik znika.
+**Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to procenty włączonego limitu (`7%` albo `7% · 0%` dla Cursor Models · Other Models), jak na dashboardzie Cursora — nie cap on-demand w dolarach.
+
+Kolejność: **Current**, **Today**, **3 najnowsze zapytania**, **Refresh**. Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today / zapytanie otwiera Last 100. Refresh tylko odświeża.
 
 | Element | Tekst | Tooltip | Klik |
 |---------|--------|---------|------|
-| Current | `$(credit-card) 3.79 $ / 250.00 $` albo `$(warning) 3.79 $ / 250.00 $` | email · plan · koniec cyklu · liczba spike | **otwórz Last 100** |
+| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | email · plan · koniec cyklu · (Pro: nazwy limitów) | **otwórz Last 100** |
 | Today | `$(calendar) 3.79 $ / 11.19 $` | jak wyliczony daily budget | **otwórz Last 100** |
+| 3 ostatnie | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz Last 100** |
 | Refresh | `$(sync)` | Refresh | tylko odśwież, bez panelu |
 
-Kolory: w limicie — domyślny / `charts.green`; ≥ 80% dnia lub ≥ 90% miesiąca — żółty; przekroczenie — czerwony; ładowanie — spinner; błąd — `N/A` + tooltip.
+Kolory: przy włączonych ostrzeżeniach dobry stan to `cursorCost.okColor` (domyślnie zieleń `#89D185` na ciemnym motywie, `#18794E` na jasnym). **Team:** przy/ponad miesięcznym lub dziennym capie dolarowym — `cursorCost.warnColor` (domyślnie czerwień `#F14C4C` na ciemnym, `#C50F1F` na jasnym). Własny hex zostaje bez zmian. **Pro / Pro+:** Current (procenty included) i Today (suma zapytań, często bez dziennego capu) zostają w kolorze dobrym — to nie jest overage puli dolarowej. Spike `!` przy ostatnim zapytaniu używa warnColor. Ładowanie/błąd — domyślny. Gdy `cursorCost.showSpikeWarning` jest wyłączone, nie ma `!` ani kolorów na belce. Warn at, kolory i przełącznik ostrzeżeń są w zakładce **Settings**.
 
-Na belce **nie** ma pigułek pojedynczych zapytań. Opcjonalnie w tooltipie Current (v1.1): 3 ostatnie zapytania.
+Puste sloty ostatnich zapytań są ukryte. Ignore spike’ów (`globalState`) zostaje na później w v1.1.
 
 ### 5.2 Klik → Last 100
 
@@ -93,6 +96,8 @@ Główna ścieżka: **nie** Quick Pick. Od razu tabela.
 | `1.09.2026, 10:05:12` | default | 0.03 $ | 64,755 | 12,856 / 168 | Included In Business |
 
 Najnowsze na górze, font monospace, CSS `--vscode-*`. Paleta poleceń: `Cursor Cost: Show Usage History`.
+
+Pasek: **Last 100 Cursor queries** (domyślna) | **Statistics** | **Settings**. Statistics to słownik Current/Today plus agregaty cyklu / Last 100. Settings: Warn at, Show warnings, kolory Good/Warning. Last 100 to próbka z API eventów — nie pula Current.
 
 **Spike tokenów (v1.1, obowiązkowe po MVP):** kolumna albo `!` na początku wiersza, gdy `tokens >=` próg użytkownika. Akcje w wierszu:
 
@@ -157,7 +162,7 @@ v1.2: sidebar; opcjonalny Quick Pick.
 | macOS | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
 | Linux | `~/.config/Cursor/User/globalStorage/state.vscdb` |
 
-**Current:** `GET https://cursor.com/api/usage-summary` — pula individual onDemand → plan → team → overall. Unlimited → ukryj Today.
+**Current:** `GET https://cursor.com/api/usage-summary`. Plan firmowy: pula dolarowa (individual onDemand → plan → team → overall). Pro: belki dashboardu `autoPercentUsed` (Cursor Models) i `apiPercentUsed` (Other Models) — nie `plan.used/limit`. Unlimited → ukryj Today.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / dni robocze do końca`; `todayUsed` = suma dzisiejszych centów (lokalna strefa czasowa).
 
@@ -202,8 +207,11 @@ media/history.{html,css,js}
 | `cursorCost.pollIntervalMinutes` | 5 | MVP |
 | `cursorCost.showStatusBar` | true | MVP |
 | `cursorCost.showToday` | true | MVP |
-| `cursorCost.spikeTokenThreshold` | 1000000 | v1.1; min 100000 |
-| `cursorCost.showSpikeWarning` | true | v1.1 |
+| `cursorCost.spikeTokenThreshold` | 1000000 | min 1000; w Settings w jednostce **k** (100 = 100k tokenów); `!` przy tym zapytaniu |
+| `cursorCost.showSpikeWarning` | true | wyłączone = bez `!` i bez zieleni/czerwieni |
+| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last** |
+| `cursorCost.okColor` | `#89D185` | kolor dobrego stanu (ciemniejszy `#18794E` na jasnym motywie) |
+| `cursorCost.warnColor` | `#F14C4C` | kolor ostrzeżenia (ciemniejszy `#C50F1F` na jasnym motywie) |
 
 Aktywacja: `onStartupFinished`.
 
@@ -222,7 +230,7 @@ Aktywacja: `onStartupFinished`.
 
 ## 12. Ryzyka
 
-Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Windows: kopia pliku SQLite do pamięci (sql.js). Remote SSH: `extensionKind: ui`. Rate limit: polling ≥ 5 min.
+Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `node:sqlite` tylko do odczytu, gdy dostępny (bazy wielogigabajtowe); sql.js tylko dla małych plików. Remote SSH: `extensionKind: ui`. Rate limit: polling ≥ 5 min.
 
 ---
 

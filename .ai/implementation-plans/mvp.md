@@ -40,16 +40,18 @@ Maps to PRD stories **A1–A7**, goals **G1–G5**, acceptance **§13**.
 
 Do phases in order. Later phases depend on earlier types and `UsageService`.
 
-| Phase | Name | Delivers | Stories |
-|-------|------|----------|---------|
-| **0** | Scaffold | `package.json`, esbuild, tsconfig, Vitest, empty `activate` | — |
-| **1** | Domain types + parse + format | Pure functions + unit tests | G3 (numbers) |
-| **2** | Session | `state.vscdb` copy + sql.js + JWT `sub` | A6 |
-| **3** | Cursor API | summary + events, timeout, AbortController | A1 A2 A5 |
-| **4** | UsageService | snapshot, poll, cache | G1 G5 |
-| **5** | Status bar | Current, Today, Refresh, colors, tooltips | A1 A2 A4 A5 A7 |
-| **6** | History webview | Last 100 table, CSP, reuse panel | A3 G2 |
-| **7** | Wire-up + VSIX | commands, settings, ignore, security grep | G4 §13 |
+| Phase | Name | Delivers | Stories | Detailed plan |
+|-------|------|----------|---------|---------------|
+| **0** | Scaffold | `package.json`, esbuild, tsconfig, Vitest, empty `activate` | — | [phase-0-scaffold.md](./phase-0-scaffold.md) |
+| **1** | Domain types + parse + format | Pure functions + unit tests | G3 (numbers) | [phase-1-parse-format.md](./phase-1-parse-format.md) |
+| **2** | Session | `state.vscdb` copy + sql.js + JWT `sub` | A6 | [phase-2-session.md](./phase-2-session.md) |
+| **3** | Cursor API | summary + events, timeout, AbortController | A1 A2 A5 | [phase-3-cursor-api.md](./phase-3-cursor-api.md) |
+| **4** | UsageService | snapshot, poll, cache | G1 G5 | [phase-4-usage-service.md](./phase-4-usage-service.md) |
+| **5** | Status bar | Current, Today, Refresh, colors, tooltips | A1 A2 A4 A5 A7 | [phase-5-status-bar.md](./phase-5-status-bar.md) |
+| **6** | History webview | Last 100 table, CSP, reuse panel | A3 G2 | [phase-6-history-webview.md](./phase-6-history-webview.md) |
+| **7** | Wire-up + VSIX | commands, settings, security grep | G4 §13 | [phase-7-wire-up.md](./phase-7-wire-up.md) |
+
+Index of all phase files (EN + PL): [README.md](./README.md).
 
 Estimated size: **3–5 days** (PRD §11), assuming one developer.
 
@@ -130,11 +132,14 @@ Webview payload: `{ type: 'data', events: UsageQuery[] }` only — **no** email 
 
 ## 6. Phase 0 — Scaffold
 
+**Detailed plan:** [phase-0-scaffold.md](./phase-0-scaffold.md)
+
 **Files:** `package.json`, `tsconfig.json`, `esbuild.mjs`, `.vscodeignore`, `src/extension.ts`
 
 **`package.json` (must include):**
 
 - `name`: `cursor-cost-tracker` (or `cursor-cost`); `displayName`: Cursor Cost Tracker
+- `icon`: `icon.png` (repo-root product icon)
 - `publisher`: placeholder matching future Open VSX namespace
 - `engines.vscode`: `^1.85.0`
 - `activationEvents`: `["onStartupFinished"]`
@@ -150,7 +155,7 @@ Webview payload: `{ type: 'data', events: UsageQuery[] }` only — **no** email 
 
 **tsconfig:** ES2022, `strict`, `noUncheckedIndexedAccess`, `module`/`moduleResolution` Node16.
 
-**`.vscodeignore`:** exclude `src/**`, tests, `.ai/**`, `.cursor/**`; **keep** `dist/`, `media/`, `LICENSE`, `package.json`, wasm.
+**`.vscodeignore`:** exclude `src/**`, tests, `.ai/**`, `.cursor/**`; **keep** `dist/`, `media/`, `LICENSE`, `package.json`, `icon.png`, wasm.
 
 **`activate`:** empty subscriptions; `deactivate` no-op. Must return in milliseconds (no `await` of network).
 
@@ -159,6 +164,8 @@ Webview payload: `{ type: 'data', events: UsageQuery[] }` only — **no** email 
 ---
 
 ## 7. Phase 1 — Parse and format (no VS Code)
+
+**Detailed plan:** [phase-1-parse-format.md](./phase-1-parse-format.md)
 
 **Files:** `src/usage/parse.ts`, `src/format.ts`, `test/*.test.ts`, `test/fixtures/`
 
@@ -192,6 +199,8 @@ Use **anonymized** fixture JSON (strip tokens). Cover: missing limit, unlimited,
 
 ## 8. Phase 2 — Session
 
+**Detailed plan:** [phase-2-session.md](./phase-2-session.md)
+
 **File:** `src/usage/session.ts`
 
 1. Resolve DB path by `process.platform` (PRD §8 table).
@@ -209,6 +218,8 @@ Use **anonymized** fixture JSON (strip tokens). Cover: missing limit, unlimited,
 ---
 
 ## 9. Phase 3 — HTTP API
+
+**Detailed plan:** [phase-3-cursor-api.md](./phase-3-cursor-api.md)
 
 **File:** `src/usage/api.ts`
 
@@ -229,6 +240,8 @@ Use **anonymized** fixture JSON (strip tokens). Cover: missing limit, unlimited,
 
 ## 10. Phase 4 — UsageService
 
+**Detailed plan:** [phase-4-usage-service.md](./phase-4-usage-service.md)
+
 **File:** `src/usage/service.ts`
 
 - `start()`: emit `loading`, then `refresh()` without blocking activate.
@@ -242,6 +255,8 @@ Use **anonymized** fixture JSON (strip tokens). Cover: missing limit, unlimited,
 ---
 
 ## 11. Phase 5 — Status bar
+
+**Detailed plan:** [phase-5-status-bar.md](./phase-5-status-bar.md)
 
 **File:** `src/ui/statusBar.ts`  
 **PRD:** §5.1, A1 A2 A4 A5 A7
@@ -273,6 +288,8 @@ Respect `showStatusBar` / `showToday` via `config.ts` + `onDidChangeConfiguratio
 
 ## 12. Phase 6 — Last 100 webview
 
+**Detailed plan:** [phase-6-history-webview.md](./phase-6-history-webview.md)
+
 **Files:** `src/ui/historyPanel.ts`, `media/history.html|css|js`  
 **PRD:** §5.2, A3, G2
 
@@ -290,6 +307,8 @@ Respect `showStatusBar` / `showToday` via `config.ts` + `onDidChangeConfiguratio
 ---
 
 ## 13. Phase 7 — Wire-up, package, verify
+
+**Detailed plan:** [phase-7-wire-up.md](./phase-7-wire-up.md)
 
 **File:** `src/extension.ts`, `src/config.ts`
 

@@ -1,0 +1,43 @@
+{
+  "totalUsageEventsCount": 4,
+  "usageEventsDisplay": [
+    {
+      "timestamp": "1756718712000",
+      "model": "cursor-default",
+      "kind": "USAGE_EVENT_KIND_INCLUDED_IN_BUSINESS",
+      "chargedCents": 3,
+      "tokenUsage": {
+        "inputTokens": 12856,
+        "outputTokens": 168,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalCents": 3
+      }
+    },
+    {
+      "timestamp": "1756715112000",
+      "model": "claude-4.6-sonnet",
+      "kind": "USAGE_EVENT_KIND_USAGE_BASED",
+      "tokenUsage": {
+        "inputTokens": 100,
+        "outputTokens": 50,
+        "cacheWriteTokens": 20,
+        "totalCents": 121
+      }
+    },
+    {
+      "timestamp": "1756628712000",
+      "model": "composer-2",
+      "kind": "USAGE_EVENT_KIND_USAGE_BASED",
+      "usageBasedCosts": "$0.45",
+      "tokenUsage": {
+        "inputTokens": "10",
+        "outputTokens": "5"
+      }
+    },
+    {
+      "model": "should-drop-no-timestamp",
+      "chargedCents": 50
+    }
+  ]
+}

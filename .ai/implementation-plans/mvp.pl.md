@@ -40,16 +40,18 @@ Mapowanie: historyjki **A1–A7**, cele **G1–G5**, akceptacja **§13**.
 
 Fazy po kolei. Późniejsze zależą od typów i `UsageService`.
 
-| Faza | Nazwa | Dostarcza | Historyjki |
-|------|-------|-----------|------------|
-| **0** | Szkielet | `package.json`, esbuild, tsconfig, Vitest, pusty `activate` | — |
-| **1** | Typy + parse + format | Czyste funkcje + testy jednostkowe | G3 |
-| **2** | Sesja | kopia `state.vscdb` + sql.js + JWT `sub` | A6 |
-| **3** | API Cursor | summary + events, timeout, AbortController | A1 A2 A5 |
-| **4** | UsageService | snapshot, poll, cache | G1 G5 |
-| **5** | Status bar | Current, Today, Refresh, kolory, tooltipy | A1 A2 A4 A5 A7 |
-| **6** | Webview historii | tabela Last 100, CSP, reuse panelu | A3 G2 |
-| **7** | Sklejenie + VSIX | komendy, ustawienia, ignore, audyt tokenu | G4 §13 |
+| Faza | Nazwa | Dostarcza | Historyjki | Szczegółowy plan |
+|------|-------|-----------|------------|------------------|
+| **0** | Szkielet | `package.json`, esbuild, tsconfig, Vitest, pusty `activate` | — | [phase-0-scaffold.pl.md](./phase-0-scaffold.pl.md) |
+| **1** | Typy + parse + format | Czyste funkcje + testy jednostkowe | G3 | [phase-1-parse-format.pl.md](./phase-1-parse-format.pl.md) |
+| **2** | Sesja | kopia `state.vscdb` + sql.js + JWT `sub` | A6 | [phase-2-session.pl.md](./phase-2-session.pl.md) |
+| **3** | API Cursor | summary + events, timeout, AbortController | A1 A2 A5 | [phase-3-cursor-api.pl.md](./phase-3-cursor-api.pl.md) |
+| **4** | UsageService | snapshot, poll, cache | G1 G5 | [phase-4-usage-service.pl.md](./phase-4-usage-service.pl.md) |
+| **5** | Status bar | Current, Today, Refresh, kolory, tooltipy | A1 A2 A4 A5 A7 | [phase-5-status-bar.pl.md](./phase-5-status-bar.pl.md) |
+| **6** | Webview historii | tabela Last 100, CSP, reuse panelu | A3 G2 | [phase-6-history-webview.pl.md](./phase-6-history-webview.pl.md) |
+| **7** | Sklejenie + VSIX | komendy, ustawienia, audyt tokenu | G4 §13 | [phase-7-wire-up.pl.md](./phase-7-wire-up.pl.md) |
+
+Indeks wszystkich faz (EN + PL): [README.md](./README.md).
 
 Szacunek: **3–5 dni** (PRD §11), jeden developer.
 
@@ -130,11 +132,14 @@ Payload webview: `{ type: 'data', events: UsageQuery[] }` — **bez** tokenu/coo
 
 ## 6. Faza 0 — Szkielet
 
+**Szczegółowy plan:** [phase-0-scaffold.pl.md](./phase-0-scaffold.pl.md)
+
 **Pliki:** `package.json`, `tsconfig.json`, `esbuild.mjs`, `.vscodeignore`, `src/extension.ts`
 
 **`package.json` (musi zawierać):**
 
 - `name`: `cursor-cost-tracker` (lub `cursor-cost`); `displayName`: Cursor Cost Tracker
+- `icon`: `icon.png` (ikona produktu w korzeniu repo)
 - `publisher`: placeholder zgodny z przyszłym namespace Open VSX
 - `engines.vscode`: `^1.85.0`
 - `activationEvents`: `["onStartupFinished"]`
@@ -150,7 +155,7 @@ Payload webview: `{ type: 'data', events: UsageQuery[] }` — **bez** tokenu/coo
 
 **tsconfig:** ES2022, `strict`, `noUncheckedIndexedAccess`, `module`/`moduleResolution` Node16.
 
-**`.vscodeignore`:** wyklucz `src/**`, testy, `.ai/**`, `.cursor/**`; **zostaw** `dist/`, `media/`, `LICENSE`, `package.json`, wasm.
+**`.vscodeignore`:** wyklucz `src/**`, testy, `.ai/**`, `.cursor/**`; **zostaw** `dist/`, `media/`, `LICENSE`, `package.json`, `icon.png`, wasm.
 
 **`activate`:** puste subskrypcje; `deactivate` no-op. Powrót w milisekundach (bez `await` na sieć).
 
@@ -159,6 +164,8 @@ Payload webview: `{ type: 'data', events: UsageQuery[] }` — **bez** tokenu/coo
 ---
 
 ## 7. Faza 1 — Parse i format (bez VS Code)
+
+**Szczegółowy plan:** [phase-1-parse-format.pl.md](./phase-1-parse-format.pl.md)
 
 **Pliki:** `src/usage/parse.ts`, `src/format.ts`, `test/*.test.ts`, `test/fixtures/`
 
@@ -192,6 +199,8 @@ Fixtury **bez tokenów**. Pokryj: brak limitu, unlimited, puste eventy, piątek 
 
 ## 8. Faza 2 — Sesja
 
+**Szczegółowy plan:** [phase-2-session.pl.md](./phase-2-session.pl.md)
+
 **Plik:** `src/usage/session.ts`
 
 1. Ścieżka DB wg `process.platform` (tabela PRD §8).
@@ -209,6 +218,8 @@ Fixtury **bez tokenów**. Pokryj: brak limitu, unlimited, puste eventy, piątek 
 ---
 
 ## 9. Faza 3 — HTTP API
+
+**Szczegółowy plan:** [phase-3-cursor-api.pl.md](./phase-3-cursor-api.pl.md)
 
 **Plik:** `src/usage/api.ts`
 
@@ -229,6 +240,8 @@ Fixtury **bez tokenów**. Pokryj: brak limitu, unlimited, puste eventy, piątek 
 
 ## 10. Faza 4 — UsageService
 
+**Szczegółowy plan:** [phase-4-usage-service.pl.md](./phase-4-usage-service.pl.md)
+
 **Plik:** `src/usage/service.ts`
 
 - `start()`: emit `loading`, potem `refresh()` bez blokowania activate.
@@ -242,6 +255,8 @@ Fixtury **bez tokenów**. Pokryj: brak limitu, unlimited, puste eventy, piątek 
 ---
 
 ## 11. Faza 5 — Status bar
+
+**Szczegółowy plan:** [phase-5-status-bar.pl.md](./phase-5-status-bar.pl.md)
 
 **Plik:** `src/ui/statusBar.ts`  
 **PRD:** §5.1, A1 A2 A4 A5 A7
@@ -273,6 +288,8 @@ Trzy itemy, `StatusBarAlignment.Right`, priorytet ~100 / 99 / 98:
 
 ## 12. Faza 6 — Webview Last 100
 
+**Szczegółowy plan:** [phase-6-history-webview.pl.md](./phase-6-history-webview.pl.md)
+
 **Pliki:** `src/ui/historyPanel.ts`, `media/history.html|css|js`  
 **PRD:** §5.2, A3, G2
 
@@ -290,6 +307,8 @@ Trzy itemy, `StatusBarAlignment.Right`, priorytet ~100 / 99 / 98:
 ---
 
 ## 13. Faza 7 — Sklejenie, paczka, weryfikacja
+
+**Szczegółowy plan:** [phase-7-wire-up.pl.md](./phase-7-wire-up.pl.md)
 
 **Pliki:** `src/extension.ts`, `src/config.ts`
 

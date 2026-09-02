@@ -4,7 +4,7 @@ Audit Cursor session leakage before shipping a VSIX. Source: `.ai/context/securi
 
 1. In `src/` and `media/` (and `dist/` if it exists) search for: `accessToken`, `WorkosCursorSessionToken`, `Authorization`, `Bearer`, `console.log`, `output.append`.
 2. Check `historyPanel` / `postMessage`: payload is table events only.
-3. Confirm sql.js reads a file copy and SELECT is parameterized.
+3. Confirm session read is parameterized `SELECT` (`node:sqlite` read-only or a small sql.js copy). Never log the token.
 4. Confirm CSP in the webview HTML.
 5. Do not dump `state.vscdb` values into chat or the repo.
 
