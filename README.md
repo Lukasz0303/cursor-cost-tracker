@@ -12,25 +12,59 @@
 
 <p align="center">
   Current, Today, and the last 3 queries on the status bar.
-  One click opens Last 1000 queries (100–10,000), Statistics, Charts, and Settings.
-  No extra app. No pasted token. No data sent anywhere except Cursor’s own usage APIs.
+  One click opens Last N queries (100–10,000, default 1,000): table, Statistics,
+  Charts, and Settings. Export CSV. No extra app. No pasted token.
+  No data sent anywhere except Cursor’s own usage APIs.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-0.7.5-blue.svg" alt="Version 0.7.5">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version 1.0.0">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
 </p>
 
 ---
 
-**Cursor Cost Tracker** is a VS Code / Cursor extension that puts your billing-cycle cost, today’s budget, and the last 3 queries on the status bar. Click a number to open **Last N Cursor queries** (default **1,000**, range 100–10,000) with tabs for the table, **Statistics**, **Charts**, and **Settings**.
+**Cursor Cost Tracker** is a VS Code / Cursor extension that puts **Current**, **Today**, and the **3 newest queries** on the status bar. Click any of those chips to open a panel with four tabs:
+
+- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000). **Export CSV**.
+- **Statistics** — Current/Today glossary, Last N totals and averages, queries over the token warning, spend by model and by kind.
+- **Charts** — tokens and cost over time (per query + cumulative), plus **Today / This month / All time** mix cards (from the loaded sample, not the full Cursor dashboard).
+- **Settings** — Warn at, Show last, Show warnings, Good/Warning colors.
 
 If you are already signed in to Cursor, there is nothing to configure.
 
 | Status bar | History |
 |------------|----------|
-| `3.79 $ / 250.00 $` (team) or `7%` (Pro) · `Today` · last 3 queries (`0.03 $ - 64.8k`) | Last N · Statistics · Charts · Settings |
+| Pro percents or team `$ / $` · Today · last 3 (`cost - tokens`, `!` on a spike) | Last N · Statistics · Charts · Settings |
+
+---
+
+## Screenshots
+
+**Status bar** — Current, Today, and the last 3 queries. A red `!` marks a query over your token warning.
+
+<img src="screenshot1.png" alt="Status bar with Current, Today, and last 3 queries" width="100%">
+
+**Last N queries** — table of loaded events, Show last + Apply, Export CSV. Four tabs including Charts and Settings.
+
+<img src="screenshot2.png" alt="Last N Cursor queries table with Show last and Export CSV" width="100%">
+
+**Statistics** — Last N total spend, average per query, queries over the token warning, average tokens.
+
+<img src="screenshot3.png" alt="Last N summary statistics cards" width="100%">
+
+**Spend breakdown** — cost by model and by kind, with share bars.
+
+<img src="screenshot4.png" alt="Spend breakdown by model and by kind" width="100%">
+
+**Charts** — tokens over time: per-query bars and a cumulative line.
+
+<img src="screenshot5.png" alt="Tokens over time chart" width="100%">
+
+**Period mix** — Today, This month, and All time: API-equivalent cost, cache hit, input / output / cache tokens.
+
+<img src="screenshot6.png" alt="Today, This month, and All time token mix cards" width="100%">
 
 ---
 
@@ -44,9 +78,12 @@ This extension keeps those numbers next to Git and Problems — the same place y
 |------------|:----------------:|:-------------------:|
 | Current cycle spend on the status bar | — | Yes |
 | Today vs remaining daily budget | — | Yes |
-| Last N queries inside the editor (default 1,000) | — | Yes |
+| Last N queries inside the editor (100–10,000) | — | Yes |
 | Per-query cost, tokens, model, kind | Website only | Yes |
-| Statistics, charts, and period mix cards | Website | Yes |
+| Statistics (totals, averages, spike count) | Website | Yes |
+| Spend by model and by kind | Website | Yes |
+| Charts (tokens/cost over time) | — | Yes |
+| Today / This month / All time mix cards | Website | Yes |
 | Last 3 queries on the status bar | — | Yes |
 | Token-spike warning (`!`, default 1M) | — | Yes |
 | Export recent queries as CSV | — | Yes |
@@ -62,24 +99,30 @@ Not in scope: payments, team dashboards, other IDEs, estimating cost *before* yo
 
 ### Real-time status bar
 
-Always-on **Current** (used vs plan limit), **Today** (spend vs a daily budget derived from remaining cycle allowance and working days left), and the **3 newest queries** (`cost - tokens`). A query at or above **1,000,000** tokens (configurable) shows `!`. **Unlimited** plans show the cycle total and hide Today.
+Always-on **Current** (Pro: included-quota percents such as `13% · 0%`; Team: used vs dollar cap), **Today** (spend vs daily budget, or `—` when there is no cap), and the **3 newest queries** (`cost - tokens`). A query at or above your token warning (default **1,000,000**, configurable) shows `!` in red. **Unlimited** plans show the cycle total and hide Today. Refresh stays on the bar.
 
-Colors: **Team** is **green** within the dollar pool and **red** at or over the cap. **Pro** Current/Today stay green (included percents and today’s sum are not a pool overage). Recent queries go **red** on a token spike (`!`). Defaults are darker on a light theme so they stay readable.
+Colors: **Team** is **green** within the dollar pool and **red** at or over the cap. **Pro** Current/Today stay green. Recent queries go **red** on a token spike. Defaults are darker on a light theme so they stay readable.
 
 ### Last N Cursor queries
 
-Click Current, Today, or a recent query to open a native editor panel. Newest first. Default is **1,000** queries (Settings **Show last**, 100–10,000). Four tabs:
+Click Current, Today, or a recent query to open a native editor panel. Newest first. **Show last** (100–10,000, default 1,000) sits above the table — type the full number, then **Apply**. Columns:
 
-- **Last N** — `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
-- **Statistics** — Current/Today glossary, cycle facts, spend by model and kind
-- **Charts** — tokens and cost per query over time, plus Today / This month / All time mix cards (from the loaded sample)
-- **Settings** — Warn at, Show last, Show warnings, Good/Warning colors
+`TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
-No intermediate menu. Close the tab (or **X**) and click the bar again to reuse the same panel. **Export CSV** and **Open Dashboard** are on the panel.
+Four tabs: **Last N** · **Statistics** · **Charts** · **Settings**. **Export CSV** on the table. **Open Dashboard** on Statistics. No intermediate menu.
+
+### Statistics
+
+Last N sample totals (not the Current pool): total spend, average per query, average tokens, **Queries over token warning**. Spend breakdown **by model** and **by kind** with share bars.
+
+### Charts
+
+- **Tokens over time** and **Cost over time** — each loaded query on the axis (oldest → newest). Bars are that request; the line is cumulative.
+- **Today / This month / All time** cards — API-equivalent cost, messages, cache hit, input / output / cache write / cache read, and a mix bar. Figures come from the Last N loaded queries, not the full Cursor website dashboard.
 
 ### Token-spike warning
 
-A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**).
+A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**). Settings: **Warn at** in **k**, plus Show warnings.
 
 ### Zero setup
 
@@ -123,7 +166,7 @@ Cursor does **not** install third-party extensions from the Microsoft Visual Stu
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-0.7.5.vsix
+cursor --install-extension cursor-cost-tracker-1.0.0.vsix
 ```
 
 After publish, search **Cursor Cost Tracker** in **Cursor → Extensions**.
@@ -195,7 +238,7 @@ Open from the status bar, or **Command Palette → Cursor Cost: Show Usage Histo
 ## FAQ
 
 **How is this different from Cursor’s usage page?**  
-Cursor’s dashboard shows aggregated totals in the browser. This extension shows Current, Today, and the last 3 queries on the status bar, plus Last N queries in the editor (1,000 by default) with Statistics and Charts.
+Cursor’s dashboard shows aggregated totals in the browser. This extension shows Current, Today, and the last 3 queries on the status bar, plus Last N queries (100–10,000) in the editor with Statistics, Charts, period mix cards, and CSV export.
 
 **Do I need to paste a session token?**  
 No. If Cursor is signed in on this machine, the extension reads the local session. There is no token field in Settings.
@@ -260,7 +303,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-0.7.5.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.0.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE` and **`icon.png`** inside the VSIX. Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).

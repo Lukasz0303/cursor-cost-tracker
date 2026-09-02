@@ -17,7 +17,7 @@ VS Code / Cursor extension: status bar Current / Today / last 3 queries / Refres
 | `test` | `vitest run` |
 | `package` | `npm run build && vsce package --no-dependencies` |
 
-`npm test`: 146 passed, 1 skipped (live `state.vscdb`). Version **0.7.5**.
+`npm test`: 146 passed, 1 skipped (live `state.vscdb`). Version **1.0.0**.
 
 ## Tree
 

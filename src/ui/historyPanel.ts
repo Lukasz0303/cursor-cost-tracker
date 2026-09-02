@@ -174,7 +174,15 @@ export class HistoryPanel {
     value: string | number | boolean,
   ): Promise<void> {
     const section = vscode.workspace.getConfiguration('cursorCost')
-    await section.update(key, value, configTarget(section, key))
+    try {
+      await section.update(key, value, configTarget(section, key))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      void vscode.window.showErrorMessage(
+        `Could not save Cursor Cost setting: ${message}`,
+      )
+      return
+    }
     this.postData()
   }
 

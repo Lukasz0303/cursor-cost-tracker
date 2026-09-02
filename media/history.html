@@ -25,6 +25,11 @@
     </header>
     <section id="queriesView">
       <div class="view-actions">
+        <label class="history-limit-inline" for="historyLimitBar">
+          Show last
+          <input type="number" id="historyLimitBar" step="1" />
+        </label>
+        <button type="button" id="applyHistoryLimitBar">Apply</button>
         <a class="action-btn" href="{{exportCsvHref}}">Export CSV</a>
       </div>
       <p id="status" hidden></p>
@@ -137,16 +142,11 @@
           <legend>Recent queries</legend>
           <label class="settings-row" for="historyLimit">
             Show last
-            <input
-              type="number"
-              id="historyLimit"
-              min="100"
-              max="10000"
-              step="1"
-            />
+            <input type="number" id="historyLimit" step="1" />
           </label>
           <p class="settings-hint">
-            Newest queries to load and show (100–10,000). Default is 1,000.
+            Newest queries to load (100–10,000). Default is 1,000. Type the
+            full number, then Apply or press Enter.
           </p>
           <button type="button" id="applyHistoryLimit">Apply</button>
         </fieldset>

@@ -11,6 +11,8 @@
   const applyEl = document.getElementById('applyThreshold')
   const historyLimitEl = document.getElementById('historyLimit')
   const applyHistoryLimitEl = document.getElementById('applyHistoryLimit')
+  const historyLimitBarEl = document.getElementById('historyLimitBar')
+  const applyHistoryLimitBarEl = document.getElementById('applyHistoryLimitBar')
   const showWarningEl = document.getElementById('showWarning')
   const okColorEl = document.getElementById('okColor')
   const warnColorEl = document.getElementById('warnColor')
@@ -36,7 +38,8 @@
   const toolbarVersionEl = document.querySelector('.toolbar-version')
   let debounceTimer = 0
   let colorTimer = 0
-  let historyTimer = 0
+  let historyLimitDirty = false
+  const historyLimitEls = [historyLimitEl, historyLimitBarEl].filter(Boolean)
   let chartPoints = []
   let chartResizeTimer = 0
   const MIN_HISTORY = 100
@@ -122,11 +125,15 @@
   function setView(next) {
     queriesViewEl.hidden = next !== 'queries'
     statsViewEl.hidden = next !== 'stats'
-    chartsViewEl.hidden = next !== 'charts'
+    if (chartsViewEl) {
+      chartsViewEl.hidden = next !== 'charts'
+    }
     settingsViewEl.hidden = next !== 'settings'
     tabQueriesEl.classList.toggle('is-active', next === 'queries')
     tabStatsEl.classList.toggle('is-active', next === 'stats')
-    tabChartsEl.classList.toggle('is-active', next === 'charts')
+    if (tabChartsEl) {
+      tabChartsEl.classList.toggle('is-active', next === 'charts')
+    }
     tabSettingsEl.classList.toggle('is-active', next === 'settings')
     if (next === 'charts') {
       drawAllCharts()
@@ -863,8 +870,11 @@
     }
     applyTheme(data.okColor, data.warnColor)
     applyVersion(data.extensionVersion)
-    if (typeof data.historyLimit === 'number') {
-      fillIfIdle(historyLimitEl, String(clampHistoryLimit(data.historyLimit)))
+    if (typeof data.historyLimit === 'number' && !historyLimitDirty) {
+      const text = String(clampHistoryLimit(data.historyLimit))
+      for (let i = 0; i < historyLimitEls.length; i++) {
+        fillIfIdle(historyLimitEls[i], text)
+      }
       applyHistoryTitle(data.historyLimit)
     }
   }
@@ -909,7 +919,7 @@
     renderStats(stats)
     chartPoints = Array.isArray(settings.charts) ? settings.charts : []
     renderPeriodCards(settings.periods)
-    if (!chartsViewEl.hidden) {
+    if (chartsViewEl && !chartsViewEl.hidden) {
       drawAllCharts()
     }
   }
@@ -967,34 +977,52 @@
     }
   })
   applyEl.addEventListener('click', submitThreshold)
-  function submitHistoryLimit() {
-    if (historyTimer) {
-      clearTimeout(historyTimer)
-      historyTimer = 0
+  function submitHistoryLimit(fromEl) {
+    const source =
+      fromEl ||
+      (historyLimitEls.indexOf(document.activeElement) !== -1
+        ? document.activeElement
+        : historyLimitEls[0])
+    if (!source) {
+      return
     }
-    const value = clampHistoryLimit(historyLimitEl.value)
-    historyLimitEl.value = String(value)
+    const value = clampHistoryLimit(source.value)
+    historyLimitDirty = false
+    for (let i = 0; i < historyLimitEls.length; i++) {
+      historyLimitEls[i].value = String(value)
+    }
     applyHistoryTitle(value)
     vscode.postMessage({ type: 'setHistoryLimit', value: value })
   }
 
-  function scheduleHistoryLimit() {
-    if (historyTimer) {
-      clearTimeout(historyTimer)
-    }
-    historyTimer = setTimeout(submitHistoryLimit, 300)
+  function markHistoryLimitDirty() {
+    historyLimitDirty = true
   }
 
-  historyLimitEl.addEventListener('input', scheduleHistoryLimit)
-  historyLimitEl.addEventListener('change', submitHistoryLimit)
-  historyLimitEl.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      submitHistoryLimit()
-      historyLimitEl.blur()
-    }
-  })
-  applyHistoryLimitEl.addEventListener('click', submitHistoryLimit)
+  for (let i = 0; i < historyLimitEls.length; i++) {
+    const inputEl = historyLimitEls[i]
+    inputEl.addEventListener('input', markHistoryLimitDirty)
+    inputEl.addEventListener('change', function () {
+      submitHistoryLimit(inputEl)
+    })
+    inputEl.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        submitHistoryLimit(inputEl)
+        inputEl.blur()
+      }
+    })
+  }
+  if (applyHistoryLimitEl) {
+    applyHistoryLimitEl.addEventListener('click', function () {
+      submitHistoryLimit(historyLimitEl)
+    })
+  }
+  if (applyHistoryLimitBarEl) {
+    applyHistoryLimitBarEl.addEventListener('click', function () {
+      submitHistoryLimit(historyLimitBarEl)
+    })
+  }
   showWarningEl.addEventListener('change', function () {
     vscode.postMessage({
       type: 'setShowSpikeWarning',
@@ -1017,9 +1045,11 @@
   tabStatsEl.addEventListener('click', function () {
     setView('stats')
   })
-  tabChartsEl.addEventListener('click', function () {
-    setView('charts')
-  })
+  if (tabChartsEl) {
+    tabChartsEl.addEventListener('click', function () {
+      setView('charts')
+    })
+  }
   tabSettingsEl.addEventListener('click', function () {
     setView('settings')
   })
@@ -1033,7 +1063,7 @@
       clearTimeout(chartResizeTimer)
     }
     chartResizeTimer = setTimeout(function () {
-      if (!chartsViewEl.hidden) {
+      if (chartsViewEl && !chartsViewEl.hidden) {
         drawAllCharts()
       }
     }, 150)

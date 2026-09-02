@@ -1,8 +1,8 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Current, Today, and last 3 queries on the status bar. Click opens Last 1000 queries, statistics, and charts.",
-  "version": "0.7.5",
+  "description": "Status bar: Current, Today, last 3 queries. Click opens Last N (100–10,000) with Statistics, Charts, CSV export, and Settings.",
+  "version": "1.0.0",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",

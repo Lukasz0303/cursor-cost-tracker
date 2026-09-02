@@ -62,8 +62,27 @@ body {
 .view-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
+}
+
+.history-limit-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--vscode-descriptionForeground);
+  font-size: var(--vscode-font-size);
+}
+
+.history-limit-inline input[type='number'] {
+  width: 6.5rem;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+  padding: 0.2rem 0.4rem;
 }
 
 .settings-row {
