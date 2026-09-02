@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Generated PR descriptions (command `2-pr-description`)
+.ai/reports/
+
 # Packaged extension (do not commit unless a release asset is requested)
 *.vsix
 
