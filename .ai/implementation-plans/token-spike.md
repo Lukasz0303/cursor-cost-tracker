@@ -12,14 +12,14 @@ Do **not** mix this into MVP phases 0–7.
 
 ## v1.1 — bang + Ignore
 
-| Step | Work | Files |
-|------|------|--------|
-| 1 | Setting `spikeTokenThreshold` (default 1e6, min 1e5), `showSpikeWarning` | `package.json`, `config.ts` |
-| 2 | `isSpike(query, threshold)`, fingerprint helper | `src/spikes/threshold.ts` + Vitest |
-| 3 | `IgnoreStore` on `globalState` (`cursorCost.ignoredSpikes: string[]`) | `src/spikes/ignoreStore.ts` |
-| 4 | Status bar: `$(warning)` when any Last-100 query is spike and not ignored | `statusBar.ts` |
-| 5 | Table: `!` column; **Ignore** posts `{ type: 'ignore', key }` | `historyPanel.ts`, `media/history.*` |
-| 6 | Recompute bang after ignore / setting change / refresh | `UsageService` or thin `SpikeService` |
+| Step | Work | Files | Status |
+|------|------|--------|--------|
+| 1 | Setting `spikeTokenThreshold` (default 1e6, min 1e3), `showSpikeWarning`; Settings tab in **k** | `package.json`, `config.ts`, `media/history.*` | **done** |
+| 2 | `isSpike(query, threshold)` | `src/spikes/threshold.ts` + Vitest | **done** |
+| 3 | `IgnoreStore` on `globalState` (`cursorCost.ignoredSpikes: string[]`) | `src/spikes/ignoreStore.ts` | remaining |
+| 4 | Status bar: last 3 query chips; `!` when that query is a spike | `statusBar.ts` / `statusBarView.ts` | **done** |
+| 5 | Table: `!` on TOKENS; **Ignore** posts `{ type: 'ignore', key }` | `historyPanel.ts`, `media/history.*` | `!` on TOKENS **done**; Ignore remaining |
+| 6 | Recompute bang after ignore / setting change / refresh | `UsageService` or thin `SpikeService` | setting change **done** |
 
 **Done:** PRD §13b checklist.
 

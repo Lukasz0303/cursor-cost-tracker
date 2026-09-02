@@ -10,7 +10,7 @@ Focus on:
 4. **Security** — no token in logs or `postMessage`; CSP; SQLite copy; host allowlist
 5. **Resilience** — missing session, API timeout, Today fail / Current ok, AbortController
 6. **Tests** — Vitest for parse/format; fixtures without secrets
-7. **VSIX** — `.vscodeignore`, `engines.vscode`, LICENSE in the package
+7. **VSIX** — `.vscodeignore`, `engines.vscode`, LICENSE and `icon.png` in the package
 
 METHOD: `git fetch`, then `git diff origin/main...HEAD` or `git diff HEAD`.
 

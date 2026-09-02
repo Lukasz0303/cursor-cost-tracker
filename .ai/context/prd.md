@@ -2,7 +2,7 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.3  
+**Document version:** 2.6  
 **Date:** 2026-09-01  
 **Status:** Product decision (MVP)  
 **Canonical location:** this file (`.ai/context/prd.md`)  
@@ -66,20 +66,23 @@ After install (signed-in Cursor), the bar shows Current and Today. Click opens t
 Right side (`StatusBarAlignment.Right`).
 
 ```
-… │  $(warning) 3.79 $ / 250.00 $  │  Today 3.79 $ / 11.19 $  │  ↻  │
+… │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │  ↻  │
 ```
 
-`$(warning)` / `!` on the status bar when **at least one non-ignored** query in Last 100 has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**). Tooltip lists how many spikes. Click still opens Last 100 (spike rows highlighted). After every spike is **Ignore**d (or none remain in Last 100), the bang disappears.
+**Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current is included-quota percents (`7%` or `7% · 0%` for Cursor Models · Other Models), matching the Cursor dashboard — not the on-demand dollar cap.
+
+Order is **Current**, **Today**, the **3 newest queries**, **Refresh**. Current+Today share one chip (priorities far from Ln/Col ~100). Each recent query is its **own** item so only a spike is red — VS Code cannot color part of one item. Each query is `cost - compact tokens`. Prefix `!` when that query has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**) and `cursorCost.showSpikeWarning` is on. Click Current / Today / a recent query opens Last 100. Refresh only refreshes.
 
 | Item | Text | Tooltip | Click |
 |------|------|---------|-------|
-| Current | `$(credit-card) 3.79 $ / 250.00 $` or `$(warning) 3.79 $ / 250.00 $` | email · plan · cycle end · spike count | **open Last 100** |
+| Current | Team: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` or `7% · 0%` | email · plan · cycle end · (Pro: quota names) | **open Last 100** |
 | Today | `$(calendar) 3.79 $ / 11.19 $` | how daily budget is derived | **open Last 100** |
+| Last 3 queries | `0.03 $ - 64.8k` or `! 1.20 $ - 1.2M` | model · time · tokens · kind | **open Last 100** |
 | Refresh | `$(sync)` | Refresh | refresh only, no panel |
 
-Colors: within limit — default / `charts.green`; ≥ 80% of day or ≥ 90% of month — yellow; over — red; loading — spinner; error — `N/A` + tooltip.
+Colors: when warnings are on, good state uses `cursorCost.okColor` (default green `#89D185` on dark themes, `#18794E` on light). **Team:** at/over monthly or daily dollar cap uses `cursorCost.warnColor` (default red `#F14C4C` on dark, `#C50F1F` on light). Custom hex is used as-is. **Pro / Pro+:** Current (included percents) and Today (query sum, often no daily cap) stay the good color — they are not a dollar-pool overage. A `!` spike on a recent query uses warnColor. Loading/error — default. When `cursorCost.showSpikeWarning` is off, there is no `!` and no status color. Warn at, colors, and the warning toggle live on the **Settings** tab.
 
-The bar does **not** show per-query chips. Optional in the Current tooltip (v1.1): last 3 queries.
+Empty recent slots are hidden. Ignore of spikes (persist in `globalState`) remains v1.1 follow-up.
 
 ### 5.2 Click → Last 100
 
@@ -92,6 +95,8 @@ Primary path: **not** Quick Pick. Open the table immediately.
 | `1.09.2026, 10:05:12` | default | 0.03 $ | 64,755 | 12,856 / 168 | Included In Business |
 
 Newest first, monospace body, CSS `--vscode-*`. Command Palette: `Cursor Cost: Show Usage History`.
+
+Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Settings**. Statistics is the glossary for Current/Today plus cycle / Last N aggregates. Charts: tokens and cost per query over time plus cumulative, then Today / This month / All time mix cards from that Last N sample. Settings holds Warn at, Show last, Show warnings, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
 
 **Token spike (v1.1, required after MVP):** extra column or leading `!` when `tokens >=` the user threshold. Row actions:
 
@@ -156,11 +161,11 @@ v1.2: sidebar; optional Quick Pick.
 | macOS | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
 | Linux | `~/.config/Cursor/User/globalStorage/state.vscdb` |
 
-**Current:** `GET https://cursor.com/api/usage-summary` — pool individual onDemand → plan → team → overall. Unlimited → hide Today.
+**Current:** `GET https://cursor.com/api/usage-summary`. Team / company: dollar pool (individual onDemand → plan → team → overall). Personal Pro: dashboard bars `autoPercentUsed` (Cursor Models) and `apiPercentUsed` (Other Models) — not `plan.used/limit`. Unlimited → hide Today.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / working days left`; `todayUsed` = sum of today’s cents (local timezone).
 
-**Last 100:** same events API, `pageSize=100`.
+**Last N:** same events API, `pageSize=100`, extra pages until `cursorCost.historyLimit` (default **1000**, min 100, max 10_000).
 
 **Spike fingerprint (v1.1):** stable id from the API if present, else `${timestamp}|${tokens}|${costUsd}|${model}`. Ignored ids in `context.globalState` key `cursorCost.ignoredSpikes`.
 
@@ -201,8 +206,11 @@ media/history.{html,css,js}
 | `cursorCost.pollIntervalMinutes` | 5 | MVP |
 | `cursorCost.showStatusBar` | true | MVP |
 | `cursorCost.showToday` | true | MVP |
-| `cursorCost.spikeTokenThreshold` | 1000000 | v1.1; min 100000 |
-| `cursorCost.showSpikeWarning` | true | v1.1 |
+| `cursorCost.spikeTokenThreshold` | 1000000 | min 1000; Settings tab edits in **k** (100 = 100k tokens); `!` on that query |
+| `cursorCost.showSpikeWarning` | true | off = no `!` and no green/red |
+| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last** |
+| `cursorCost.okColor` | `#89D185` | good-state color (darker `#18794E` on light themes) |
+| `cursorCost.warnColor` | `#F14C4C` | warning color (darker `#C50F1F` on light themes) |
 
 Activation: `onStartupFinished`.
 
@@ -221,7 +229,7 @@ Activation: `onStartupFinished`.
 
 ## 12. Risks
 
-Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Windows: copy the SQLite file into memory (sql.js). Remote SSH: `extensionKind: ui`. Rate limit: poll ≥ 5 minutes.
+Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Session: `node:sqlite` read-only when available (multi-GB DBs); sql.js copy only for small files. Remote SSH: `extensionKind: ui`. Rate limit: poll ≥ 5 minutes.
 
 ---
 

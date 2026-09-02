@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-version="__EXTENSION_VERSION__">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Last 1000 Cursor queries</title>
+    <link rel="stylesheet" href="{{cssUri}}" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <nav class="tabs" aria-label="History views">
+        <button type="button" id="tabQueries" class="tab is-active">
+          Last 1000 Cursor queries
+        </button>
+        <button type="button" id="tabStats" class="tab">Statistics</button>
+        <button type="button" id="tabCharts" class="tab">Charts</button>
+        <button type="button" id="tabSettings" class="tab">Settings</button>
+      </nav>
+      <span class="toolbar-version" title="Installed extension version">v__EXTENSION_VERSION__</span>
+      <button type="button" id="close">Close</button>
+    </header>
+    <section id="queriesView">
+      <div class="view-actions">
+        <label class="history-limit-inline" for="historyLimitBar">
+          Show last
+          <input type="number" id="historyLimitBar" step="1" />
+        </label>
+        <button type="button" id="applyHistoryLimitBar">Apply</button>
+        <a class="action-btn" href="{{exportCsvHref}}">Export CSV</a>
+      </div>
+      <p id="status" hidden></p>
+      <p id="empty" hidden>No queries yet</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>TIME</th>
+              <th>MODEL</th>
+              <th>COST</th>
+              <th>TOKENS</th>
+              <th>INPUT / OUTPUT</th>
+              <th>KIND</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="statsView" hidden>
+      <div class="view-actions">
+        <a class="action-btn" href="{{dashboardHref}}">Open Dashboard</a>
+      </div>
+      <div id="stats"></div>
+    </section>
+    <section id="chartsView" hidden>
+      <p id="chartsEmpty" hidden>No queries yet</p>
+      <div id="chartTip" class="chart-tip" hidden></div>
+      <article class="chart-card">
+        <h2>Tokens over time</h2>
+        <p class="chart-hint">
+          Each query on the axis (oldest → newest). Bars are tokens for that
+          request. The line is cumulative tokens burned.
+        </p>
+        <div class="chart-legend">
+          <span class="chart-legend-item is-bar">Per query</span>
+          <span class="chart-legend-item is-line">Cumulative</span>
+        </div>
+        <div class="chart-frame">
+          <svg
+            id="chartTokens"
+            class="chart-svg"
+            viewBox="0 0 800 280"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Tokens per query and cumulative tokens"
+          ></svg>
+        </div>
+      </article>
+      <article class="chart-card">
+        <h2>Cost over time</h2>
+        <p class="chart-hint">
+          Same requests. Bars are cost for that request. The line is cumulative
+          spend.
+        </p>
+        <div class="chart-legend">
+          <span class="chart-legend-item is-bar">Per query</span>
+          <span class="chart-legend-item is-line">Cumulative</span>
+        </div>
+        <div class="chart-frame">
+          <svg
+            id="chartCost"
+            class="chart-svg"
+            viewBox="0 0 800 280"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Cost per query and cumulative spend"
+          ></svg>
+        </div>
+      </article>
+      <p class="chart-hint period-cards-note">
+        Today, this month, and all time are from the Last N loaded queries —
+        not the full Cursor dashboard.
+      </p>
+      <div id="periodCards" class="period-cards"></div>
+    </section>
+    <section id="settingsView" hidden>
+      <form class="settings-form" id="settingsForm">
+        <fieldset>
+          <legend>Token warning</legend>
+          <label class="settings-check" for="showWarning">
+            <input type="checkbox" id="showWarning" />
+            Show warnings
+          </label>
+          <p class="settings-hint">
+            When off, the status bar and this table use no ! and no green/red
+            colors.
+          </p>
+          <label class="settings-row" for="threshold">
+            Warn at
+            <span class="settings-kilo">
+              <input
+                type="number"
+                id="threshold"
+                min="100"
+                step="100"
+              />
+              <span class="settings-unit">k</span>
+            </span>
+          </label>
+          <p id="thresholdPreview" class="settings-preview"></p>
+          <p class="settings-hint">
+            Type in k: 1 = 1,000 tokens (minimum). Spinner steps 100k, 200k,
+            300k, …
+          </p>
+          <button type="button" id="applyThreshold">Apply</button>
+        </fieldset>
+        <fieldset>
+          <legend>Recent queries</legend>
+          <label class="settings-row" for="historyLimit">
+            Show last
+            <input type="number" id="historyLimit" step="1" />
+          </label>
+          <p class="settings-hint">
+            Newest queries to load (100–10,000). Default is 1,000. Type the
+            full number, then Apply or press Enter.
+          </p>
+          <button type="button" id="applyHistoryLimit">Apply</button>
+        </fieldset>
+        <fieldset>
+          <legend>Colors</legend>
+          <p class="settings-hint">
+            Good is the under-cap / no-spike state. Warning is at/over cap or a
+            token spike. Defaults are darker on a light theme so they stay
+            readable on the status bar.
+          </p>
+          <label class="settings-row" for="okColor">
+            Good
+            <input type="color" id="okColor" />
+            <span id="okColorValue" class="settings-swatch"></span>
+          </label>
+          <label class="settings-row" for="warnColor">
+            Warning
+            <input type="color" id="warnColor" />
+            <span id="warnColorValue" class="settings-swatch"></span>
+          </label>
+          <button type="button" id="resetColors">Reset colors</button>
+        </fieldset>
+        <p class="settings-version">
+          Installed version
+          <strong id="extensionVersion">v__EXTENSION_VERSION__</strong>
+        </p>
+      </form>
+    </section>
+    <script nonce="{{nonce}}" src="{{jsUri}}"></script>
+  </body>
+</html>

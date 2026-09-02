@@ -27,7 +27,7 @@ Updated: 2026-09-01. Mapped to [prd.md](./prd.md).
 
 | Area | Choice | Notes |
 |------|--------|-------|
-| Session | sql.js (WASM), copy DB file into memory | Windows without `sqlite3.exe`; Cursor may lock the file |
+| Session | `node:sqlite` read-only on the live file; sql.js copy only if the DB is under ~1.5 GiB | Cursor `state.vscdb` can be multi-GB (Node `readFile` / sql.js cannot load it). Keep sql.js for hosts without `node:sqlite`. Not `better-sqlite3`. |
 | HTTP | `fetch` to `cursor.com` | `/api/usage-summary`, `/api/dashboard/get-filtered-usage-events` |
 | State | in-memory + optional `globalState` | Polling; no Redux |
 | Timeout | 15 s, `AbortController` | One refresh at a time |
@@ -51,9 +51,12 @@ Webview: `--vscode-*` tokens, CSP with nonce, `retainContextWhenHidden: true`.
 {
   "engines": { "vscode": "^1.85.0" },
   "activationEvents": ["onStartupFinished"],
-  "main": "./dist/extension.js"
+  "main": "./dist/extension.js",
+  "icon": "icon.png"
 }
 ```
+
+Marketplace / VSIX icon is repo-root `icon.png` (PNG, at least 128×128). Do not put Cursor’s cube or the VS Code logo in that file.
 
 After Open VSX: if Cursor search hides the extension, lower `engines.vscode` to the version from Help → About.
 

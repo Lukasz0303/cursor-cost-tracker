@@ -21,6 +21,6 @@ METHOD:
 2. If commits vs main: `git diff origin/main...HEAD --name-status` and per-file diffs
 3. Otherwise uncommitted: `git diff HEAD`
 
-Write the description to `.ai/reports/PR_DESCRIPTION.md`. Do NOT overwrite this command file.
+Write the description to `.ai/reports/PR_DESCRIPTION.md` (that folder is gitignored). Do NOT overwrite this command file.
 
 After generating, ask if the description is OK. If yes — propose a commit message (do not commit unless the user asks).

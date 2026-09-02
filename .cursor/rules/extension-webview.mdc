@@ -4,8 +4,11 @@ alwaysApply: true
 # Webview (Last 100)
 
 - Table columns: TIME, MODEL, COST, TOKENS, INPUT / OUTPUT, KIND. Newest first. Monospace body.
-- Style with `--vscode-*` variables only. No hardcoded marketplace hex palettes.
+- Four tabs: **Last N Cursor queries** (default 1000), **Statistics**, **Charts**, **Settings**. Style with `--vscode-*` variables only. User-chosen status colors come from settings (`okColor` / `warnColor`), not a hardcoded marketplace palette in CSS. Packaged defaults are mint/coral on dark themes and darker green/red on light themes.
 - CSP nonce; `default-src 'none'`. No inline handlers without nonce.
-- Host → webview: `{ type: 'data', events }`. Webview → host: `{ type: 'ready' }` | `{ type: 'close' }`.
-- Payload must not include tokens, cookies, or emails beyond what PRD shows in the table.
+- Host → webview: `{ type: 'data', events, spikeTokenThreshold, showSpikeWarning, okColor, warnColor, historyLimit, stats, charts, periods }`. Webview → host: `{ type: 'ready' }` | `{ type: 'close' }` | `{ type: 'setSpikeThreshold', value }` | `{ type: 'setShowSpikeWarning', value }` | `{ type: 'setOkColor', value }` | `{ type: 'setWarnColor', value }` | `{ type: 'setHistoryLimit', value }`. Apply Warn at immediately (input debounce + Apply). Show last (100–10,000, default 1000) applies on Apply / Enter / blur — not while typing, because `min=100` on a number input rejects partial values like `2` when typing `2000`. Export CSV and Open Dashboard are allowlisted `command:` links (`cursorCost.exportCsv`, `cursorCost.openDashboard`).
+- Settings tab holds Warn at, Show last (query count), Show warnings, and Good/Warning colors. When Show warnings is off: no `!` and no green/red on the bar or table.
+- Statistics tab: Current/Today with progress meters, cycle facts, Last N sample, spend-by-model/kind bars.
+- Charts tab: two SVG series (tokens over time, cost over time). Oldest → newest; per-query bars + cumulative line. Below: three cards (Today / This month / All time) with cost, cache hit, and input/output/cache mix. `charts` is `{ timestamp, time, model, tokens, costUsd }[]`. `periods` is the three cards. No cookies or access tokens.
+- Payload must not include cookies, access tokens, or emails beyond what PRD shows in the table.
 - Keep JS small (vanilla). Do not add React.

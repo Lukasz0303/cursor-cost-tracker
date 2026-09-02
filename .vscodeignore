@@ -1,0 +1,30 @@
+# Source and tooling — VSIX ships dist/ + media/, not TypeScript
+src/**
+test/**
+esbuild.mjs
+tsconfig.json
+vitest.config.ts
+.gitignore
+.gitattributes
+
+# Agent / editor / CI meta
+.ai/**
+.cursor/**
+.vscode/**
+.github/**
+AGENTS.md
+
+# Dependencies: JS is bundled; sql.js wasm is copied into dist/
+node_modules/**
+
+# Maps (watch/F5 only)
+**/*.map
+**/*.ts
+
+# Local artifacts
+**/*.vsix
+.vscode-test/**
+coverage/**
+
+# Scratch assets that are not the marketplace icon
+ChatGPT Image*

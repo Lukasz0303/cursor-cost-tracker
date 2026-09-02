@@ -11,7 +11,7 @@ npm run build
 npx @vscode/vsce package --no-dependencies
 ```
 
-Confirm a `*.vsix` was created and that `.vscodeignore` does **not** exclude `dist/`, `media/`, or `LICENSE`.
+Confirm a `*.vsix` was created and that `.vscodeignore` does **not** exclude `dist/`, `media/`, `LICENSE`, or `icon.png`.
 
 ## After running
 
