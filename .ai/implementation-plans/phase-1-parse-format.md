@@ -94,7 +94,7 @@ Guard clauses, early returns, happy path last. Explicit return types on exports.
 | Function | Behavior | Edge cases |
 |----------|----------|------------|
 | `centsToUsd(cents: number): number` | `cents / 100` | `NaN`, `Infinity` → `0` (or skip the event; pick one and test it) |
-| `pickUsagePool(summary: unknown)` | individual `onDemand` → `plan` → team `onDemand` → `overall` | missing pools; skip non-personal if a flag exists |
+| `pickUsagePool(summary: unknown)` | individual `onDemand` → `plan` → team `onDemand` → `overall`; `isPersonalMonthlyPool` (limit ≤ 1,000,000 cents) | missing pools; never `teamUsage.pooled` (org $24,800 vs personal $250) |
 | `isUnlimited(pool): boolean` | true when the selected pool has no cap / unlimited | hide Today in UI later |
 | `mapEventToQuery(raw: unknown): UsageQuery \| null` | cost from `chargedCents` **or** `tokenUsage.totalCents` **or** `usageBasedCosts`; tokens = input + output + cache read/write if present | unparseable → `null` (drop row) |
 | `workingDaysLeftInMonth(from: Date): number` | Mon–Fri remaining **including today**, local TZ | month-end Friday → `1`; Saturday/Sunday → remaining weekdays after weekend |
@@ -141,7 +141,7 @@ Run: `npm test` (command `4-run-tests`).
 ### 7.1 `parse.test.ts`
 
 - cents: `379` → `3.79`; NaN → guarded
-- pool order: onDemand individual wins over plan
+- pool order: onDemand individual wins over plan; skip org pools with limit > 1M cents
 - missing limit / unlimited pool
 - mixed cent fields on events
 - empty events → empty queries

@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version 1.0.0">
+  <img src="https://img.shields.io/badge/version-1.0.1-blue.svg" alt="Version 1.0.1">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
 </p>
 
@@ -28,7 +28,7 @@
 **Cursor Cost Tracker** is a VS Code / Cursor extension that puts **Current**, **Today**, and the **3 newest queries** on the status bar. Click any of those chips to open a panel with four tabs:
 
 - **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000). **Export CSV**.
-- **Statistics** — Current/Today glossary, Last N totals and averages, queries over the token warning, spend by model and by kind.
+- **Statistics** — Current/Today glossary, Last N totals, average/median, cache hit, token mix, queries over the token warning, spend by model and by kind.
 - **Charts** — tokens and cost over time (per query + cumulative), plus **Today / This month / All time** mix cards (from the loaded sample, not the full Cursor dashboard).
 - **Settings** — Warn at, Show last, Show warnings, Good/Warning colors.
 
@@ -50,7 +50,7 @@ If you are already signed in to Cursor, there is nothing to configure.
 
 <img src="screenshot2.png" alt="Last N Cursor queries table with Show last and Export CSV" width="100%">
 
-**Statistics** — Last N total spend, average per query, queries over the token warning, average tokens.
+**Statistics** — Last N total spend, average and median per query, cache hit, token mix, queries over the token warning.
 
 <img src="screenshot3.png" alt="Last N summary statistics cards" width="100%">
 
@@ -113,7 +113,7 @@ Four tabs: **Last N** · **Statistics** · **Charts** · **Settings**. **Export 
 
 ### Statistics
 
-Last N sample totals (not the Current pool): total spend, average per query, average tokens, **Queries over token warning**. Spend breakdown **by model** and **by kind** with share bars.
+Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. Spend breakdown **by model** and **by kind** with share bars.
 
 ### Charts
 
@@ -166,7 +166,7 @@ Cursor does **not** install third-party extensions from the Microsoft Visual Stu
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.0.vsix
+cursor --install-extension cursor-cost-tracker-1.0.1.vsix
 ```
 
 After publish, search **Cursor Cost Tracker** in **Cursor → Extensions**.
@@ -303,12 +303,36 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.0.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.1.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE` and **`icon.png`** inside the VSIX. Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).
 
 Private / team only: skip stores, ship the VSIX, **Install from VSIX**.
+
+---
+
+## Changelog
+
+### 1.0.1 — 2 September 2026
+
+Clearer Statistics cards, extra Last N metrics, and Current that stays on the personal monthly cap for enterprise accounts.
+
+**New**
+
+- **Statistics** — median cost per query, cache hit, cost per 1M tokens, and an input / output / cache mix bar on the Last N summary.
+- **Billing cycle** — elapsed progress and reset date on the cycle chip; plan name shown as a badge.
+
+**Fixes**
+
+- **Statistics** cards use even heights, stronger number hierarchy, and a warning tint when queries exceed the token threshold. Today no longer shows a fake full bar when there is no daily budget.
+- **Statistics** Status bar and Billing cycle cards no longer overlap. Cache hit now explains that the percent is prompt tokens reused from cache.
+- **Current** on enterprise / team accounts uses the personal monthly dollar pool (typically used / $250), not the large org leftover cap.
+- **Today** daily budget keeps at least one working day when only a weekend remains in the month.
+
+### 1.0.0 — 1 September 2026
+
+First public release: **Current**, **Today**, and the last 3 queries on the status bar. Click opens Last N (100–10,000) with Statistics, Charts, CSV export, and Settings.
 
 ---
 

@@ -466,6 +466,34 @@
     }
   }
 
+  function mixBar(shares) {
+    const mix = el('div', 'period-mix')
+    const list = shares || []
+    for (let i = 0; i < list.length; i++) {
+      const share = list[i]
+      const pct = Math.max(0, Number(share.percent) || 0)
+      if (pct <= 0) {
+        continue
+      }
+      const seg = el('span', 'period-mix-seg is-' + share.key)
+      seg.style.width = pct + '%'
+      mix.appendChild(seg)
+    }
+    return mix
+  }
+
+  function mixLegend(shares) {
+    const legend = el('div', 'period-legend')
+    const list = shares || []
+    for (let i = 0; i < list.length; i++) {
+      const share = list[i]
+      const item = el('span', 'period-legend-item is-' + share.key)
+      setText(item, share.label + ' ' + (Number(share.percent) || 0) + '%')
+      legend.appendChild(item)
+    }
+    return legend
+  }
+
   function periodCardEl(card) {
     const article = el('article', 'period-card')
     const title = el('h2', 'period-card-title')
@@ -493,29 +521,8 @@
       rows.appendChild(dd)
     }
     article.appendChild(rows)
-
-    const mix = el('div', 'period-mix')
-    const shares = card.shares || []
-    for (let i = 0; i < shares.length; i++) {
-      const share = shares[i]
-      const pct = Math.max(0, Number(share.percent) || 0)
-      if (pct <= 0) {
-        continue
-      }
-      const seg = el('span', 'period-mix-seg is-' + share.key)
-      seg.style.width = pct + '%'
-      mix.appendChild(seg)
-    }
-    article.appendChild(mix)
-
-    const legend = el('div', 'period-legend')
-    for (let i = 0; i < shares.length; i++) {
-      const share = shares[i]
-      const item = el('span', 'period-legend-item is-' + share.key)
-      setText(item, share.label + ' ' + (Number(share.percent) || 0) + '%')
-      legend.appendChild(item)
-    }
-    article.appendChild(legend)
+    article.appendChild(mixBar(card.shares))
+    article.appendChild(mixLegend(card.shares))
     return article
   }
 
@@ -550,12 +557,15 @@
     fill.style.width = fillPct + '%'
     const neutral =
       variant === 'neutral' ||
-      (variant !== 'share' && typeof value === 'string' && value.includes('/ —'))
+      (variant !== 'share' &&
+        variant !== 'cycle' &&
+        typeof value === 'string' &&
+        value.includes('/ —'))
     if (variant === 'share') {
       fill.classList.add('is-share')
     } else if (neutral) {
       fill.classList.add('is-neutral')
-    } else if (fillPct >= 100) {
+    } else if (variant !== 'cycle' && fillPct >= 100) {
       fill.classList.add('is-warn')
     }
     track.appendChild(fill)
@@ -566,6 +576,9 @@
 
   function glossaryCard(item) {
     const card = el('article', 'status-block')
+    if (item.id) {
+      card.classList.add('is-' + item.id)
+    }
     const title = el('h3')
     setText(title, item.title)
     card.appendChild(title)
@@ -589,6 +602,24 @@
     return card
   }
 
+  function shareTone(index) {
+    return 'is-tone-' + (index % 6)
+  }
+
+  function breakdownMix(rows) {
+    const mix = el('div', 'period-mix breakdown-mix')
+    for (let i = 0; i < rows.length; i++) {
+      const pct = Math.max(0, Number(rows[i].percent) || 0)
+      if (pct <= 0) {
+        continue
+      }
+      const seg = el('span', 'period-mix-seg ' + shareTone(i))
+      seg.style.width = pct + '%'
+      mix.appendChild(seg)
+    }
+    return mix
+  }
+
   function breakdownChart(rows, title) {
     const panel = el('div', 'breakdown-panel')
     if (title) {
@@ -596,11 +627,21 @@
       setText(heading, title)
       panel.appendChild(heading)
     }
+    panel.appendChild(breakdownMix(rows))
     const wrap = el('div', 'meter-list')
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       const detail = row.share ? row.value + ' · ' + row.share : row.value
-      wrap.appendChild(meterRow(row.label, detail, row.percent, 'share'))
+      const meter = meterRow(row.label, detail, row.percent, 'share')
+      const fill = meter.querySelector('.meter-fill')
+      if (fill) {
+        fill.classList.add(shareTone(i))
+      }
+      const labelEl = meter.querySelector('.meter-label')
+      if (labelEl) {
+        labelEl.setAttribute('title', row.label)
+      }
+      wrap.appendChild(meter)
     }
     panel.appendChild(wrap)
     return panel
@@ -608,6 +649,9 @@
 
   function metricCard(item, options) {
     const card = el('article', 'stats-card')
+    if (item && item.id) {
+      card.classList.add('is-' + item.id)
+    }
     if (options && options.primary) {
       card.classList.add('is-primary')
     }
@@ -623,6 +667,15 @@
     const value = el('p', 'stats-value')
     setText(value, item.value)
     card.appendChild(value)
+    if (item.detail) {
+      const detail = el('p', 'stats-detail')
+      setText(detail, item.detail)
+      card.appendChild(detail)
+    }
+    if (item.shares && item.shares.length > 0) {
+      card.appendChild(mixBar(item.shares))
+      card.appendChild(mixLegend(item.shares))
+    }
     if (item.hint) {
       const hint = el('p', 'stats-hint')
       setText(hint, item.hint)
@@ -644,15 +697,32 @@
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       const chip = el('div', 'cycle-chip')
+      if (item.id) {
+        chip.classList.add('is-' + item.id)
+      }
       const label = el('span', 'cycle-chip-label')
       setText(label, item.label)
       const value = el('span', 'cycle-chip-value')
       setText(value, item.value)
       chip.appendChild(label)
       chip.appendChild(value)
+      if (item.hint) {
+        const hint = el('span', 'cycle-chip-hint')
+        setText(hint, item.hint)
+        chip.appendChild(hint)
+      }
+      if (typeof item.percent === 'number' && Number.isFinite(item.percent)) {
+        chip.appendChild(
+          meterRow('Elapsed', item.percent + '%', item.percent, 'cycle'),
+        )
+      }
       wrap.appendChild(chip)
     }
     return wrap
+  }
+
+  function pickSample(byId, byLabel, id, label) {
+    return byId[id] || byLabel[label]
   }
 
   function appendSampleMetrics(section, sample, spikeCount, historyLimit) {
@@ -660,51 +730,109 @@
       return
     }
     const byLabel = {}
+    const byId = {}
     for (let i = 0; i < sample.length; i++) {
       const item = sample[i]
       byLabel[item.label] = item
+      if (item.id) {
+        byId[item.id] = item
+      }
     }
     const heading = lastHeading(historyLimit)
-    const totalLabel = heading + ' total'
-    const tokensLabel = 'Tokens in ' + heading
-    const primaryLabels = [
-      totalLabel,
-      'Average per query',
-      'Queries over token warning',
+    const groups = [
+      {
+        className: 'stats-grid-primary',
+        items: [
+          {
+            item: pickSample(byId, byLabel, 'total', heading + ' total'),
+            options: { primary: true },
+          },
+          {
+            item: pickSample(byId, byLabel, 'avgCost', 'Average per query'),
+            options: { primary: true },
+          },
+          {
+            item: pickSample(
+              byId,
+              byLabel,
+              'spikes',
+              'Queries over token warning',
+            ),
+            options: {
+              primary: true,
+              highlight: spikeCount > 0,
+            },
+          },
+        ],
+      },
+      {
+        className: 'stats-grid-detail',
+        items: [
+          {
+            item: pickSample(byId, byLabel, 'medianCost', 'Median per query'),
+          },
+          {
+            item: pickSample(byId, byLabel, 'cacheHit', 'Cache hit'),
+          },
+          {
+            item: pickSample(
+              byId,
+              byLabel,
+              'costPerMillion',
+              'Cost per 1M tokens',
+            ),
+          },
+        ],
+      },
+      {
+        className: 'stats-grid-detail',
+        items: [
+          {
+            item: pickSample(
+              byId,
+              byLabel,
+              'avgTokens',
+              'Average per query tokens',
+            ),
+          },
+          {
+            item: pickSample(
+              byId,
+              byLabel,
+              'priciest',
+              'Most expensive query',
+            ),
+          },
+          {
+            item: pickSample(byId, byLabel, 'heaviest', 'Heaviest query'),
+          },
+        ],
+      },
+      {
+        className: 'stats-grid-detail',
+        items: [
+          {
+            item: pickSample(byId, byLabel, 'busiest', 'Busiest day'),
+          },
+          {
+            item: pickSample(byId, byLabel, 'tokens', 'Tokens in ' + heading),
+            options: { wide: true },
+          },
+        ],
+      },
     ]
-    const primary = []
-    for (let i = 0; i < primaryLabels.length; i++) {
-      const item = byLabel[primaryLabels[i]]
-      if (item) {
-        primary.push(
-          metricCard(item, {
-            primary: true,
-            highlight:
-              item.label === 'Queries over token warning' && spikeCount > 0,
-          }),
-        )
+    for (let g = 0; g < groups.length; g++) {
+      const group = groups[g]
+      const cards = []
+      for (let i = 0; i < group.items.length; i++) {
+        const entry = group.items[i]
+        if (entry.item) {
+          cards.push(metricCard(entry.item, entry.options))
+        }
       }
-    }
-    if (primary.length > 0) {
-      section.appendChild(metricGrid(primary, 'stats-grid-primary'))
-    }
-
-    const detailLabels = [
-      'Average per query tokens',
-      tokensLabel,
-      'Most expensive query',
-      'Heaviest query',
-      'Busiest day',
-    ]
-    const detail = []
-    for (let i = 0; i < detailLabels.length; i++) {
-      const item = byLabel[detailLabels[i]]
-      if (item) {
-        detail.push(metricCard(item, { wide: item.label === tokensLabel }))
+      if (cards.length > 0) {
+        section.appendChild(metricGrid(cards, group.className))
       }
-    }
-    if (detail.length > 0) {
-      section.appendChild(metricGrid(detail, 'stats-grid-detail'))
     }
   }
 
@@ -714,7 +842,7 @@
     }
     for (let i = 0; i < sample.length; i++) {
       const item = sample[i]
-      if (item.label === 'Queries over token warning') {
+      if (item.id === 'spikes' || item.label === 'Queries over token warning') {
         const n = Number(item.value)
         return Number.isFinite(n) ? n : 0
       }
@@ -722,12 +850,27 @@
     return 0
   }
 
-  function section(title) {
+  function section(title, meta) {
     const wrap = el('section', 'stats-section')
+    const head = el('div', 'stats-section-head')
     const heading = el('h2')
     setText(heading, title)
-    wrap.appendChild(heading)
+    head.appendChild(heading)
+    if (meta) {
+      const badge = el('span', 'stats-section-meta')
+      setText(badge, meta)
+      head.appendChild(badge)
+    }
+    wrap.appendChild(head)
     return wrap
+  }
+
+  function queryCountMeta(stats) {
+    const n = Number(stats && stats.queryCount)
+    if (!Number.isFinite(n) || n <= 0) {
+      return ''
+    }
+    return n === 1 ? '1 query' : n.toLocaleString('en-US') + ' queries'
   }
 
   function renderStats(stats) {
@@ -753,7 +896,10 @@
       statsEl.appendChild(cycle)
     }
 
-    const sample = section(lastHeading(stats.historyLimit) + ' summary')
+    const sample = section(
+      lastHeading(stats.historyLimit) + ' summary',
+      queryCountMeta(stats),
+    )
     const note = el('p', 'stats-note')
     setText(note, stats.sampleNote || '')
     sample.appendChild(note)

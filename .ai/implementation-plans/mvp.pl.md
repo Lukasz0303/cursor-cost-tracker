@@ -174,7 +174,7 @@ Payload webview: `{ type: 'data', events: UsageQuery[] }` — **bez** tokenu/coo
 | Funkcja | Zachowanie |
 |---------|------------|
 | `centsToUsd(cents)` | dzielenie przez 100; ochrona przed NaN |
-| `pickUsagePool(summary)` | individual `onDemand` → `plan` → team `onDemand` → `overall` |
+| `pickUsagePool(summary)` | individual `onDemand` → `plan` → team `onDemand` → `overall`; pomiń pulę z limitem > 1 000 000 centów (`isPersonalMonthlyPool`); nigdy `teamUsage.pooled` |
 | `isUnlimited(pool)` | w UI ukryj Today |
 | `mapEventToQuery(raw)` | koszt z `chargedCents` / `tokenUsage.totalCents` / `usageBasedCosts`; tokeny = input + output + cache jeśli są |
 | `workingDaysLeftInMonth(from: Date)` | pon.–pt. do końca miesiąca, w tym dziś (lokalna TZ) |

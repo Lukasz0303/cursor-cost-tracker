@@ -62,7 +62,7 @@ Klauzule strażnicze, early return, happy path na końcu. Jawne typy zwracane. B
 | Funkcja | Zachowanie | Krawędzie |
 |---------|------------|-----------|
 | `centsToUsd` | `cents / 100` | `NaN` / `Infinity` → `0` (albo pomiń event; jedna decyzja + test) |
-| `pickUsagePool` | individual `onDemand` → `plan` → team `onDemand` → `overall` | brak puli; pomiń nieosobiste jeśli jest flaga |
+| `pickUsagePool` | individual `onDemand` → `plan` → team `onDemand` → `overall`; `isPersonalMonthlyPool` (limit ≤ 1 000 000 centów) | brak puli; nigdy `teamUsage.pooled` |
 | `isUnlimited` | true gdy brak capu | UI ukryje Today |
 | `mapEventToQuery` | koszt z `chargedCents` **albo** `tokenUsage.totalCents` **albo** `usageBasedCosts`; tokeny = input + output + cache r/w | nieparsowalne → `null` |
 | `workingDaysLeftInMonth` | pon.–pt. **łącznie z dniem dzisiejszym**, lokalna TZ | piątek = ostatni dzień miesiąca → `1` |

@@ -9,6 +9,6 @@ alwaysApply: false
 - Parameterized SELECT only. OS paths as in PRD §8.
 - Cookie built in api/session — never logged.
 - Host allowlist: Cursor usage endpoints on `cursor.com`. 15s timeout. One in-flight refresh (`AbortController`).
-- Parse cents → USD in one module. Pool order: individual onDemand → plan → team → overall.
+- Parse cents → USD in one module. Pool order: individual onDemand → plan → team onDemand → overall. Skip a pool whose limit is above 1,000,000 cents (org $24,800 vs personal $250). Never `teamUsage.pooled`.
 - Today may fail independently; Current must still render.
 - Treat API as unofficial: degrade to `error` snapshot, do not crash the host.

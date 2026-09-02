@@ -174,7 +174,7 @@ Webview payload: `{ type: 'data', events: UsageQuery[] }` only — **no** email 
 | Function | Behavior |
 |----------|----------|
 | `centsToUsd(cents)` | divide by 100; guard NaN |
-| `pickUsagePool(summary)` | individual `onDemand` → `plan` → team `onDemand` → `overall`; skip non-personal pools if flagged |
+| `pickUsagePool(summary)` | individual `onDemand` → `plan` → team `onDemand` → `overall`; skip pools with limit > 1,000,000 cents (`isPersonalMonthlyPool`); never `teamUsage.pooled` |
 | `isUnlimited(pool)` | hide Today in UI when true |
 | `mapEventToQuery(raw)` | cost from `chargedCents` / `tokenUsage.totalCents` / `usageBasedCosts`; tokens = input + output + cache read/write if present |
 | `workingDaysLeftInMonth(from: Date)` | Mon–Fri remaining including today (local TZ) |
