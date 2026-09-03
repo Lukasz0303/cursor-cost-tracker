@@ -7,7 +7,7 @@ Cursor does **not** install from the Microsoft Marketplace. Third-party extensio
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-cursor --install-extension ./cursor-cost-tracker-0.1.0.vsix
+cursor --install-extension ./cursor-cost-tracker-1.0.2.vsix
 ```
 
 Or: Extensions → Install from VSIX.

@@ -1,7 +1,9 @@
 import * as vscode from 'vscode'
 import {
   colorSchemeFromKind,
-  cursorCostConfigFrom,
+  onDidChangeCursorCostConfigOverlay,
+  readCursorCostConfig,
+  reconcileCursorCostConfigOverlay,
   resolveStatusColors,
   type CursorCostConfig,
 } from '../config'
@@ -16,8 +18,13 @@ import {
 
 /** Far from editor Ln/Col (~100). Higher priority sits further left. */
 const BUDGET_PRIORITY = -9_999
-const RECENT_PRIORITY_START = -10_000
-const REFRESH_PRIORITY = RECENT_PRIORITY_START - RECENT_STATUS_SLOTS
+/**
+ * Refresh sits immediately after Current/Today (not after recent query chips).
+ * A lower priority than the query slots parks it on the window edge, where
+ * Cursor's right-side chrome / overflow swallows an icon-only item.
+ */
+const REFRESH_PRIORITY = BUDGET_PRIORITY - 1
+const RECENT_PRIORITY_START = REFRESH_PRIORITY - 1
 
 function barColor(
   tone: SpendTone,
@@ -41,6 +48,8 @@ function applyItem(
   if (view.tooltipMarkdown) {
     const markdown = new vscode.MarkdownString(view.tooltip)
     markdown.isTrusted = true
+    markdown.supportHtml = true
+    markdown.supportThemeIcons = true
     item.tooltip = markdown
   } else {
     item.tooltip = view.tooltip
@@ -87,8 +96,9 @@ export class StatusBarController implements vscode.Disposable {
       item.name = `Cursor Cost recent query ${i + 1}`
       this.recent.push(item)
     }
+    // No item id: a named id matching the command (`cursorCost.refresh`) can
+    // stay user-hidden after overflow, and `show()` will not unhide it.
     this.refresh = vscode.window.createStatusBarItem(
-      'cursorCost.refresh',
       vscode.StatusBarAlignment.Right,
       REFRESH_PRIORITY,
     )
@@ -102,8 +112,14 @@ export class StatusBarController implements vscode.Disposable {
       }),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('cursorCost')) {
+          reconcileCursorCostConfigOverlay(
+            vscode.workspace.getConfiguration('cursorCost'),
+          )
           this.render()
         }
+      }),
+      onDidChangeCursorCostConfigOverlay(() => {
+        this.render()
       }),
       vscode.window.onDidChangeActiveColorTheme(() => {
         this.render()
@@ -119,7 +135,7 @@ export class StatusBarController implements vscode.Disposable {
   }
 
   private render(): void {
-    const config = cursorCostConfigFrom(
+    const config = readCursorCostConfig(
       vscode.workspace.getConfiguration('cursorCost'),
     )
     const colors = resolveStatusColors(
@@ -127,12 +143,17 @@ export class StatusBarController implements vscode.Disposable {
       colorSchemeFromKind(vscode.window.activeColorTheme.kind),
     )
     const painted = { ...config, ...colors }
-    const view = toStatusBarView(this.service.getSnapshot(), painted)
+    const view = toStatusBarView(
+      this.service.getSnapshot(),
+      painted,
+      this.service.isRefreshing(),
+    )
     applyItem(
       this.budget,
       toBudgetStatusItem(view, this.service.getSnapshot(), painted),
       painted,
     )
+    applyItem(this.refresh, view.refresh, painted)
     for (let i = 0; i < this.recent.length; i++) {
       const item = this.recent[i]
       const slot = view.recent[i]
@@ -141,6 +162,5 @@ export class StatusBarController implements vscode.Disposable {
       }
       applyItem(item, slot, painted)
     }
-    applyItem(this.refresh, view.refresh, painted)
   }
 }

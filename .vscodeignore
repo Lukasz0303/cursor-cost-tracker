@@ -24,6 +24,7 @@ node_modules/**
 
 # Local artifacts
 **/*.vsix
+_vsix*
 .vscode-test/**
 coverage/**
 

@@ -417,6 +417,11 @@ export function mapEventsPayload(
   return queries.slice(0, limit)
 }
 
+function isWeekend(year: number, month: number, day: number): boolean {
+  const weekday = new Date(year, month, day).getDay()
+  return weekday === 0 || weekday === 6
+}
+
 export function workingDaysLeftInMonth(from: Date): number {
   const year = from.getFullYear()
   const month = from.getMonth()
@@ -424,13 +429,27 @@ export function workingDaysLeftInMonth(from: Date): number {
   const start = from.getDate()
   let count = 0
   for (let day = start; day <= lastDate; day++) {
-    const weekday = new Date(year, month, day).getDay()
-    if (weekday === 0 || weekday === 6) {
+    if (isWeekend(year, month, day)) {
       continue
     }
     count += 1
   }
   return Math.max(1, count)
+}
+
+/** Mon–Fri from the 1st through today (local TZ). Weekends are 0. */
+export function workingDaysElapsedInMonth(from: Date): number {
+  const year = from.getFullYear()
+  const month = from.getMonth()
+  const today = from.getDate()
+  let count = 0
+  for (let day = 1; day <= today; day++) {
+    if (isWeekend(year, month, day)) {
+      continue
+    }
+    count += 1
+  }
+  return count
 }
 
 export function dailyBudgetUsd(
@@ -448,11 +467,27 @@ function localDayKey(ms: number): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 
+function localMonthKey(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${d.getMonth()}`
+}
+
 export function sumTodayUsedUsd(events: UsageQuery[], now: Date): number {
   const today = localDayKey(now.getTime())
   let sum = 0
   for (const event of events) {
     if (localDayKey(event.timestamp) === today) {
+      sum += event.costUsd
+    }
+  }
+  return sum
+}
+
+export function sumMonthUsedUsd(events: UsageQuery[], now: Date): number {
+  const month = localMonthKey(now.getTime())
+  let sum = 0
+  for (const event of events) {
+    if (localMonthKey(event.timestamp) === month) {
       sum += event.costUsd
     }
   }
@@ -603,8 +638,11 @@ export function buildUsageReady(input: BuildUsageReadyInput): UsageReady {
     : (input.queries ?? mapEventsPayload(input.events))
   const days = workingDaysLeftInMonth(input.now)
   const plan = membershipPlan(input.summary)
-  const includedQuotas = readIncludedQuotas(input.summary)
   const spendDisplay = spendDisplayFor(input.summary, plan)
+  // Team / Business / Enterprise pace on dollars. Drop included-quota percents
+  // even if the summary still carries Pro-style autoPercentUsed fields.
+  const includedQuotas =
+    spendDisplay === 'percent' ? readIncludedQuotas(input.summary) : []
   const pools = readBillingPoolLines(input.summary, plan)
 
   return {

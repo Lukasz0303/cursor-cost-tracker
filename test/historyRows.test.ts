@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { HISTORY_ROW_KEYS, historyDataPayload, payloadForSnapshot, toHistoryRows } from '../src/ui/historyRows'
+import {
+  HISTORY_ROW_KEYS,
+  historyDataPayload,
+  payloadForSnapshot,
+  toHistoryRows,
+  visibleHistoryRows,
+} from '../src/ui/historyRows'
 import type { UsageQuery } from '../src/usage/types'
 
 function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery {
@@ -47,6 +53,15 @@ describe('toHistoryRows', () => {
       { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
     )
     expect(rows[0]?.tokens).toBe('! 1,000,000')
+    expect(rows[0]?.spike).toBe(true)
+  })
+
+  it('marks non-spike rows without a bang', () => {
+    const rows = toHistoryRows(
+      [query({ timestamp: 1, tokens: 64_755 })],
+      { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
+    )
+    expect(rows[0]?.spike).toBe(false)
   })
 
   it('uses an em dash for missing model', () => {
@@ -54,6 +69,41 @@ describe('toHistoryRows', () => {
       query({ timestamp: 1, model: null }),
     ])
     expect(rows[0]?.model).toBe('—')
+  })
+})
+
+describe('visibleHistoryRows', () => {
+  it('keeps every row when the over-limit filter is off', () => {
+    const rows = toHistoryRows(
+      [
+        query({ timestamp: 2, tokens: 1_000_000 }),
+        query({ timestamp: 1, tokens: 10 }),
+      ],
+      { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
+    )
+    expect(visibleHistoryRows(rows, false)).toHaveLength(2)
+  })
+
+  it('keeps only spike rows when the over-limit filter is on', () => {
+    const rows = toHistoryRows(
+      [
+        query({ timestamp: 2, tokens: 1_000_000 }),
+        query({ timestamp: 1, tokens: 10 }),
+      ],
+      { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
+    )
+    const visible = visibleHistoryRows(rows, true)
+    expect(visible).toHaveLength(1)
+    expect(visible[0]?.tokens).toBe('! 1,000,000')
+  })
+
+  it('finds no spike rows when warnings are off', () => {
+    const rows = toHistoryRows(
+      [query({ timestamp: 1, tokens: 1_000_000 })],
+      { spikeTokenThreshold: 1_000_000, showSpikeWarning: false },
+    )
+    expect(rows[0]?.spike).toBe(false)
+    expect(visibleHistoryRows(rows, true)).toEqual([])
   })
 })
 
@@ -71,21 +121,53 @@ describe('historyDataPayload', () => {
     expect(json.includes('Authorization')).toBe(false)
     expect(Object.keys(payload).sort()).toEqual([
       'charts',
+      'criticalCostUsdThreshold',
+      'criticalTokenThreshold',
       'events',
       'extensionVersion',
       'historyLimit',
+      'minimalMode',
+      'mtd',
       'okColor',
       'periods',
+      'pollIntervalMinutes',
+      'recentQueryCount',
+      'refreshing',
+      'showCriticalAlert',
       'showSpikeWarning',
+      'showStatusBar',
+      'showToday',
       'spikeTokenThreshold',
       'stats',
+      'statusBarPreview',
       'type',
       'warnColor',
     ])
+    expect(payload.refreshing).toBe(false)
+    expect(payload.pollIntervalMinutes).toBe(1)
+    expect(payload.showCriticalAlert).toBe(true)
+    expect(payload.criticalTokenThreshold).toBe(10_000_000)
+    expect(payload.criticalCostUsdThreshold).toBe(5)
+    expect(payload.showStatusBar).toBe(true)
+    expect(payload.showToday).toBe(true)
+    expect(payload.minimalMode).toBe(false)
+    expect(payload.recentQueryCount).toBe(3)
+    expect(payload.statusBarPreview.length).toBeGreaterThan(0)
+    expect(payload.statusBarPreview.some((chip) => chip.id === 'budget' && chip.visible)).toBe(
+      true,
+    )
+    expect(JSON.stringify(payload.statusBarPreview).includes('email')).toBe(false)
+    expect(
+      historyDataPayload([], undefined, { refreshing: true }).refreshing,
+    ).toBe(true)
     expect(payload.historyLimit).toBe(1000)
     expect(payload.charts).toHaveLength(1)
     expect(payload.periods).toHaveLength(3)
     expect(payload.periods[2]?.id).toBe('all')
+    expect(payload.mtd.title).toBe('Monthly cost forecast')
+    expect(payload.mtd.verdict).toBeTruthy()
+    expect(Array.isArray(payload.mtd.chart)).toBe(true)
+    expect(Array.isArray(payload.mtd.forecast)).toBe(true)
     expect(payload.charts[0]?.tokens).toBe(64_755)
     expect(payload.charts[0]?.costUsd).toBe(0.03)
     expect(payload.extensionVersion).toBe('0.7.4')

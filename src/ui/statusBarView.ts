@@ -1,5 +1,8 @@
 import { formatCompactTokens, formatDateTime, formatDollars, formatKind, formatPercentUsed, formatTokens } from '../format'
-import type { CursorCostConfig } from '../config'
+import {
+  MAX_RECENT_QUERY_COUNT,
+  type CursorCostConfig,
+} from '../config'
 import { isSpike } from '../spikes/threshold'
 import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
@@ -7,7 +10,17 @@ import { buildBudgetTooltipMarkdown } from './statusBarTooltip'
 
 export const SHOW_HISTORY_COMMAND = 'cursorCost.showHistory'
 export const REFRESH_COMMAND = 'cursorCost.refresh'
-export const RECENT_STATUS_SLOTS = 3
+export const RECENT_STATUS_SLOTS = MAX_RECENT_QUERY_COUNT
+
+export type HistoryTab = 'queries' | 'stats' | 'charts' | 'settings'
+
+export type StatusBarCommand =
+  | string
+  | {
+      command: string
+      title: string
+      arguments?: unknown[]
+    }
 
 export type SpendTone = 'default' | 'green' | 'red'
 
@@ -17,7 +30,7 @@ export type StatusBarItemView = {
   tooltip: string
   tooltipMarkdown?: boolean
   tone: SpendTone
-  command: string
+  command: StatusBarCommand
   accessibility: string
 }
 
@@ -163,6 +176,20 @@ function recentQueryText(query: UsageQuery, bang: boolean): string {
   return `! ${body}`
 }
 
+function showHistoryCommand(
+  tab: HistoryTab,
+  title: string,
+): StatusBarCommand {
+  if (tab === 'queries') {
+    return SHOW_HISTORY_COMMAND
+  }
+  return {
+    command: SHOW_HISTORY_COMMAND,
+    title,
+    arguments: [tab],
+  }
+}
+
 function recentQueryView(
   query: UsageQuery,
   config: CursorCostConfig,
@@ -180,7 +207,7 @@ function recentQueryView(
       formatKind(query.kind),
     ]),
     tone: bang ? 'red' : 'green',
-    command: SHOW_HISTORY_COMMAND,
+    command: showHistoryCommand('queries', 'Show Cursor Cost queries'),
     accessibility: bang
       ? `Query over token warning ${model}`
       : `Recent query ${model}`,
@@ -210,7 +237,7 @@ function recentViews(
 ): StatusBarItemView[] {
   const newest = [...queries]
     .sort((left, right) => right.timestamp - left.timestamp)
-    .slice(0, RECENT_STATUS_SLOTS)
+    .slice(0, config.recentQueryCount)
   const slots = hiddenRecent()
   for (let i = 0; i < newest.length; i++) {
     const query = newest[i]
@@ -222,25 +249,39 @@ function recentViews(
   return slots
 }
 
+function refreshItem(
+  config: CursorCostConfig,
+  spinning: boolean,
+): StatusBarItemView {
+  return {
+    visible: config.showStatusBar,
+    // Trailing NBSP: icon-only status bar items can collapse to 0 width.
+    text: spinning ? '$(sync~spin)\u00A0' : '$(sync)\u00A0',
+    tooltip: spinning
+      ? 'Refreshing usage from cursor.com…'
+      : 'Refresh usage from cursor.com',
+    tone: 'green',
+    command: REFRESH_COMMAND,
+    accessibility: spinning
+      ? 'Refreshing Cursor cost'
+      : 'Refresh Cursor cost',
+  }
+}
+
 export function toStatusBarView(
   snapshot: UsageSnapshot,
   config: CursorCostConfig,
+  refreshing = false,
 ): StatusBarView {
-  const refresh: StatusBarItemView = {
-    visible: config.showStatusBar,
-    text: '$(sync)',
-    tooltip: 'Refresh',
-    tone: 'default',
-    command: REFRESH_COMMAND,
-    accessibility: 'Refresh Cursor cost',
-  }
+  const spinning = refreshing || snapshot.status === 'loading'
+  const refresh = refreshItem(config, spinning)
 
   if (!config.showStatusBar) {
     return {
       current: hiddenItem('Cursor cost current'),
       today: hiddenItem('Cursor cost today'),
       recent: hiddenRecent(),
-      refresh: { ...refresh, visible: false },
+      refresh,
     }
   }
 
@@ -251,7 +292,7 @@ export function toStatusBarView(
         text: '$(loading~spin) …',
         tooltip: 'Loading usage…',
         tone: 'default',
-        command: SHOW_HISTORY_COMMAND,
+        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
         accessibility: 'Cursor cost current',
       },
       today: hiddenItem('Cursor cost today'),
@@ -267,7 +308,7 @@ export function toStatusBarView(
         text: '$(warning) N/A',
         tooltip: snapshot.message,
         tone: 'default',
-        command: SHOW_HISTORY_COMMAND,
+        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
         accessibility: 'Cursor cost current',
       },
       today: hiddenItem('Cursor cost today'),
@@ -291,7 +332,7 @@ export function toStatusBarView(
         text: currentText(data),
         tooltip: currentTooltip(data),
         tone: currentTone(data),
-        command: SHOW_HISTORY_COMMAND,
+        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
         accessibility: 'Cursor cost current',
       },
       today: {
@@ -299,7 +340,7 @@ export function toStatusBarView(
         text: todayText(data),
         tooltip: todayTooltip(data),
         tone: todayTone(data),
-        command: SHOW_HISTORY_COMMAND,
+        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
         accessibility: 'Cursor cost today',
       },
       recent: minimal ? hiddenRecent() : recentViews(data.recentQueries, config),
@@ -320,7 +361,7 @@ function applyWarningDisplay(
     current: { ...view.current, tone: 'default' },
     today: { ...view.today, tone: 'default' },
     recent: view.recent.map((item) => ({ ...item, tone: 'default' })),
-    refresh: view.refresh,
+    refresh: { ...view.refresh, tone: 'default' },
   }
 }
 
@@ -353,7 +394,7 @@ function joinStatusParts(
       text: '',
       tooltip: '',
       tone: 'default',
-      command: SHOW_HISTORY_COMMAND,
+      command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
       accessibility,
     }
   }
@@ -366,7 +407,7 @@ function joinStatusParts(
       .filter((tip) => tip !== '')
       .join('\n'),
     tone: worstTone(visible.map((item) => item.tone)),
-    command: SHOW_HISTORY_COMMAND,
+    command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
     accessibility,
   }
 }
@@ -387,4 +428,136 @@ export function toBudgetStatusItem(
     tooltip: buildBudgetTooltipMarkdown(snapshot.data, now),
     tooltipMarkdown: true,
   }
+}
+
+const CODICONS_RE = /^\$\(([^)]+)\)\s*(.*)$/
+
+export type StatusBarPreviewSegment = {
+  icon: string | null
+  spin: boolean
+  body: string
+}
+
+export type StatusBarPreviewChip = {
+  id: string
+  segments: StatusBarPreviewSegment[]
+  tone: SpendTone
+  visible: boolean
+}
+
+function previewQuery(
+  timestamp: number,
+  model: string,
+  costUsd: number,
+  tokens: number,
+): UsageQuery {
+  return {
+    timestamp,
+    model,
+    kind: 'USAGE_EVENT_KIND_INCLUDED_IN_BUSINESS',
+    costUsd,
+    tokens,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 0,
+  }
+}
+
+/** Canned snapshot so Settings can preview the bar without live totals. */
+export const STATUS_BAR_PREVIEW_SNAPSHOT: UsageSnapshot = {
+  status: 'ready',
+  data: {
+    email: null,
+    plan: 'pro',
+    spendDisplay: 'usd',
+    includedQuotas: [],
+    usedUsd: 12.4,
+    limitUsd: 250,
+    remainingUsd: 237.6,
+    todayUsedUsd: 3.79,
+    dailyBudgetUsd: 11.19,
+    workingDaysLeft: 22,
+    billingCycleStart: '2026-09-01T00:00:00.000Z',
+    billingCycleEnd: '2026-09-30T00:00:00.000Z',
+    isUnlimited: false,
+    includedLine: null,
+    onDemandLine: null,
+    recentQueries: [
+      previewQuery(10, 'cursor-small', 0.04, 8_200),
+      previewQuery(9, 'gpt-5', 1.5, 1_200_000),
+      previewQuery(8, 'cursor-default', 0.12, 64_800),
+      previewQuery(7, 'claude', 0.08, 112_400),
+      previewQuery(6, 'gemini', 0.24, 389_100),
+      previewQuery(5, 'cursor-fast', 0.02, 5_900),
+      previewQuery(4, 'gpt-5-mini', 0.18, 221_700),
+      previewQuery(3, 'claude-haiku', 0.06, 73_200),
+      previewQuery(2, 'cursor-small', 0.03, 41_600),
+      previewQuery(1, 'cursor-default', 0.11, 156_300),
+    ],
+  },
+}
+
+export function statusBarChipParts(text: string): StatusBarPreviewSegment {
+  const match = CODICONS_RE.exec(text)
+  if (!match) {
+    return { icon: null, spin: false, body: text }
+  }
+  const raw = match[1] ?? ''
+  const spin = raw.endsWith('~spin')
+  const icon = spin ? raw.slice(0, -5) : raw
+  return {
+    icon: icon === '' ? null : icon,
+    spin,
+    body: match[2] ?? '',
+  }
+}
+
+export function statusBarTextSegments(text: string): StatusBarPreviewSegment[] {
+  return text
+    .split(STATUS_CHIP_SEPARATOR)
+    .filter((part) => part !== '')
+    .map(statusBarChipParts)
+}
+
+function previewChipFromView(
+  id: string,
+  item: StatusBarItemView,
+): StatusBarPreviewChip {
+  return {
+    id,
+    segments: statusBarTextSegments(item.text),
+    tone: item.tone,
+    visible: item.visible && item.text !== '',
+  }
+}
+
+export function toStatusBarPreviewChips(
+  config: CursorCostConfig,
+): StatusBarPreviewChip[] {
+  const snapshot = STATUS_BAR_PREVIEW_SNAPSHOT
+  const view = toStatusBarView(snapshot, config)
+  const budget = toBudgetStatusItem(view, snapshot, config)
+  // Fill every sample slot with text so Settings can retarget the count
+  // locally (and after a host round-trip) without empty placeholders.
+  const filled = toStatusBarView(snapshot, {
+    ...config,
+    showStatusBar: true,
+    minimalMode: false,
+    recentQueryCount: MAX_RECENT_QUERY_COUNT,
+  })
+  const recentLimit =
+    !config.showStatusBar || config.minimalMode ? 0 : config.recentQueryCount
+  return [
+    previewChipFromView('budget', budget),
+    previewChipFromView('refresh', view.refresh),
+    ...filled.recent.map((item, index) => {
+      const chip = previewChipFromView(`recent-${index}`, item)
+      return {
+        ...chip,
+        visible: index < recentLimit,
+        tone: config.showSpikeWarning ? chip.tone : 'default',
+      }
+    }),
+  ]
 }

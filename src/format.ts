@@ -25,6 +25,18 @@ export function formatPercentUsed(percent: number): string {
   return `${value}%`
 }
 
+/** Pace figures like `4.5%` / `21%` — one decimal only when needed. */
+export function formatPercentPoint(percent: number): string {
+  if (!Number.isFinite(percent)) {
+    return '0%'
+  }
+  const tenths = Math.round(Math.max(0, percent) * 10) / 10
+  if (Math.abs(tenths - Math.round(tenths)) < 0.05) {
+    return `${Math.round(tenths)}%`
+  }
+  return `${tenths.toFixed(1)}%`
+}
+
 export function formatTokens(n: number): string {
   const value = Number.isFinite(n) ? Math.round(n) : 0
   return TOKEN_FORMAT.format(value)

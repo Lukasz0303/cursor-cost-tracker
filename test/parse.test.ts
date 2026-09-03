@@ -370,6 +370,28 @@ describe('buildUsageReady', () => {
     expect(ready.includedQuotas).toEqual([])
   })
 
+  it('drops Pro-style quota percents on Business / Enterprise even if the summary carries them', () => {
+    const ready = buildUsageReady({
+      summary: {
+        membershipType: 'enterprise',
+        limitType: 'team',
+        individualUsage: {
+          onDemand: { used: 1346, limit: 25000, remaining: 23654 },
+          plan: {
+            used: 2000,
+            limit: 2000,
+            autoPercentUsed: 25,
+            apiPercentUsed: 31,
+          },
+        },
+      },
+      events: { usageEventsDisplay: [] },
+      now: new Date(2026, 8, 1),
+    })
+    expect(ready.spendDisplay).toBe('usd')
+    expect(ready.includedQuotas).toEqual([])
+  })
+
   it('matches Stack Manager Current/Today math on an enterprise org pool', () => {
     const now = new Date(2026, 8, 2, 12, 0, 0)
     const ready = buildUsageReady({

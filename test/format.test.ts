@@ -7,6 +7,7 @@ import {
   formatTokens,
   formatCompactTokens,
   formatPercentUsed,
+  formatPercentPoint,
   cycleResetLabel,
 } from '../src/format'
 
@@ -33,6 +34,14 @@ describe('formatPercentUsed', () => {
     expect(formatPercentUsed(7.4)).toBe('7%')
     expect(formatPercentUsed(0)).toBe('0%')
     expect(formatPercentUsed(Number.NaN)).toBe('0%')
+  })
+})
+
+describe('formatPercentPoint', () => {
+  it('keeps a tenth for daily-pace figures and drops .0', () => {
+    expect(formatPercentPoint(100 / 22)).toBe('4.5%')
+    expect(formatPercentPoint(21)).toBe('21%')
+    expect(formatPercentPoint(Number.NaN)).toBe('0%')
   })
 })
 

@@ -6,7 +6,7 @@ This folder describes the **product vision** and **target stack**. Once code exi
 
 - **Title:** Cursor Cost Tracker — *See Cursor AI spend without leaving the editor.*
 - **Shape:** VS Code extension compatible with **Cursor** (primary target).
-- **Value:** Current, Today, and the last 3 queries on the **status bar**; click opens **Last N Cursor queries** (default 1000). `!` on a query ≥ token threshold (default 1M). Ignore of spikes is a follow-up.
+- **Value:** Current, Today, and 1–10 recent queries (default 3) on the **status bar**; click opens **Last N Cursor queries** (default 1000). `!` on a query ≥ token threshold (default 1M). Blocking dialog if the newest query hits 10M tokens or $5. Ignore of spikes is a follow-up.
 - **Zero setup:** read the local Cursor session (`state.vscdb`); no `.env` and no API key in settings (MVP).
 - **Full requirements:** [prd.md](./prd.md) (English, canonical) · [prd.pl.md](./prd.pl.md) (Polish).
 
@@ -16,16 +16,17 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 
 | Topic | Rule |
 |-------|------|
-| Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, last 3 queries (`cost - tokens`), Refresh; `!` on a query ≥ token threshold (default 1M) |
+| Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, Refresh (on demand), 1–10 recent queries (`cost - tokens`, default 3); `!` on a query ≥ token threshold (default 1M) |
+| Critical alert | Blocking dialog when the newest query hits 10M tokens or $5 (configurable; once per query) |
 | Click Current/Today | Recent queries immediately (not Quick Pick) |
-| History | Four tabs: Last N (default 1000), Statistics, Charts (tokens/cost + period mix cards), Settings |
+| History | Four tabs: Last N (default 1000), Statistics (incl. MTD pace / forecast chart), Charts (tokens/cost + the same Monthly cost forecast control + period mix cards), Settings (all `cursorCost.*` keys; status bar editor with sample preview) |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |
 | Token | extension host only; never `postMessage`, logs, or webview |
-| Polling | 5 min, AbortController, `activate` must not block UI |
+| Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `0.1.0`. See [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `1.0.2`. See [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 

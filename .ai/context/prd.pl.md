@@ -2,8 +2,8 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.6  
-**Data:** 2026-09-01  
+**Wersja dokumentu:** 2.13  
+**Data:** 2026-09-03  
 **Status:** decyzja produktowa (MVP)  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
 
@@ -67,19 +67,19 @@ Po instalacji (zalogowany Cursor) belka pokazuje Current i Today. Klik otwiera t
 Prawa strona belki (`StatusBarAlignment.Right`).
 
 ```
-… │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │  ↻  │
+… │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  ↻  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │
 ```
 
 **Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to procenty włączonego limitu (`7%` albo `7% · 0%` dla Cursor Models · Other Models), jak na dashboardzie Cursora — nie cap on-demand w dolarach.
 
-Kolejność: **Current**, **Today**, **3 najnowsze zapytania**, **Refresh**. Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today / zapytanie otwiera Last 100. Refresh tylko odświeża.
+Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cursorCost.recentQueryCount` określa liczbę chipów zapytań (**1–10**, domyślnie **3**). Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Refresh siedzi zaraz za tym chipem, żeby nie znikał gdy belka się przepełnia. Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today / zapytanie otwiera Last 100. Refresh pobiera dane z cursor.com na żądanie.
 
 | Element | Tekst | Tooltip | Klik |
 |---------|--------|---------|------|
-| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | email · plan · koniec cyklu · (Pro: nazwy limitów) | **otwórz Last 100** |
-| Today | `$(calendar) 3.79 $ / 11.19 $` | jak wyliczony daily budget | **otwórz Last 100** |
-| 3 ostatnie | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz Last 100** |
-| Refresh | `$(sync)` | Refresh | tylko odśwież, bez panelu |
+| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | Karta hover: plan, miarki included/on-demand, reset, top modele, Open Dashboard / Refresh | **otwórz Last 100** |
+| Today | `$(calendar) 3.79 $ / 11.19 $` | ten sam hover co Current (jeden chip) | **otwórz Last 100** |
+| Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | tylko odśwież, bez panelu |
+| 1–10 ostatnich (domyślnie 3) | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz Last 100** |
 
 Kolory: przy włączonych ostrzeżeniach dobry stan to `cursorCost.okColor` (domyślnie zieleń `#89D185` na ciemnym motywie, `#18794E` na jasnym). **Team:** przy/ponad miesięcznym lub dziennym capie dolarowym — `cursorCost.warnColor` (domyślnie czerwień `#F14C4C` na ciemnym, `#C50F1F` na jasnym). Własny hex zostaje bez zmian. **Pro / Pro+:** Current (procenty included) i Today (suma zapytań, często bez dziennego capu) zostają w kolorze dobrym — to nie jest overage puli dolarowej. Spike `!` przy ostatnim zapytaniu używa warnColor. Ładowanie/błąd — domyślny. Gdy `cursorCost.showSpikeWarning` jest wyłączone, nie ma `!` ani kolorów na belce. Warn at, kolory i przełącznik ostrzeżeń są w zakładce **Settings**.
 
@@ -97,7 +97,7 @@ Główna ścieżka: **nie** Quick Pick. Od razu tabela.
 
 Najnowsze na górze, font monospace, CSS `--vscode-*`. Paleta poleceń: `Cursor Cost: Show Usage History`.
 
-Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Settings**. Statistics to słownik Current/Today plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie plus karty Today / This month / All time z tej próbki. Settings: Warn at, Show last, Show warnings, kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
+Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Settings**. Na zakładce zapytań: **Refresh** (pobierz z cursor.com), **Over limit only** (filtruje tabelę do wierszy ze spike `!`; lokalnie w panelu, wyłączone gdy Show warnings jest off) i **Export CSV**. Statistics to słownik Current/Today, miarka **Month to date** (zużycie w tym miesiącu vs dni robocze dotąd × dzienny budżet, albo vs prognoza z tempa dni roboczych gdy nie ma dziennego limitu) z wykresem zużycia i prognozy — na Pro para linii dla każdej included quota na osi 0–100% i miarka dzisiejszego zużycia vs dzienny budżet — plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie plus kumulacja, ta sama kontrolka **Monthly cost forecast** co na Statistics (miarki, zakres, used/forecast/ideal), potem karty Today / This month / All time z tej próbki. Settings: Warn at, Show last, Show warnings, kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
 
 **Spike tokenów (v1.1, obowiązkowe po MVP):** kolumna albo `!` na początku wiersza, gdy `tokens >=` próg użytkownika. Akcje w wierszu:
 
@@ -107,9 +107,11 @@ Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts**
 
 Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Ignore przeżywa reload. Opcjonalnie: „Show ignored” w tabeli.
 
+**Krytyczny alert ostatniego zapytania:** gdy **najnowsze** zapytanie osiągnie `cursorCost.criticalTokenThreshold` (domyślnie **10 000 000** tokenów) **lub** `cursorCost.criticalCostUsdThreshold` (domyślnie **5 $**), host pokazuje blokujący dialog. Niezależnie od `!` na belce (`showSpikeWarning`). Każdy fingerprint najnowszego zapytania raz (`globalState` `cursorCost.lastCriticalSeenKey`). Historyczne ostatnie zapytanie starsze niż pięć minut jest zapamiętane przy pierwszym załadowaniu — bez modala — żeby restart nie blokował pracy. Świeżo skończone zapytanie nadal alertuje. **Open History** otwiera Last N. Przełącznik: `showCriticalAlert`.
+
 ### 5.3 Poza MVP
 
-Quick Pick jako domyślny klik, Activity Bar, blokujący modal, TreeView na 6 kolumn, React/Vue w webview, osobna aplikacja Electron, Advise / skan workspace / auto-naprawa LLM.
+Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce kliknięcia historii, TreeView na 6 kolumn, React/Vue w webview, osobna aplikacja Electron, Advise / skan workspace / auto-naprawa LLM.
 
 ---
 
@@ -121,7 +123,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal, TreeView na 6 ko
 | G2 | Jeden klik do historii | tabela Last 100 < 2 s (cache) |
 | G3 | Spójne liczby | Current/Today zgodne z usage Cursor (± 0,01 $) |
 | G4 | Zero konfiguracji | VSIX, bez `.env` |
-| G5 | Nie blokuje pracy | brak modalów; błąd API = N/A |
+| G5 | Nie blokuje pracy | brak modalów na zwykłej ścieżce; błąd API = N/A. Blokujący dialog tylko przy krytycznym alercie ostatniego zapytania (domyślnie 10M tokenów lub 5 $) |
 
 ---
 
@@ -149,6 +151,7 @@ v1.2: sidebar; opcjonalny Quick Pick.
 | B3 | programista | ustawić limit (domyślnie 1 000 000 tokenów) | 1M nie było sztywne dla wszystkich |
 | B4 | programista | **Ignore** na tym wierszu | wykrzyknik zniknął, jeśli akceptuję koszt |
 | B5 | programista | żeby Ignore przeżyło reload | nie być nękanym ponownie |
+| B6 | programista | blokujący alert, gdy ostatnie zapytanie trafi w 10M tokenów lub 5 $ | nie przegapić ekstremalnego requestu |
 
 ---
 
@@ -166,11 +169,15 @@ v1.2: sidebar; opcjonalny Quick Pick.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / dni robocze do końca`; `todayUsed` = suma dzisiejszych centów (lokalna strefa czasowa).
 
+**Month to date / Monthly cost forecast:** ta sama próbka eventów. **Jednostka zależy od planu:** Team / Business / Enterprise → **dolary** (`unit: 'usd'`); osobisty Pro / Pro+ → **procent included** (`unit: 'percent'`). Team: zużycie w tym miesiącu / (dni robocze od 1. × dzienny budżet), jedna seria Spend z run-out / dziś vs dzienny budżet. Pro: procent included vs równe tempo (100% ÷ dni robocze w tym miesiącu). Dni robocze to pon–pt, lokalna strefa, wliczając dziś gdy dziś jest dniem roboczym. Ten sam wykres prognozy jest na Statistics i Charts (dni od 1. do końca miesiąca: słupki dnia, kumulacja, przerywana prognoza, kropkowany leftover). Brak dziennego budżetu dolarowego na Team → zużycie / prognoza dolarowa. Brak dnia roboczego → zużycie / — bez miarki.
+
+Na Pro blok nazywa się **Monthly cost forecast**. Każda miarka pokazuje zużycie cyklu vs 100% oraz datę wyczerpania (albo „lasts the month”), a wykres 0–100% oznacza miejsce, w którym prognoza uderza w sufit. API podaje procent tylko per cykl, więc udział dnia jest ważony jego kosztem dolarowym.
+
 **Last 100:** ta sama API eventów, `pageSize=100`.
 
 **Fingerprint spike (v1.1):** id z API jeśli jest, inaczej `${timestamp}|${tokens}|${costUsd}|${model}`. Zignorowane id w `context.globalState` pod `cursorCost.ignoredSpikes`.
 
-**Odświeżanie:** `activate` nie może blokować UI; polling co 5 minut (1–60); ręczny Refresh; `AbortController`.
+**Odświeżanie:** `activate` nie może blokować UI; polling co 1 minutę (1–60); ręczny Refresh; `AbortController`.
 
 **Bezpieczeństwo:** token tylko w extension host; webview dostaje wyłącznie eventy; nigdy nie logować tokenu; brak telemetrii w MVP.
 
@@ -204,11 +211,15 @@ media/history.{html,css,js}
 
 | Klucz | Domyślnie | Uwagi |
 |-------|-----------|--------|
-| `cursorCost.pollIntervalMinutes` | 5 | MVP |
-| `cursorCost.showStatusBar` | true | MVP |
-| `cursorCost.showToday` | true | MVP |
+| `cursorCost.pollIntervalMinutes` | 1 | 1–60; Settings **Auto-refresh** |
+| `cursorCost.showStatusBar` | true | edytor belki w Settings |
+| `cursorCost.showToday` | true | edytor belki w Settings |
+| `cursorCost.minimalMode` | false | tylko Current + Refresh; edytor belki w Settings |
 | `cursorCost.spikeTokenThreshold` | 1000000 | min 1000; w Settings w jednostce **k** (100 = 100k tokenów); `!` przy tym zapytaniu |
 | `cursorCost.showSpikeWarning` | true | wyłączone = bez `!` i bez zieleni/czerwieni |
+| `cursorCost.showCriticalAlert` | true | blokujący dialog, gdy najnowsze zapytanie trafi w próg tokenów lub dolarów |
+| `cursorCost.criticalTokenThreshold` | 10000000 | min 1000; Settings w **k** (10000 = 10M); wystarczy jeden próg |
+| `cursorCost.criticalCostUsdThreshold` | 5 | min 0,01 USD; wystarczy jeden próg |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last** |
 | `cursorCost.okColor` | `#89D185` | kolor dobrego stanu (ciemniejszy `#18794E` na jasnym motywie) |
 | `cursorCost.warnColor` | `#F14C4C` | kolor ostrzeżenia (ciemniejszy `#C50F1F` na jasnym motywie) |
@@ -230,7 +241,7 @@ Aktywacja: `onStartupFinished`.
 
 ## 12. Ryzyka
 
-Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `node:sqlite` tylko do odczytu, gdy dostępny (bazy wielogigabajtowe); sql.js tylko dla małych plików. Remote SSH: `extensionKind: ui`. Rate limit: polling ≥ 5 min.
+Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `node:sqlite` tylko do odczytu, gdy dostępny (bazy wielogigabajtowe); sql.js tylko dla małych plików. Remote SSH: `extensionKind: ui`. Rate limit: polling ≥ 1 min.
 
 ---
 
@@ -252,6 +263,14 @@ Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `
 - [ ] **Ignore** chowa bang wiersza i na belce, jeśli nie ma innych spike’ów
 - [ ] Ignore przeżywa reload okna
 - [ ] Zapytania poniżej progu nigdy nie mają `!`
+
+### 13c. Krytyczny alert ostatniego zapytania
+
+- [ ] Najnowsze zapytanie ≥ 10M tokenów lub ≥ 5 $ pokazuje blokujący dialog (domyślne progi)
+- [ ] To samo zapytanie nie wraca po dismiss / reload
+- [ ] Późniejsze nowsze zapytanie ponad progiem alertuje znowu
+- [ ] Pierwsze załadowanie ostatniego zapytania starszego niż pięć minut nie blokuje
+- [ ] Wyłączenie przez `showCriticalAlert`; niezależnie od `showSpikeWarning`
 
 ---
 
