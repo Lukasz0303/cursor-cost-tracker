@@ -5,19 +5,22 @@ import {
   EXPORT_CSV_COMMAND,
   OPEN_DASHBOARD_COMMAND,
 } from './constants'
-import { cursorCostConfigFrom } from './config'
-import { HistoryPanel, saveQueriesCsv } from './ui/historyPanel'
+import { readCursorCostConfig } from './config'
+import { loadPersistedSettingOverrides } from './settingsStore'
+import { CriticalAlertController } from './ui/criticalAlert'
+import { HistoryPanel, parseHistoryTab, saveQueriesCsv } from './ui/historyPanel'
 import { StatusBarController } from './ui/statusBar'
 import { fetchRecentEvents, fetchUsageSummary } from './usage/api'
 import { readCursorSession } from './usage/session'
 import { registerActivityRefresh } from './usage/activityRefresh'
 import { UsageService } from './usage/service'
 
-function readWorkspaceConfig(): ReturnType<typeof cursorCostConfigFrom> {
-  return cursorCostConfigFrom(vscode.workspace.getConfiguration('cursorCost'))
+function readWorkspaceConfig(): ReturnType<typeof readCursorCostConfig> {
+  return readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  loadPersistedSettingOverrides(context.globalState)
   const config = readWorkspaceConfig()
   const service = new UsageService(
     {
@@ -36,12 +39,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   service.start()
   StatusBarController.register(context, service)
+  CriticalAlertController.register(context, service)
 
   context.subscriptions.push(
     service,
     registerActivityRefresh(service, vscode),
-    vscode.commands.registerCommand('cursorCost.showHistory', () => {
-      HistoryPanel.show(context, service)
+    vscode.commands.registerCommand('cursorCost.showHistory', (tab?: unknown) => {
+      HistoryPanel.show(context, service, parseHistoryTab(tab))
     }),
     vscode.commands.registerCommand('cursorCost.refresh', () => {
       void service.refresh()

@@ -2,6 +2,141 @@
   color: var(--vscode-foreground);
   background: var(--vscode-editor-background);
   font-family: var(--vscode-font-family);
+  --ctl-radius: 8px;
+  --ctl-radius-pill: 999px;
+  --ctl-height: 1.85rem;
+}
+
+:root,
+.vscode-dark,
+.vscode-high-contrast {
+  --ctl-border: color-mix(
+    in srgb,
+    var(--vscode-foreground) 24%,
+    var(--vscode-panel-border, transparent)
+  );
+  --ctl-border-hover: color-mix(
+    in srgb,
+    var(--vscode-foreground) 38%,
+    var(--vscode-panel-border, transparent)
+  );
+  --ctl-surface: color-mix(
+    in srgb,
+    var(--vscode-foreground) 7%,
+    var(--vscode-editor-background)
+  );
+  --ctl-surface-hover: color-mix(
+    in srgb,
+    var(--vscode-foreground) 11%,
+    var(--vscode-editor-background)
+  );
+  --ctl-surface-active: color-mix(
+    in srgb,
+    var(--vscode-foreground) 15%,
+    var(--vscode-editor-background)
+  );
+  --ctl-press: color-mix(
+    in srgb,
+    var(--vscode-foreground) 4%,
+    var(--vscode-editor-background)
+  );
+  --ctl-grad-top: color-mix(
+    in srgb,
+    var(--vscode-foreground) 14%,
+    var(--ctl-surface)
+  );
+  --ctl-grad-bot: var(--ctl-surface);
+  --ctl-shine: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+  --ctl-inset: color-mix(
+    in srgb,
+    var(--vscode-widget-shadow, #000) 28%,
+    transparent
+  );
+  --card-border: color-mix(
+    in srgb,
+    var(--vscode-foreground) 14%,
+    var(--vscode-panel-border, transparent)
+  );
+  --card-fill: color-mix(
+    in srgb,
+    var(--vscode-foreground) 5.5%,
+    var(--vscode-editor-background)
+  );
+  --card-sheen: color-mix(in srgb, var(--vscode-foreground) 7%, transparent);
+}
+
+.vscode-light,
+.vscode-high-contrast-light {
+  color-scheme: light;
+  --ctl-border: color-mix(
+    in srgb,
+    var(--vscode-foreground) 16%,
+    var(--vscode-panel-border, transparent)
+  );
+  --ctl-border-hover: color-mix(
+    in srgb,
+    var(--vscode-foreground) 28%,
+    var(--vscode-panel-border, transparent)
+  );
+  --ctl-surface: color-mix(
+    in srgb,
+    var(--vscode-foreground) 4%,
+    var(--vscode-editor-background)
+  );
+  --ctl-surface-hover: color-mix(
+    in srgb,
+    var(--vscode-foreground) 7%,
+    var(--vscode-editor-background)
+  );
+  --ctl-surface-active: color-mix(
+    in srgb,
+    var(--vscode-foreground) 9%,
+    var(--vscode-editor-background)
+  );
+  --ctl-press: color-mix(
+    in srgb,
+    var(--vscode-foreground) 8%,
+    var(--vscode-editor-background)
+  );
+  --ctl-grad-top: color-mix(
+    in srgb,
+    var(--vscode-editor-background) 72%,
+    var(--ctl-surface)
+  );
+  --ctl-grad-bot: color-mix(
+    in srgb,
+    var(--vscode-foreground) 5.5%,
+    var(--vscode-editor-background)
+  );
+  --ctl-shine: color-mix(in srgb, var(--vscode-editor-background) 78%, transparent);
+  --ctl-inset: color-mix(
+    in srgb,
+    var(--vscode-widget-shadow, #000) 12%,
+    transparent
+  );
+  --card-border: color-mix(
+    in srgb,
+    var(--vscode-foreground) 10%,
+    var(--vscode-panel-border, transparent)
+  );
+  --card-fill: color-mix(
+    in srgb,
+    var(--vscode-foreground) 3.2%,
+    var(--vscode-editor-background)
+  );
+  --card-sheen: color-mix(in srgb, var(--vscode-editor-background) 62%, transparent);
+}
+
+.vscode-dark,
+.vscode-high-contrast {
+  color-scheme: dark;
+}
+
+.vscode-high-contrast,
+.vscode-high-contrast-light {
+  --ctl-border: var(--vscode-contrastBorder, var(--ctl-border));
+  --ctl-border-hover: var(--vscode-contrastActiveBorder, var(--ctl-border-hover));
+  --card-border: var(--vscode-contrastBorder, var(--card-border));
 }
 
 html,
@@ -22,23 +157,46 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.95rem;
+}
+
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-left: auto;
 }
 
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .tab {
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  background: var(--vscode-button-secondaryBackground, var(--vscode-input-background));
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius-pill);
+  box-shadow: none;
+  font-weight: 500;
 }
 
-.tab.is-active {
-  color: var(--vscode-button-foreground);
-  background: var(--vscode-button-background);
+.tab:hover,
+.tab:disabled:hover {
+  background: var(--ctl-surface-hover);
+  border-color: var(--ctl-border-hover);
+}
+
+.tab.is-active,
+.tab.is-active:hover,
+.tab.is-active:disabled:hover {
+  color: var(--vscode-foreground);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  border-color: var(--ctl-border-hover);
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+  font-weight: 600;
 }
 
 #close {
@@ -46,17 +204,19 @@ body {
 }
 
 .toolbar-version {
-  margin-left: auto;
-  margin-right: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 999px;
+  min-height: var(--ctl-height);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.7rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius-pill);
   font-family: var(--vscode-editor-font-family);
   font-size: 0.82em;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--vscode-foreground);
-  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+  color: var(--vscode-descriptionForeground);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .view-actions {
@@ -64,40 +224,135 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: calc(var(--ctl-height) + 0.45rem);
+  padding: 0.2rem 0.25rem 0.2rem 0.75rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius-pill);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+}
+
+.toolbar-group button,
+.toolbar-group .action-btn {
+  border-radius: var(--ctl-radius-pill);
 }
 
 .history-limit-inline {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   color: var(--vscode-descriptionForeground);
   font-size: var(--vscode-font-size);
 }
 
 .history-limit-inline input[type='number'] {
   width: 6.5rem;
-  font-family: var(--vscode-editor-font-family);
+}
+
+.spikes-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: calc(var(--ctl-height) + 0.45rem);
+  padding: 0.2rem 0.85rem 0.2rem 0.55rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius-pill);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+  color: var(--vscode-descriptionForeground);
   font-size: var(--vscode-font-size);
-  color: var(--vscode-input-foreground);
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.spikes-filter:hover {
+  border-color: var(--ctl-border-hover);
+}
+
+.spikes-filter:has(input:checked) {
+  color: var(--vscode-foreground);
+}
+
+.spikes-filter input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  display: inline-block;
+  width: 1.75rem;
+  height: 1rem;
+  margin: 0;
+  flex-shrink: 0;
+  position: relative;
+  border: 1px solid var(--ctl-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vscode-foreground) 16%, transparent);
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+  cursor: pointer;
+}
+
+.spikes-filter input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 0.1rem;
+  left: 0.1rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--vscode-foreground);
+  transition: transform 0.12s ease;
+}
+
+.spikes-filter input[type='checkbox']:checked {
+  background: var(--cost-warn, var(--vscode-errorForeground));
+  border-color: color-mix(
+    in srgb,
+    var(--cost-warn, var(--vscode-errorForeground)) 70%,
+    var(--ctl-border)
+  );
+  box-shadow: none;
+}
+
+.spikes-filter input[type='checkbox']:checked::after {
+  transform: translateX(0.75rem);
+  background: var(--vscode-editor-background);
+}
+
+.spikes-filter:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.spikes-filter:has(input:disabled):hover {
+  border-color: var(--ctl-border);
+}
+
+.spikes-filter input[type='checkbox']:disabled {
+  cursor: default;
 }
 
 .settings-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   color: var(--vscode-descriptionForeground);
   font-size: var(--vscode-font-size);
 }
 
 .settings-kilo {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .settings-unit {
@@ -112,25 +367,221 @@ body {
   font-family: var(--vscode-editor-font-family);
 }
 
+.settings-preview-emphasis {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 0.55rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius-pill);
+  color: var(--vscode-foreground);
+  background: var(--ctl-surface);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-row input[type='number'] {
   width: 6.5rem;
 }
 
-.settings-form input[type='number'],
-.settings-form input[type='color'] {
+.settings-form input[type='number']:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+input[type='number'] {
+  box-sizing: border-box;
+  min-height: var(--ctl-height);
+  min-width: 5.5rem;
   font-family: var(--vscode-editor-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-input-foreground);
   background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
-  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  padding: 0.22rem 0.55rem;
+  box-shadow: inset 0 1px 2px var(--ctl-inset);
+  /* Native spinners are unreliable in VS Code/Cursor webviews on Windows. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  overflow: hidden;
+  background: var(--vscode-input-background);
+  box-shadow: inset 0 1px 2px var(--ctl-inset);
+}
+
+.number-stepper input[type='number'] {
+  width: 5.5rem;
+  min-width: 4.5rem;
+  min-height: calc(var(--ctl-height) - 2px);
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  text-align: center;
+}
+
+.number-step {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: calc(var(--ctl-height) - 2px);
+  margin: 0;
+  padding: 0 0.35rem;
+  border: none;
+  border-radius: 0;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--vscode-foreground);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+  cursor: pointer;
+}
+
+.number-step:hover {
+  background: linear-gradient(180deg, var(--ctl-surface-hover), var(--ctl-press));
+}
+
+.number-step:active {
+  background: var(--ctl-press);
+}
+
+.number-step:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+  z-index: 1;
+}
+
+.number-step:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.number-stepper input[type='number']:disabled {
+  opacity: 0.7;
+}
+
+.settings-kilo .number-stepper + .settings-unit {
+  margin-left: 0.05rem;
+}
+
+/* Dropdown tokens + color-scheme: input-foreground alone paints white options
+   on the OS light popup list in Electron/Windows webviews. */
+.settings-form select {
+  box-sizing: border-box;
+  min-width: 4.25rem;
+  min-height: var(--ctl-height);
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  background-color: var(
+    --vscode-dropdown-background,
+    var(--vscode-input-background)
+  );
+  border: 1px solid var(--vscode-dropdown-border, var(--ctl-border));
+  border-radius: var(--ctl-radius);
+  padding: 0.22rem 1.7rem 0.22rem 0.55rem;
+  box-shadow: inset 0 1px 2px var(--ctl-inset);
+  cursor: pointer;
+  color-scheme: inherit;
+}
+
+.vscode-dark .settings-form select,
+.vscode-high-contrast .settings-form select {
+  color-scheme: dark;
+}
+
+.vscode-light .settings-form select,
+.vscode-high-contrast-light .settings-form select {
+  color-scheme: light;
+}
+
+.settings-form select option {
+  /* System colors follow the select's color-scheme (readable native popup). */
+  color: CanvasText;
+  background-color: Canvas;
+}
+
+.toolbar-group input[type='number'] {
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-background) 78%,
+    var(--vscode-input-background)
+  );
+}
+
+input[type='number']:hover,
+.settings-form select:hover {
+  border-color: var(--ctl-border-hover);
+}
+
+input[type='number']:focus-visible,
+.settings-form select:focus-visible {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+  box-shadow:
+    inset 0 1px 2px var(--ctl-inset),
+    0 0 0 1px var(--vscode-focusBorder);
+}
+
+.settings-form select:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .settings-form input[type='color'] {
-  width: 2.5rem;
-  height: 1.6rem;
-  padding: 0.1rem;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 2.4rem;
+  height: var(--ctl-height);
+  padding: 3px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-input-foreground);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
   cursor: pointer;
+}
+
+.settings-form input[type='color']:hover {
+  border-color: var(--ctl-border-hover);
+}
+
+.settings-form input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.settings-form input[type='color']::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+
+.settings-form input[type='color']::-moz-color-swatch {
+  border: none;
+  border-radius: 5px;
 }
 
 .tokens-spike {
@@ -145,24 +596,62 @@ h1 {
 
 button,
 .action-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ctl-height);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
-  color: var(--vscode-button-foreground);
-  background: var(--vscode-button-background);
-  border: 1px solid var(--vscode-button-border, transparent);
-  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--vscode-foreground);
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  padding: 0.28rem 0.9rem;
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
   cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 button:hover,
 .action-btn:hover {
-  background: var(--vscode-button-hoverBackground);
+  background: linear-gradient(180deg, var(--ctl-surface-hover), var(--ctl-press));
+  border-color: var(--ctl-border-hover);
 }
 
-.action-btn {
-  display: inline-block;
-  text-decoration: none;
-  box-sizing: border-box;
+button:active,
+.action-btn:active {
+  background: var(--ctl-press);
+  box-shadow: inset 0 1px 2px var(--ctl-inset);
+}
+
+button:focus-visible,
+.action-btn:focus-visible,
+.tab:focus-visible,
+input[type='color']:focus-visible,
+input[type='checkbox']:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+button:disabled,
+.action-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+button:disabled:hover,
+.action-btn:disabled:hover {
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  border-color: var(--ctl-border);
 }
 
 #status,
@@ -173,6 +662,12 @@ button:hover,
 
 .table-wrap {
   overflow: auto;
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.2rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 table {
@@ -185,14 +680,31 @@ table {
 th,
 td {
   text-align: left;
-  padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--ctl-border, var(--vscode-panel-border));
   white-space: nowrap;
 }
 
+th:first-child,
+td:first-child {
+  padding-left: 0.85rem;
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 0.85rem;
+}
+
 th {
-  font-weight: 600;
+  font-weight: 650;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
   color: var(--vscode-descriptionForeground);
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 tbody tr:hover {
@@ -205,10 +717,14 @@ tbody tr:hover {
   gap: 1.5rem;
   max-width: 72rem;
   min-width: 0;
+  position: relative;
 }
 
-#statsView[hidden] {
-  display: none;
+#queriesView[hidden],
+#statsView[hidden],
+#chartsView[hidden],
+#settingsView[hidden] {
+  display: none !important;
 }
 
 #stats {
@@ -227,15 +743,28 @@ tbody tr:hover {
 }
 
 #chartsView[hidden] {
+  display: none !important;
+}
+
+#chartsMtd {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#chartsMtd:empty {
   display: none;
 }
 
 .chart-card {
   margin: 0;
-  padding: 0.85rem 1rem 1rem;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+  padding: 1.05rem 1.15rem 1.15rem;
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.6rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-input-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .chart-card h2 {
@@ -268,11 +797,11 @@ tbody tr:hover {
 
 .chart-legend-item.is-bar::before {
   content: '';
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 2px;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
   background: var(--vscode-charts-blue, #3794ff);
-  opacity: 0.55;
+  opacity: 0.75;
 }
 
 .chart-legend-item.is-line::before {
@@ -280,6 +809,169 @@ tbody tr:hover {
   width: 0.9rem;
   height: 0;
   border-top: 2px solid var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.chart-legend-item.is-allowance::before {
+  content: '';
+  width: 0.9rem;
+  height: 0;
+  border-top: 2px dashed var(--vscode-charts-yellow, #b89500);
+}
+
+.chart-legend-item.is-s0::before,
+.chart-legend-item.is-s1::before,
+.chart-legend-item.is-s2::before,
+.chart-legend-item.is-s3::before {
+  content: '';
+  width: 0.9rem;
+  height: 0;
+  border-top: 2px solid var(--vscode-charts-blue, #3794ff);
+}
+
+.chart-legend-item.is-s1::before {
+  border-top-color: var(--vscode-charts-purple, #b180d7);
+}
+
+.chart-legend-item.is-s2::before {
+  border-top-color: var(--vscode-charts-yellow, #b89500);
+}
+
+.chart-legend-item.is-s3::before {
+  border-top-color: var(--vscode-charts-foreground, #cccccc);
+}
+
+/* Forecast = distinct non-alert hues; ideal = Good / ok green. */
+.chart-legend-item.is-forecast.is-s0::before,
+.chart-legend-item.is-forecast.is-s1::before,
+.chart-legend-item.is-forecast.is-s2::before,
+.chart-legend-item.is-forecast.is-s3::before {
+  border-top-style: dashed;
+  border-top-color: var(--vscode-charts-blue, #75beff);
+}
+
+.chart-legend-item.is-forecast.is-s1::before {
+  border-top-color: var(--vscode-charts-purple, #e0b0ff);
+}
+
+.chart-legend-item.is-ideal.is-s0::before,
+.chart-legend-item.is-ideal.is-s1::before,
+.chart-legend-item.is-ideal.is-s2::before,
+.chart-legend-item.is-ideal.is-s3::before {
+  border-top-style: dotted;
+  border-top-color: var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.chart-legend-item.is-dashed::before {
+  border-top-style: dashed;
+}
+
+.chart-line.is-allowance {
+  stroke: var(--vscode-charts-yellow, #b89500);
+  stroke-dasharray: 5 4;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-line.is-forecast {
+  stroke-dasharray: 6 4;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-line.is-ideal {
+  stroke-dasharray: 1.5 3.5;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.95;
+}
+
+.chart-line.is-s0 {
+  stroke: var(--vscode-charts-blue, #3794ff);
+}
+
+.chart-line.is-s1 {
+  stroke: var(--vscode-charts-purple, #b180d7);
+}
+
+.chart-line.is-s2 {
+  stroke: var(--vscode-charts-yellow, #b89500);
+}
+
+.chart-line.is-s3 {
+  stroke: var(--vscode-charts-foreground, #cccccc);
+}
+
+.chart-line.is-forecast.is-s0 {
+  stroke: var(--vscode-charts-blue, #75beff);
+}
+
+.chart-line.is-forecast.is-s1 {
+  stroke: var(--vscode-charts-purple, #e0b0ff);
+}
+
+.chart-line.is-forecast.is-s2 {
+  stroke: var(--vscode-charts-yellow, #dcdcaa);
+}
+
+.chart-line.is-forecast.is-s3 {
+  stroke: var(--vscode-descriptionForeground, #bbbbbb);
+}
+
+.chart-line.is-ideal.is-s0,
+.chart-line.is-ideal.is-s1,
+.chart-line.is-ideal.is-s2,
+.chart-line.is-ideal.is-s3 {
+  stroke: var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.chart-dot.is-s0 {
+  fill: var(--vscode-charts-blue, #3794ff);
+}
+
+.chart-dot.is-s1 {
+  fill: var(--vscode-charts-purple, #b180d7);
+}
+
+.chart-dot.is-s2 {
+  fill: var(--vscode-charts-yellow, #b89500);
+}
+
+.chart-dot.is-s3 {
+  fill: var(--vscode-charts-foreground, #cccccc);
+}
+
+.chart-dot.is-forecast.is-s0 {
+  fill: var(--vscode-charts-blue, #75beff);
+}
+
+.chart-dot.is-forecast.is-s1 {
+  fill: var(--vscode-charts-purple, #e0b0ff);
+}
+
+.chart-dot.is-runout.is-s0 {
+  fill: var(--vscode-charts-blue, #75beff);
+}
+
+.chart-dot.is-runout.is-s1 {
+  fill: var(--vscode-charts-purple, #e0b0ff);
+}
+
+.chart-runout.is-s0 {
+  stroke: var(--vscode-charts-blue, #75beff);
+}
+
+.chart-runout.is-s1 {
+  stroke: var(--vscode-charts-purple, #e0b0ff);
+}
+
+.chart-today {
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.55;
 }
 
 .chart-frame {
@@ -296,7 +988,7 @@ tbody tr:hover {
 .chart-grid {
   stroke: var(--vscode-panel-border);
   stroke-width: 1;
-  opacity: 0.7;
+  opacity: 0.38;
 }
 
 .chart-axis {
@@ -313,7 +1005,27 @@ tbody tr:hover {
 
 .chart-bar {
   fill: var(--vscode-charts-blue, #3794ff);
-  opacity: 0.4;
+  opacity: 0.5;
+}
+
+.chart-bar.is-s0 {
+  fill: var(--vscode-charts-blue, #3794ff);
+  opacity: 0.45;
+}
+
+.chart-bar.is-s1 {
+  fill: var(--vscode-charts-purple, #b180d7);
+  opacity: 0.45;
+}
+
+.chart-bar.is-s2 {
+  fill: var(--vscode-charts-yellow, #b89500);
+  opacity: 0.45;
+}
+
+.chart-bar.is-s3 {
+  fill: var(--vscode-charts-foreground, #cccccc);
+  opacity: 0.45;
 }
 
 .chart-line {
@@ -343,17 +1055,60 @@ tbody tr:hover {
   z-index: 3;
   left: var(--chart-tip-x, 8px);
   top: var(--chart-tip-y, 8px);
-  max-width: 18rem;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 12.75rem;
+  max-width: 20rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+  border: 1px solid var(--ctl-border, var(--vscode-panel-border));
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 1.4rem),
+    var(--vscode-editorWidget-background, var(--vscode-input-background));
   color: var(--vscode-foreground);
   font-size: 0.8em;
-  font-family: var(--vscode-editor-font-family);
   line-height: 1.4;
   pointer-events: none;
-  white-space: pre-wrap;
+  box-shadow:
+    inset 0 1px 0 var(--ctl-shine),
+    0 8px 24px color-mix(in srgb, var(--vscode-widget-shadow, #000) 28%, transparent);
+}
+
+.chart-tip[hidden] {
+  display: none !important;
+}
+
+.chart-tip-title {
+  margin: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip-sub {
+  margin: 0 0 0.35rem;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.92em;
+}
+
+.chart-tip-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip-label {
+  color: var(--vscode-descriptionForeground);
+  min-width: 0;
+}
+
+.chart-tip-value {
+  font-family: var(--vscode-editor-font-family);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .period-cards-note {
@@ -368,13 +1123,13 @@ tbody tr:hover {
 
 .period-card {
   margin: 0;
-  padding: 0.9rem 1rem 1rem;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
-  background: var(
-    --vscode-editorWidget-background,
-    var(--vscode-input-background)
-  );
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.4rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-input-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .period-card-title {
@@ -436,7 +1191,12 @@ tbody tr:hover {
   height: 0.45rem;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--vscode-input-background);
+  background: color-mix(
+    in srgb,
+    var(--vscode-foreground) 8%,
+    var(--vscode-editor-background)
+  );
+  box-shadow: inset 0 1px 1px var(--ctl-inset);
 }
 
 .period-mix-seg {
@@ -446,22 +1206,38 @@ tbody tr:hover {
 
 .period-mix-seg.is-input,
 .period-legend-item.is-input::before {
-  background: var(--vscode-charts-blue, #3794ff);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-blue, #3794ff)
+  );
 }
 
 .period-mix-seg.is-output,
 .period-legend-item.is-output::before {
-  background: var(--vscode-charts-orange, #d18616);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-orange, #d18616) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-orange, #d18616)
+  );
 }
 
 .period-mix-seg.is-cacheWrite,
 .period-legend-item.is-cacheWrite::before {
-  background: var(--vscode-charts-purple, #b180d7);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-purple, #b180d7)
+  );
 }
 
 .period-mix-seg.is-cacheRead,
 .period-legend-item.is-cacheRead::before {
-  background: var(--vscode-charts-green, #89d185);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-green, #89d185) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-green, #89d185)
+  );
 }
 
 .period-legend {
@@ -481,9 +1257,9 @@ tbody tr:hover {
 
 .period-legend-item::before {
   content: '';
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 2px;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
 }
 
 @media (max-width: 52rem) {
@@ -539,19 +1315,17 @@ tbody tr:hover {
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   color: var(--vscode-descriptionForeground);
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--vscode-panel-border);
+  padding: 0.18rem 0.65rem;
+  border: 1px solid var(--ctl-border, var(--vscode-panel-border));
   border-radius: 999px;
-  background: var(
-    --vscode-editorWidget-background,
-    var(--vscode-input-background)
-  );
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .stats-note {
   margin: 0;
   padding: 0.55rem 0.8rem;
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--card-border, var(--ctl-border));
   border-radius: 8px;
   background: color-mix(
     in srgb,
@@ -562,6 +1336,7 @@ tbody tr:hover {
   white-space: normal;
   line-height: 1.45;
   font-size: 0.86em;
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .stats-grid {
@@ -583,18 +1358,16 @@ tbody tr:hover {
 .breakdown-panel {
   box-sizing: border-box;
   min-width: 0;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 10px;
-  background: var(
-    --vscode-editorWidget-background,
-    var(--vscode-editor-background)
-  );
-  box-shadow: 0 1px 0
-    color-mix(in srgb, var(--vscode-widget-shadow, #000) 14%, transparent);
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.2rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
 .stats-card {
-  padding: 0.95rem 1.05rem 1rem;
+  padding: 1rem 1.1rem 1.05rem;
   display: flex;
   flex-direction: column;
   gap: 0.28rem;
@@ -602,36 +1375,28 @@ tbody tr:hover {
 }
 
 .stats-card.is-primary {
-  border-top: 3px solid
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.2rem),
     color-mix(
       in srgb,
-      var(--cost-ok, var(--vscode-charts-green, #89d185)) 75%,
-      var(--vscode-panel-border)
+      var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background))) 88%,
+      var(--cost-ok, var(--vscode-charts-green, #89d185)) 12%
     );
-  background: color-mix(
-    in srgb,
-    var(--vscode-editorWidget-background, var(--vscode-editor-background)) 86%,
-    var(--cost-ok, var(--vscode-charts-green, #89d185)) 14%
-  );
 }
 
 .stats-card.is-highlight {
-  border-top: 3px solid
-    color-mix(
-      in srgb,
-      var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 80%,
-      var(--vscode-panel-border)
-    );
   border-color: color-mix(
     in srgb,
-    var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 45%,
-    var(--vscode-panel-border) 55%
+    var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 40%,
+    var(--card-border, var(--ctl-border)) 60%
   );
-  background: color-mix(
-    in srgb,
-    var(--vscode-editorWidget-background, var(--vscode-editor-background)) 86%,
-    var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 14%
-  );
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.2rem),
+    color-mix(
+      in srgb,
+      var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background))) 88%,
+      var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 12%
+    );
 }
 
 .stats-card.is-wide {
@@ -672,7 +1437,8 @@ tbody tr:hover {
 
 .stats-card.is-primary .stats-value,
 .stats-value-hero {
-  font-size: 1.65rem;
+  font-size: 1.85rem;
+  letter-spacing: -0.03em;
 }
 
 .stats-detail {
@@ -720,14 +1486,16 @@ tbody tr:hover {
 .status-block {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 1.05rem 1.15rem 1.1rem;
-  border-top: 3px solid
-    color-mix(
-      in srgb,
-      var(--cost-ok, var(--vscode-charts-green, #89d185)) 75%,
-      var(--vscode-panel-border)
-    );
+  gap: 0.55rem;
+  padding: 1.2rem 1.3rem 1.25rem;
+}
+
+.status-block.is-over {
+  border-color: color-mix(
+    in srgb,
+    var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 42%,
+    var(--card-border, var(--ctl-border)) 58%
+  );
 }
 
 .status-block h3 {
@@ -735,8 +1503,21 @@ tbody tr:hover {
 }
 
 .status-block .stats-hint {
-  border-top: 1px solid var(--vscode-panel-border);
+  border-top: none;
+  padding-top: 0.05rem;
   font-size: 0.82em;
+}
+
+.status-block .meter-track {
+  height: 5px;
+}
+
+.status-block .meter-fill.is-usage {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-foreground) 92%, transparent),
+    color-mix(in srgb, var(--vscode-foreground) 68%, transparent)
+  );
 }
 
 .cycle-strip {
@@ -745,6 +1526,133 @@ tbody tr:hover {
   gap: 0.75rem;
   align-items: stretch;
   min-width: 0;
+}
+
+.cycle-strip.is-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cycle-strip.is-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cycle-strip.is-five {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.status-block.is-mtd .chart-legend {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.status-block.is-mtd .stats-hint {
+  margin-top: 0.15rem;
+}
+
+.mtd-chart-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.85rem;
+  margin: 0.15rem 0 0.2rem;
+}
+
+.mtd-range {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border: 1px solid var(--ctl-border, var(--vscode-widget-border, transparent));
+  border-radius: var(--ctl-radius-pill);
+  background: color-mix(
+    in srgb,
+    var(--vscode-editor-background, transparent) 72%,
+    transparent
+  );
+}
+
+.mtd-range-btn {
+  margin: 0;
+  padding: 0.22rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--ctl-radius-pill);
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  font: inherit;
+  font-size: 0.78em;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.mtd-range-btn:hover {
+  color: var(--vscode-foreground);
+}
+
+.mtd-range-btn.is-active {
+  border-color: color-mix(
+    in srgb,
+    var(--vscode-focusBorder, var(--vscode-button-background)) 45%,
+    var(--ctl-border, transparent) 55%
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-foreground) 10%, transparent),
+    color-mix(in srgb, var(--vscode-foreground) 4%, transparent)
+  );
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.mtd-caption {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.84em;
+  line-height: 1.45;
+}
+
+.stats-value.is-warn {
+  color: var(--cost-warn, var(--vscode-charts-red, #f14c4c));
+}
+
+.stats-value.is-ok {
+  color: var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.chart-runout {
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+.chart-runout.is-s0 {
+  stroke: var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.chart-runout.is-s1 {
+  stroke: var(--vscode-charts-purple, #b180d7);
+}
+
+.chart-runout.is-s2 {
+  stroke: var(--vscode-charts-orange, #d18616);
+}
+
+.chart-runout.is-s3 {
+  stroke: var(--vscode-charts-blue, #3794ff);
+}
+
+.chart-dot.is-runout {
+  stroke: var(--vscode-editor-background, #1e1e1e);
+  stroke-width: 1.5;
+}
+
+.chart-runout-label {
+  fill: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+
+.mtd-forecast-frame {
+  height: 14.5rem;
 }
 
 .cycle-chip {
@@ -768,12 +1676,22 @@ tbody tr:hover {
   align-self: flex-start;
   margin-top: 0.2rem;
   padding: 0.2rem 0.75rem;
+  border: 1px solid var(--ctl-border);
   border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--cost-ok, var(--vscode-charts-green, #89d185)) 20%,
-    transparent
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--cost-ok, var(--vscode-charts-green, #89d185)) 28%,
+      var(--ctl-grad-top)
+    ),
+    color-mix(
+      in srgb,
+      var(--cost-ok, var(--vscode-charts-green, #89d185)) 16%,
+      transparent
+    )
   );
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
   font-size: 1.05rem;
 }
 
@@ -857,25 +1775,46 @@ tbody tr:hover {
 }
 
 .meter-track {
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(
     in srgb,
-    var(--vscode-input-background) 72%,
-    var(--vscode-panel-border) 28%
+    var(--vscode-foreground) 10%,
+    var(--vscode-editor-background)
   );
+  box-shadow: inset 0 1px 1px var(--ctl-inset);
 }
 
 .meter-fill {
   height: 100%;
   border-radius: 999px;
-  background: var(--cost-ok, var(--vscode-charts-green, #89d185));
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--cost-ok, var(--vscode-charts-green, #89d185)) 72%,
+      var(--vscode-foreground) 28%
+    ),
+    var(--cost-ok, var(--vscode-charts-green, #89d185))
+  );
   transition: width 0.2s ease;
 }
 
+.meter-fill.is-usage {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-foreground) 88%, transparent),
+    color-mix(in srgb, var(--vscode-foreground) 64%, transparent)
+  );
+}
+
 .meter-fill.is-share {
-  background: var(--vscode-charts-blue, #3794ff);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 78%, var(--vscode-foreground) 22%),
+    var(--vscode-charts-blue, #3794ff)
+  );
   opacity: 0.95;
 }
 
@@ -885,42 +1824,74 @@ tbody tr:hover {
 }
 
 .meter-fill.is-warn {
-  background: var(--cost-warn, var(--vscode-charts-red, #f14c4c));
+  background: linear-gradient(
+    180deg,
+    color-mix(
+      in srgb,
+      var(--cost-warn, var(--vscode-charts-red, #f14c4c)) 78%,
+      var(--vscode-foreground) 22%
+    ),
+    var(--cost-warn, var(--vscode-charts-red, #f14c4c))
+  );
 }
 
 .meter-fill.is-tone-0,
 .period-mix-seg.is-tone-0 {
-  background: var(--vscode-charts-blue, #3794ff);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-blue, #3794ff)
+  );
   opacity: 1;
 }
 
 .meter-fill.is-tone-1,
 .period-mix-seg.is-tone-1 {
-  background: var(--vscode-charts-orange, #d18616);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-orange, #d18616) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-orange, #d18616)
+  );
   opacity: 1;
 }
 
 .meter-fill.is-tone-2,
 .period-mix-seg.is-tone-2 {
-  background: var(--vscode-charts-yellow, #b89500);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-yellow, #b89500) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-yellow, #b89500)
+  );
   opacity: 1;
 }
 
 .meter-fill.is-tone-3,
 .period-mix-seg.is-tone-3 {
-  background: var(--vscode-charts-purple, #b180d7);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-purple, #b180d7)
+  );
   opacity: 1;
 }
 
 .meter-fill.is-tone-4,
 .period-mix-seg.is-tone-4 {
-  background: var(--vscode-charts-green, #89d185);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-green, #89d185) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-green, #89d185)
+  );
   opacity: 1;
 }
 
 .meter-fill.is-tone-5,
 .period-mix-seg.is-tone-5 {
-  background: var(--vscode-charts-red, #f14c4c);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vscode-charts-red, #f14c4c) 72%, var(--vscode-foreground) 28%),
+    var(--vscode-charts-red, #f14c4c)
+  );
   opacity: 1;
 }
 
@@ -929,6 +1900,12 @@ tbody tr:hover {
   .stats-grid-detail,
   .status-explain,
   .cycle-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .cycle-strip.is-three,
+  .cycle-strip.is-four,
+  .cycle-strip.is-five {
     grid-template-columns: 1fr;
   }
 
@@ -947,41 +1924,274 @@ tbody tr:hover {
 }
 
 #settingsView[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .settings-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 36rem;
+  max-width: 48rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-bar-editor {
+  max-width: 48rem;
+}
+
+.settings-hint-spaced {
+  margin-top: 0.85rem;
+}
+
+.settings-control-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ctl-border);
+  border-radius: 10px;
+  background: color-mix(
+    in srgb,
+    var(--vscode-foreground) 3.5%,
+    transparent
+  );
+}
+
+.settings-control-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.settings-control-title {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.settings-control-description {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.88em;
+  line-height: 1.35;
+}
+
+.status-bar-preview-frame {
+  margin: 0.35rem 0 0.85rem;
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 1.8rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+}
+
+.status-bar-preview-label {
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+  border-bottom: 1px solid var(--card-border, var(--vscode-panel-border));
+  background: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+}
+
+.status-bar-preview {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0;
+  min-height: 22px;
+  overflow-x: auto;
+  background: var(--vscode-statusBar-background, #007acc);
+  color: var(--vscode-statusBar-foreground, #fff);
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.status-bar-preview.is-hidden {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.status-bar-preview-empty {
+  margin: 0;
+  padding: 0.55rem 0.75rem 0.7rem;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.82em;
+  line-height: 1.4;
+}
+
+.bar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 22px;
+  padding: 0 0.55rem;
+  color: var(--vscode-statusBar-foreground, #fff);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.bar-chip:hover {
+  background: var(--vscode-statusBarItem-hoverBackground, rgba(255, 255, 255, 0.12));
+}
+
+.bar-chip.is-green {
+  color: var(--cost-ok, var(--vscode-charts-green, #89d185));
+}
+
+.bar-chip.is-red {
+  color: var(--cost-warn, var(--vscode-charts-red, #f14c4c));
+}
+
+.bar-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.bar-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bar-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: currentColor;
+}
+
+.bar-icon.is-spin {
+  animation: bar-icon-spin 1s linear infinite;
+}
+
+@keyframes bar-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .settings-form fieldset {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
   margin: 0;
-  padding: 0.75rem 1rem 1rem;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 6px;
+  padding: 1.05rem 1.15rem 1.15rem;
+  border: 1px solid var(--card-border, var(--ctl-border));
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.4rem),
+    var(--card-fill, var(--vscode-editorWidget-background, var(--vscode-editor-background)));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
 }
 
-.settings-form legend {
-  padding: 0 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.settings-card-title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 0.7rem;
+  padding: 0 0 0.55rem;
+  border: none;
+  border-bottom: 1px solid var(--card-border, var(--ctl-border));
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+}
+
+.settings-section-title {
+  display: block;
+  width: 100%;
+  margin: 1.15rem 0 0.35rem;
+  padding: 0.75rem 0 0;
+  border: none;
+  border-top: 1px solid var(--card-border, var(--ctl-border));
+  font-size: 0.68rem;
+  font-weight: 650;
+  font-family: inherit;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
   text-transform: uppercase;
   color: var(--vscode-descriptionForeground);
 }
 
 .settings-form .settings-row,
 .settings-form .settings-check {
-  margin: 0.6rem 0;
+  margin: 0.55rem 0 0.25rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .settings-check {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settings-check input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  border: 1px solid var(--ctl-border);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+  cursor: pointer;
+}
+
+.settings-check input[type='checkbox']:hover {
+  border-color: var(--ctl-border-hover);
+}
+
+.settings-check input[type='checkbox']:checked {
+  background: var(--vscode-foreground);
+  border-color: var(--vscode-foreground);
+  box-shadow: none;
+}
+
+.settings-check input[type='checkbox']:checked::after {
+  content: '';
+  width: 0.28rem;
+  height: 0.48rem;
+  border: solid var(--vscode-editor-background);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.settings-check:has(input:disabled) {
+  opacity: 0.55;
+}
+
+.settings-check input[type='checkbox']:disabled {
+  cursor: default;
 }
 
 .settings-hint {
@@ -998,6 +2208,13 @@ tbody tr:hover {
 
 .settings-form button {
   margin-top: 0.35rem;
+}
+
+@media (max-width: 34rem) {
+  .settings-control-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .settings-version {

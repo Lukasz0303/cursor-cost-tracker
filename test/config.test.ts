@@ -22,6 +22,38 @@ describe('parseHexColor', () => {
   })
 })
 
+describe('config overlay', () => {
+  it('overrides disk config until reconciled', async () => {
+    const {
+      clearCursorCostConfigOverlay,
+      patchCursorCostConfigOverlay,
+      readCursorCostConfig,
+      reconcileCursorCostConfigOverlay,
+    } = await import('../src/config')
+    clearCursorCostConfigOverlay()
+    const section = {
+      get(key: string, defaultValue: unknown) {
+        if (key === 'recentQueryCount') {
+          return 6
+        }
+        return defaultValue
+      },
+    }
+    patchCursorCostConfigOverlay({ recentQueryCount: 1 })
+    expect(readCursorCostConfig(section).recentQueryCount).toBe(1)
+    reconcileCursorCostConfigOverlay({
+      get(key: string, defaultValue: unknown) {
+        if (key === 'recentQueryCount') {
+          return 1
+        }
+        return defaultValue
+      },
+    })
+    expect(readCursorCostConfig(section).recentQueryCount).toBe(6)
+    clearCursorCostConfigOverlay()
+  })
+})
+
 describe('cursorCostConfigFrom', () => {
   it('reads warning colors from settings', () => {
     const config = cursorCostConfigFrom({
@@ -35,12 +67,28 @@ describe('cursorCostConfigFrom', () => {
         if (key === 'showSpikeWarning') {
           return false
         }
+        if (key === 'showCriticalAlert') {
+          return false
+        }
+        if (key === 'criticalTokenThreshold') {
+          return 20_000_000
+        }
+        if (key === 'criticalCostUsdThreshold') {
+          return 7.5
+        }
+        if (key === 'recentQueryCount') {
+          return 12
+        }
         return defaultValue
       },
     })
     expect(config.okColor).toBe('#AABBCC')
     expect(config.warnColor).toBe(DEFAULT_WARN_COLOR)
     expect(config.showSpikeWarning).toBe(false)
+    expect(config.showCriticalAlert).toBe(false)
+    expect(config.criticalTokenThreshold).toBe(20_000_000)
+    expect(config.criticalCostUsdThreshold).toBe(7.5)
+    expect(config.recentQueryCount).toBe(10)
   })
 })
 

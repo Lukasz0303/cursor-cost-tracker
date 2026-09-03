@@ -6,7 +6,7 @@ alwaysApply: false
 # Extension host
 
 - Register all disposables on `context.subscriptions`.
-- Status bar: `StatusBarAlignment.Right`, priority ~100. Current and Today command = `cursorCost.showHistory`. Refresh = `cursorCost.refresh`.
+- Status bar: `StatusBarAlignment.Right`, priority ~100. Current and Today command = `cursorCost.showHistory`. Refresh = `cursorCost.refresh` (spins while fetching). Do not give the Refresh status bar item an `id` (a named id matching the command stays hidden after overflow). Keep Refresh's priority above the 1–10 recent query chips so it sits after Current/Today, not on the window edge. Export CSV stays on the Last N toolbar (`cursorCost.exportCsv`), not the status bar. Budget hover is trusted MarkdownString with `supportHtml` + theme icons; user-provided email/plan/model names are escaped.
 - Theme colors: `charts.green` / yellow / `charts.red`. Loading: `$(loading~spin)`.
 - `onStartupFinished` — status bar visible after startup.
 - Reuse one `WebviewPanel` (`cursorCost.history`). `retainContextWhenHidden: true`.

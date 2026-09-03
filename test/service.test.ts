@@ -97,7 +97,7 @@ describe('clampPollIntervalMinutes', () => {
     expect(clampPollIntervalMinutes(0)).toBe(1)
     expect(clampPollIntervalMinutes(99)).toBe(60)
     expect(clampPollIntervalMinutes(5)).toBe(5)
-    expect(clampPollIntervalMinutes(Number.NaN)).toBe(5)
+    expect(clampPollIntervalMinutes(Number.NaN)).toBe(1)
   })
 })
 
@@ -298,6 +298,31 @@ describe('UsageService', () => {
 
     await service.refresh()
     expect(fetchSummary).toHaveBeenCalledTimes(3)
+    service.dispose()
+  })
+
+  it('reports isRefreshing while a fetch is in flight', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const service = new UsageService({
+      readSession: okSession(),
+      fetchSummary: async () => {
+        await gate
+        return { ok: true, raw: summary }
+      },
+      fetchEvents: async () => ({ ok: true, queries: queries() }),
+      now: () => now,
+    })
+    expect(service.isRefreshing()).toBe(false)
+    const pending = service.refresh()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(service.isRefreshing()).toBe(true)
+    release()
+    await pending
+    expect(service.isRefreshing()).toBe(false)
     service.dispose()
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CURSOR_COST_CONFIG, type CursorCostConfig } from '../src/config'
-import { toBudgetStatusItem, toStatusBarView, STATUS_CHIP_SEPARATOR } from '../src/ui/statusBarView'
+import { toBudgetStatusItem, toStatusBarView, STATUS_CHIP_SEPARATOR, statusBarChipParts, statusBarTextSegments, toStatusBarPreviewChips } from '../src/ui/statusBarView'
 import type { UsageReady, UsageSnapshot } from '../src/usage/types'
 
 function ready(overrides: Partial<UsageReady> = {}): UsageSnapshot {
@@ -37,6 +37,7 @@ describe('toStatusBarView', () => {
     expect(view.current.visible).toBe(true)
     expect(view.today.visible).toBe(false)
     expect(view.refresh.visible).toBe(true)
+    expect(view.refresh.text).toBe('$(sync~spin)\u00A0')
     expect(view.recent.every((item) => item.visible === false)).toBe(true)
   })
 
@@ -115,9 +116,23 @@ describe('toStatusBarView', () => {
     expect(view.current.tooltip).toBe(
       'dev@example.com · pro · cycle ends 2026-09-30 · Cycle pool used / limit (not the sum of today\'s queries)',
     )
-    expect(view.current.command).toBe('cursorCost.showHistory')
+    expect(view.current.command).toEqual({
+      command: 'cursorCost.showHistory',
+      title: 'Show Cursor Cost statistics',
+      arguments: ['stats'],
+    })
     expect(view.refresh.command).toBe('cursorCost.refresh')
-    expect(view.refresh.tooltip).toBe('Refresh')
+    expect(view.refresh.tooltip).toBe('Refresh usage from cursor.com')
+    expect(view.refresh.text).toBe('$(sync)\u00A0')
+    expect(view.refresh.tone).toBe('green')
+    expect(view.refresh.visible).toBe(true)
+  })
+
+  it('spins Refresh while a fetch is in flight', () => {
+    const view = toStatusBarView(ready(), shown, true)
+    expect(view.refresh.text).toBe('$(sync~spin)\u00A0')
+    expect(view.refresh.tooltip).toContain('Refreshing')
+    expect(view.current.text).toContain('3.79 $')
   })
 
   it('renders a dash when limit is missing on a metered plan', () => {
@@ -148,7 +163,7 @@ describe('toStatusBarView', () => {
     expect(view.today.tooltip).toContain('Cycle remaining is $0')
   })
 
-  it('shows the three newest queries after Today', () => {
+  it('shows the configured three newest queries after Today', () => {
     const view = toStatusBarView(
       ready({
         recentQueries: [
@@ -200,14 +215,49 @@ describe('toStatusBarView', () => {
       }),
       shown,
     )
-    expect(view.recent).toHaveLength(3)
+    expect(view.recent).toHaveLength(10)
     expect(view.recent[0]?.visible).toBe(true)
     expect(view.recent[0]?.text).toBe('0.03 $ - 64.8k')
     expect(view.recent[1]?.text).toBe('0.10 $ - 237.0k')
     expect(view.recent[2]?.text).toBe('0.05 $ - 52.1k')
+    expect(view.recent.slice(3).every((item) => item.visible === false)).toBe(true)
     expect(view.recent.every((item) => item.command === 'cursorCost.showHistory')).toBe(
       true,
     )
+    expect(view.refresh.visible).toBe(true)
+    expect(view.refresh.command).toBe('cursorCost.refresh')
+    expect(view.refresh.text).toContain('$(sync)')
+    expect(toBudgetStatusItem(view, ready({ recentQueries: [] }), shown).command).toEqual({
+      command: 'cursorCost.showHistory',
+      title: 'Show Cursor Cost statistics',
+      arguments: ['stats'],
+    })
+  })
+
+  it('shows between one and ten recent queries from configuration', () => {
+    const recentQueries = Array.from({ length: 10 }, (_, index) => ({
+      timestamp: 10 - index,
+      model: `model-${index}`,
+      kind: null,
+      costUsd: index / 100,
+      tokens: (index + 1) * 1_000,
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheWriteTokens: 0,
+      cacheReadTokens: 0,
+    }))
+
+    const one = toStatusBarView(
+      ready({ recentQueries }),
+      { ...shown, recentQueryCount: 1 },
+    )
+    expect(one.recent.filter((item) => item.visible)).toHaveLength(1)
+
+    const ten = toStatusBarView(
+      ready({ recentQueries }),
+      { ...shown, recentQueryCount: 10 },
+    )
+    expect(ten.recent.filter((item) => item.visible)).toHaveLength(10)
   })
 
   it('prefixes ! and uses red when a recent query is at least 1M tokens', () => {
@@ -269,6 +319,7 @@ describe('toStatusBarView', () => {
     expect(view.recent[0]?.text).toBe('1.20 $ - 2.0M')
     expect(view.recent[0]?.tone).toBe('default')
     expect(view.current.tone).toBe('default')
+    expect(view.refresh.tone).toBe('default')
   })
 
   it('drops Current/Today colors when warnings are off', () => {
@@ -278,6 +329,7 @@ describe('toStatusBarView', () => {
     )
     expect(view.current.tone).toBe('default')
     expect(view.today.tone).toBe('default')
+    expect(view.refresh.tone).toBe('default')
   })
 })
 
@@ -428,6 +480,7 @@ describe('status bar chips', () => {
     const view = toStatusBarView(ready(), { ...shown, minimalMode: true })
     expect(view.current.visible).toBe(true)
     expect(view.today.visible).toBe(false)
+    expect(view.refresh.visible).toBe(true)
     expect(view.recent.every((item) => item.visible === false)).toBe(true)
     const budget = toBudgetStatusItem(view, ready(), { ...shown, minimalMode: true })
     expect(budget.text).toContain('3.79 $')
@@ -459,10 +512,118 @@ describe('status bar chips', () => {
       new Date('2026-09-20T12:00:00'),
     )
     expect(budget.tooltipMarkdown).toBe(true)
+    expect(budget.tooltip).toContain('$(credit-card) **Cursor Cost**')
     expect(budget.tooltip).toContain('Resets in 10 days (2026-09-30)')
-    expect(budget.tooltip).toContain('**Included:** 512 / 500')
-    expect(budget.tooltip).toContain('**On-demand:** 3.79 $ / 250.00 $')
-    expect(budget.tooltip).toContain('| gpt-5 |')
+    expect(budget.tooltip).toContain('<strong>Included</strong>')
+    expect(budget.tooltip).toContain('512 / 500')
+    expect(budget.tooltip).toContain('<strong>On-demand</strong>')
+    expect(budget.tooltip).toContain('3.79 $ / 250.00 $')
+    expect(budget.tooltip).toContain('align="right"')
+    expect(budget.tooltip).toContain('gpt-5')
     expect(budget.tooltip).toContain('[Open Dashboard](https://cursor.com/dashboard)')
+    expect(budget.tooltip).toContain('command:cursorCost.refresh')
+  })
+})
+
+describe('statusBarChipParts', () => {
+  it('strips a leading codicon and ~spin', () => {
+    expect(statusBarChipParts('$(credit-card) 12.40 $ / 250.00 $')).toEqual({
+      icon: 'credit-card',
+      spin: false,
+      body: '12.40 $ / 250.00 $',
+    })
+    expect(statusBarChipParts('$(sync~spin)')).toEqual({
+      icon: 'sync',
+      spin: true,
+      body: '',
+    })
+    expect(statusBarChipParts('$(sync)\u00A0')).toEqual({
+      icon: 'sync',
+      spin: false,
+      body: '',
+    })
+    expect(statusBarChipParts('! 1.50 $ - 1.2M')).toEqual({
+      icon: null,
+      spin: false,
+      body: '! 1.50 $ - 1.2M',
+    })
+  })
+
+  it('splits joined Current/Today into segments', () => {
+    const text = `$(credit-card) 12.40 $ / 250.00 $${STATUS_CHIP_SEPARATOR}$(calendar) 3.79 $ / 11.19 $`
+    expect(statusBarTextSegments(text)).toEqual([
+      { icon: 'credit-card', spin: false, body: '12.40 $ / 250.00 $' },
+      { icon: 'calendar', spin: false, body: '3.79 $ / 11.19 $' },
+    ])
+  })
+})
+
+describe('toStatusBarPreviewChips', () => {
+  it('shows sample Current, Today, a spike query, and Refresh', () => {
+    const chips = toStatusBarPreviewChips(shown)
+    const byId = Object.fromEntries(chips.map((chip) => [chip.id, chip]))
+    expect(byId.budget?.visible).toBe(true)
+    expect(byId.budget?.segments.some((seg) => seg.icon === 'credit-card')).toBe(
+      true,
+    )
+    expect(byId.budget?.segments.some((seg) => seg.icon === 'calendar')).toBe(
+      true,
+    )
+    expect(byId.refresh?.visible).toBe(true)
+    expect(byId.refresh?.segments.some((seg) => seg.icon === 'sync')).toBe(true)
+    expect(byId.refresh?.tone).toBe('green')
+    expect(byId.download).toBeUndefined()
+    const recents = chips.filter((chip) => chip.id.startsWith('recent-') && chip.visible)
+    expect(recents).toHaveLength(3)
+    expect(recents.some((chip) => chip.tone === 'red')).toBe(true)
+    expect(
+      recents.some((chip) =>
+        chip.segments.some((seg) => seg.body.startsWith('! ')),
+      ),
+    ).toBe(true)
+  })
+
+  it('fills all sample recent slots and respects recentQueryCount visibility', () => {
+    const chips = toStatusBarPreviewChips({ ...shown, recentQueryCount: 6 })
+    const recent = chips.filter((chip) => chip.id.startsWith('recent-'))
+    expect(recent).toHaveLength(10)
+    expect(recent.filter((chip) => chip.visible)).toHaveLength(6)
+    expect(
+      recent.every((chip) =>
+        chip.segments.some((seg) => typeof seg.body === 'string' && seg.body !== ''),
+      ),
+    ).toBe(true)
+  })
+
+  it('hides Today in the sample when showToday is off', () => {
+    const chips = toStatusBarPreviewChips({ ...shown, showToday: false })
+    const budget = chips.find((chip) => chip.id === 'budget')
+    expect(budget?.segments.some((seg) => seg.icon === 'calendar')).toBe(false)
+  })
+
+  it('hides recent queries in the sample when minimalMode is on', () => {
+    const chips = toStatusBarPreviewChips({ ...shown, minimalMode: true })
+    expect(chips.filter((chip) => chip.id.startsWith('recent-') && chip.visible)).toEqual(
+      [],
+    )
+    const budget = chips.find((chip) => chip.id === 'budget')
+    expect(budget?.segments.some((seg) => seg.icon === 'calendar')).toBe(false)
+  })
+
+  it('hides every sample chip when showStatusBar is false', () => {
+    const chips = toStatusBarPreviewChips({ ...shown, showStatusBar: false })
+    expect(chips.every((chip) => chip.visible === false)).toBe(true)
+  })
+
+  it('drops ! and warning colors when showSpikeWarning is off', () => {
+    const chips = toStatusBarPreviewChips({ ...shown, showSpikeWarning: false })
+    expect(chips.every((chip) => chip.tone === 'default' || !chip.visible)).toBe(
+      true,
+    )
+    expect(
+      chips.some((chip) =>
+        chip.segments.some((seg) => seg.body.startsWith('! ')),
+      ),
+    ).toBe(false)
   })
 })

@@ -1,0 +1,26 @@
+{
+  "version": "1.0.2",
+  "date": "2026-09-03",
+  "gitTag": "v1.0.2",
+  "title": "Release notes — Cursor Cost Tracker (1.0.2)",
+  "intro": "Monthly cost forecast on Statistics and Charts, a blocking alert for an oversized last query, and 1–10 recent status-bar chips.",
+  "sections": [
+    {
+      "name": "New features",
+      "items": [
+        "**Monthly cost forecast** — Statistics and Charts show used spend through today, a dashed prediction to month end, and a dotted ideal pace. Team / Business / Enterprise use dollars; personal Pro uses included percent for Cursor Models and Other Models.",
+        "**Range and run-out** — zoom the forecast to Today, 7 days, or Month. Each quota shows when it would run out, or that it lasts the month.",
+        "**Critical alert** — a blocking dialog when the newest query hits 10M tokens or $5 (configurable; once per query; independent of the status-bar `!`).",
+        "**Recent queries** — choose how many newest queries appear on the status bar (1–10, default 3). Auto-refresh defaults to 1 minute."
+      ]
+    },
+    {
+      "name": "Improvements / Fixes",
+      "items": [
+        "**Status bar** — Current and Today open the Statistics tab; query chips still open the list. Hover is a compact card with included / on-demand meters. Refresh stays after Current/Today so window overflow cannot hide it.",
+        "**Settings** — status-bar preview, content, warnings, and colors share one card with in-card titles. Critical alert is a separate fieldset.",
+        "**Charts** — hidden tips no longer leave an empty ghost box. Ideal lines use the Good color; series stay blue/purple, not alert red."
+      ]
+    }
+  ]
+}

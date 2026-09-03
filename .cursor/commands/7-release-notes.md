@@ -27,7 +27,8 @@ Read `.ai/context/prd.md` first (Current, Today, Last 100, Refresh).
 
 Sections: New features, Improvements / Fixes, Other. Skip empty ones.
 
-5. Local tag `git tag -m "Release x.y.z" vx.y.z` only if it does not exist. Do not push the tag unless the user asks.
-6. Do not overwrite this command file. Summarize the JSON path and tag.
+5. Prepend the same user-facing notes to root `CHANGELOG.md` (Open VSX / Cursor **Changelog** tab). Keep older versions below.
+6. Local tag `git tag -m "Release x.y.z" vx.y.z` only if it does not exist. Do not push the tag unless the user asks.
+7. Do not overwrite this command file. Summarize the JSON path, CHANGELOG heading, and tag.
 
 Avoid: esbuild, sql.js, WebviewPanel — write “status bar”, “query history”, “refresh”.

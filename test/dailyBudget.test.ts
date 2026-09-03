@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   dailyBudgetUsd,
+  sumMonthUsedUsd,
   sumTodayUsedUsd,
+  workingDaysElapsedInMonth,
   workingDaysLeftInMonth,
 } from '../src/usage/parse'
 import type { UsageQuery } from '../src/usage/types'
@@ -57,6 +59,24 @@ describe('workingDaysLeftInMonth', () => {
   })
 })
 
+describe('workingDaysElapsedInMonth', () => {
+  it('counts weekdays from the 1st through today, including today', () => {
+    // 1 Sep 2026 is Tuesday; 2 Sep 2026 is Wednesday → 2 working days so far.
+    expect(workingDaysElapsedInMonth(new Date(2026, 8, 2, 8, 0, 0))).toBe(2)
+    expect(workingDaysElapsedInMonth(new Date(2026, 8, 1, 8, 0, 0))).toBe(1)
+  })
+
+  it('does not count Saturday or Sunday toward elapsed working days', () => {
+    // 5 Sep 2026 is Saturday; weekdays so far are Tue–Fri.
+    expect(workingDaysElapsedInMonth(new Date(2026, 8, 5, 12, 0, 0))).toBe(4)
+  })
+
+  it('returns 0 when the month has not had a weekday yet', () => {
+    // 1 Feb 2025 is Saturday.
+    expect(workingDaysElapsedInMonth(new Date(2025, 1, 1, 12, 0, 0))).toBe(0)
+  })
+})
+
 describe('sumTodayUsedUsd', () => {
   it('sums only events on the local calendar day', () => {
     const now = new Date(2026, 8, 1, 18, 0, 0)
@@ -78,5 +98,30 @@ describe('sumTodayUsedUsd', () => {
 
   it('returns 0 for an empty list', () => {
     expect(sumTodayUsedUsd([], new Date(2026, 8, 1))).toBe(0)
+  })
+})
+
+describe('sumMonthUsedUsd', () => {
+  it('sums only events in the local calendar month', () => {
+    const now = new Date(2026, 8, 5, 18, 0, 0)
+    const thisMonth = new Date(2026, 8, 1, 9, 0, 0).getTime()
+    const laterThisMonth = new Date(2026, 8, 4, 11, 0, 0).getTime()
+    const lastMonth = new Date(2026, 7, 31, 23, 0, 0).getTime()
+    const nextMonth = new Date(2026, 9, 1, 0, 30, 0).getTime()
+
+    const total = sumMonthUsedUsd(
+      [
+        query({ timestamp: thisMonth, costUsd: 1.5 }),
+        query({ timestamp: laterThisMonth, costUsd: 2.25 }),
+        query({ timestamp: lastMonth, costUsd: 9 }),
+        query({ timestamp: nextMonth, costUsd: 8 }),
+      ],
+      now,
+    )
+    expect(total).toBe(3.75)
+  })
+
+  it('returns 0 for an empty list', () => {
+    expect(sumMonthUsedUsd([], new Date(2026, 8, 1))).toBe(0)
   })
 })

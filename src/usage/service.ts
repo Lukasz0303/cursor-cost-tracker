@@ -28,7 +28,7 @@ export type UsageServiceOptions = {
   activityRefreshCooldownMs?: number
 }
 
-const DEFAULT_POLL_MINUTES = 5
+const DEFAULT_POLL_MINUTES = 1
 export const DEFAULT_ACTIVITY_REFRESH_COOLDOWN_MS = 60_000
 
 export function isActivityRefreshDue(
@@ -114,6 +114,10 @@ export class UsageService implements Disposable {
     return this.cachedReady?.recentQueries ?? []
   }
 
+  isRefreshing(): boolean {
+    return this.inFlight !== undefined
+  }
+
   start(): void {
     if (this.disposed || this.started) {
       return
@@ -161,6 +165,7 @@ export class UsageService implements Disposable {
     const controller = new AbortController()
     this.inFlight = controller
     const generation = ++this.generation
+    this.emitter.fire(this.snapshot)
 
     try {
       const session = await this.deps.readSession()
@@ -210,6 +215,7 @@ export class UsageService implements Disposable {
     } finally {
       if (this.inFlight === controller) {
         this.inFlight = undefined
+        this.emitter.fire(this.snapshot)
       }
     }
   }
