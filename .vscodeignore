@@ -30,3 +30,6 @@ coverage/**
 
 # Scratch assets that are not the marketplace icon
 ChatGPT Image*
+
+# README screenshots load from GitHub raw after vsce rewrite — keep them out of the VSIX
+screenshots/**

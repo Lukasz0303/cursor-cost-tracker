@@ -51,7 +51,7 @@ If you change the directory layout, update this file and `shared.mdc`.
 1. `activate` → `UsageService.start()` (fetch in the background).
 2. Snapshot: `loading` | `ready` | `error`.
 3. Status bar and the critical-alert controller subscribe to the snapshot.
-4. Click Current / Today / a recent chip → `cursorCost.showHistory` → panel receives `{ type: 'data', events, stats }` (no token). Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value.
+4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', events, stats }` (no token). Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value.
 5. Refresh (status bar, Last N toolbar, or command) → `service.refresh()`; if the panel is open it receives a new `data` message. Export CSV on the Last N toolbar saves the Last N sample.
 
 ## 4. MVP boundaries

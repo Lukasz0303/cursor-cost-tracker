@@ -1,7 +1,7 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar: Current, Today, and 1–10 recent queries. Click opens Last N (100–10,000) with Statistics, Charts, CSV export, and Settings.",
+  "description": "Status bar for Cursor spend: Current, Today, and recent queries. Predict monthly cost (used / forecast / ideal) before the bill surprises you.",
   "version": "1.0.2",
   "publisher": "lukasz0303",
   "license": "MIT",
@@ -16,6 +16,8 @@
     "cost",
     "tokens",
     "status bar",
+    "forecast",
+    "budget",
     "charts",
     "statistics"
   ],

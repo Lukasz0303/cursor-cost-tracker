@@ -4,7 +4,7 @@ alwaysApply: true
 ---
 # AI Rules for Cursor Cost Tracker
 
-VS Code/Cursor extension: **Current**, **Today**, **1–10 latest queries** (default 3), and **Refresh** on the status bar (`!` if a query is ≥ 1M tokens); click opens **Last N Cursor queries** (default 1000, 100–10,000) in a WebviewPanel. Blocking dialog if the newest query hits 10M tokens or $5. No extra app. Session from local `state.vscdb`. Unofficial Cursor usage APIs.
+VS Code/Cursor extension: **Current**, **Today**, **1–10 latest queries** (default 3), and **Refresh** on the status bar (`!` if a query is ≥ 1M tokens). Current/Today open Last N on the **Statistics** tab; a query chip opens the **queries list** (default 1000, 100–10,000). Blocking dialog if the newest query hits 10M tokens or $5. No extra app. Session from local `state.vscdb`. Unofficial Cursor usage APIs.
 
 ## Stack
 

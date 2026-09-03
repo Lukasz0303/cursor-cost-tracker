@@ -2,7 +2,7 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.13  
+**Document version:** 2.14  
 **Date:** 2026-09-03  
 **Status:** Product decision (MVP)  
 **Canonical location:** this file (`.ai/context/prd.md`)  
@@ -21,7 +21,7 @@ Two UI surfaces:
 | Always-on summary | Current, Today | **status bar** (bottom) |
 | Details | “Last 100 Cursor queries” + Close | **webview panel** (editor tab) |
 
-Clicking the status bar **immediately** opens the last 100 queries. No intermediate menu and no browser.
+Clicking **Current** or **Today** opens the history panel on **Statistics**. A recent-query chip opens the **queries list**. No intermediate menu and no browser.
 
 ---
 
@@ -42,7 +42,7 @@ Cursor bills chat, agent, and inline edits in USD and tokens. Official usage liv
 
 > Like a battery indicator, but for the Cursor budget: always at the bottom, one click to full history.
 
-After install (signed-in Cursor), the bar shows Current and Today. Click opens the “Last 100 Cursor queries” table.
+After install (signed-in Cursor), the bar shows Current and Today. Click Current or Today opens Statistics; a recent-query chip opens the Last N table.
 
 ---
 
@@ -71,22 +71,22 @@ Right side (`StatusBarAlignment.Right`).
 
 **Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current is included-quota percents (`7%` or `7% · 0%` for Cursor Models · Other Models), matching the Cursor dashboard — not the on-demand dollar cap.
 
-Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCost.recentQueryCount` controls how many query chips are shown (**1–10**, default **3**). Current+Today share one chip (priorities far from Ln/Col ~100). Refresh sits after that chip so it stays visible when query chips overflow. Each recent query is its **own** item so only a spike is red — VS Code cannot color part of one item. Each query is `cost - compact tokens`. Prefix `!` when that query has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**) and `cursorCost.showSpikeWarning` is on. Click Current / Today / a recent query opens Last 100. Refresh fetches from cursor.com on demand.
+Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCost.recentQueryCount` controls how many query chips are shown (**1–10**, default **3**). Current+Today share one chip (priorities far from Ln/Col ~100). Refresh sits after that chip so it stays visible when query chips overflow. Each recent query is its **own** item so only a spike is red — VS Code cannot color part of one item. Each query is `cost - compact tokens`. Prefix `!` when that query has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**) and `cursorCost.showSpikeWarning` is on. Click Current / Today opens Last N on the **Statistics** tab. A recent-query chip opens the **queries list**. Refresh fetches from cursor.com on demand. Export CSV is on the Last N toolbar, not the status bar.
 
 | Item | Text | Tooltip | Click |
 |------|------|---------|-------|
-| Current | Team: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` or `7% · 0%` | Hover card: plan, included/on-demand meters, reset, top models, Open Dashboard / Refresh | **open Last 100** |
-| Today | `$(calendar) 3.79 $ / 11.19 $` | same hover as Current (one chip) | **open Last 100** |
+| Current | Team: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` or `7% · 0%` | Hover card: plan, included/on-demand meters, reset, top models, Open Dashboard / Refresh | **open Statistics** |
+| Today | `$(calendar) 3.79 $ / 11.19 $` | same hover as Current (one chip) | **open Statistics** |
 | Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | refresh only, no panel |
-| Last 1–10 queries (default 3) | `0.03 $ - 64.8k` or `! 1.20 $ - 1.2M` | model · time · tokens · kind | **open Last 100** |
+| Last 1–10 queries (default 3) | `0.03 $ - 64.8k` or `! 1.20 $ - 1.2M` | model · time · tokens · kind | **open queries list** |
 
 Colors: when warnings are on, good state uses `cursorCost.okColor` (default green `#89D185` on dark themes, `#18794E` on light). **Team:** at/over monthly or daily dollar cap uses `cursorCost.warnColor` (default red `#F14C4C` on dark, `#C50F1F` on light). Custom hex is used as-is. **Pro / Pro+:** Current (included percents) and Today (query sum, often no daily cap) stay the good color — they are not a dollar-pool overage. A `!` spike on a recent query uses warnColor. Loading/error — default. When `cursorCost.showSpikeWarning` is off, there is no `!` and no status color. Warn at, colors, and the warning toggle live on the **Settings** tab.
 
 Empty recent slots are hidden. Ignore of spikes (persist in `globalState`) remains v1.1 follow-up.
 
-### 5.2 Click → Last 100
+### 5.2 Click → history panel
 
-Primary path: **not** Quick Pick. Open the table immediately.
+Primary path: **not** Quick Pick. Open the panel immediately. Current / Today land on **Statistics**. A recent-query chip lands on the **queries list**.
 
 **Container:** `WebviewPanel`, reused ID, title **Last 100 Cursor queries**.
 
@@ -119,7 +119,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | ID | Goal | Criterion |
 |----|------|-----------|
 | G1 | Costs in the IDE | status bar within 10 s of startup (signed-in user) |
-| G2 | One click to history | Last 100 table &lt; 2 s (cache) |
+| G2 | One click to history | Statistics (Current/Today) or Last N table (query chip) &lt; 2 s (cache) |
 | G3 | Consistent numbers | Current/Today match Cursor usage (± $0.01) |
 | G4 | Zero configuration | VSIX, no `.env` |
 | G5 | Does not block work | no modals on the normal path; API error = N/A. Blocking dialog only for a last-query critical alert (default 10M tokens or $5) |
@@ -132,7 +132,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 |----|-------|---------|----------|
 | A1 | developer | to see Current on the bar | I know cycle spend |
 | A2 | developer | to see Today on the bar | I can pace the daily budget |
-| A3 | developer | to click the bar | I see Last 100 |
+| A3 | developer | to click Current or Today | I see Statistics (monthly forecast) |
 | A4 | developer | a warning color | I notice overspend |
 | A5 | developer | Refresh | I sync after a long agent run |
 | A6 | developer | a clear error without a token | I know I must sign in |
@@ -248,7 +248,7 @@ Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Session: `
 
 - [ ] VSIX in Cursor (Windows): Current within 10 s for a signed-in account
 - [ ] Today hidden when events fail; Current still shown
-- [ ] Click Current/Today → Last 100 panel with columns from §5.2
+- [ ] Click Current/Today → Statistics tab; a recent-query chip → Last N columns from §5.2
 - [ ] Close / X dismisses; another click reuses the panel
 - [ ] Refresh updates the bar and the table
 - [ ] Missing token → message, no crash
@@ -281,4 +281,4 @@ Marketplace UI in English. No last-query shortcut on the bar in MVP. Ship a loca
 
 ## 15. Summary
 
-Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click: Last 100; spike rows can be **Ignored**. No Advise / auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.
+Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (follow-up). No Advise / auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.

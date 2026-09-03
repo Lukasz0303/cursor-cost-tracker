@@ -5,7 +5,7 @@
 
 ## What is in the repo
 
-VS Code / Cursor extension: status bar Current / Today / Refresh / 1–10 recent queries (default 3); click opens Last 100. Refresh spins while fetching from cursor.com. Export CSV is on the Last N toolbar, not the status bar. Session from `state.vscdb`; unofficial `cursor.com` usage APIs. Current on Pro is `7%` (or `7% · 0%` when Other Models is present), not the on-demand `$ / $` cap.
+VS Code / Cursor extension: status bar Current / Today / Refresh / 1–10 recent queries (default 3). Current/Today open Statistics; a query chip opens Last N. Refresh spins while fetching from cursor.com. Export CSV is on the Last N toolbar, not the status bar. Session from `state.vscdb`; unofficial `cursor.com` usage APIs. Current on Pro is `7%` (or `7% · 0%` when Other Models is present), not the on-demand `$ / $` cap.
 
 ## Scripts
 

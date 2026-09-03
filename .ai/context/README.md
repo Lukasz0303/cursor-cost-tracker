@@ -18,7 +18,7 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 |-------|------|
 | Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, Refresh (on demand), 1–10 recent queries (`cost - tokens`, default 3); `!` on a query ≥ token threshold (default 1M) |
 | Critical alert | Blocking dialog when the newest query hits 10M tokens or $5 (configurable; once per query) |
-| Click Current/Today | Recent queries immediately (not Quick Pick) |
+| Click Current/Today | Statistics tab immediately (not Quick Pick). A recent-query chip opens the queries list |
 | History | Four tabs: Last N (default 1000), Statistics (incl. MTD pace / forecast chart), Charts (tokens/cost + the same Monthly cost forecast control + period mix cards), Settings (all `cursorCost.*` keys; status bar editor with sample preview) |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |

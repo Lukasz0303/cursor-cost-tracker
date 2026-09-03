@@ -2,7 +2,7 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.13  
+**Wersja dokumentu:** 2.14  
 **Data:** 2026-09-03  
 **Status:** decyzja produktowa (MVP)  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
@@ -22,7 +22,7 @@ Dwie powierzchnie UI:
 | Stały podgląd | Current, Today | **status bar** (belka na dole) |
 | Szczegóły | „Last 100 Cursor queries” + Close | **panel webview** (zakładka edytora) |
 
-Klik w belkę **od razu** otwiera ostatnie 100 zapytań. Bez pośredniego menu i bez przeglądarki.
+Klik **Current** albo **Today** otwiera panel historii na **Statistics**. Chip ostatniego zapytania otwiera **listę zapytań**. Bez pośredniego menu i bez przeglądarki.
 
 ---
 
@@ -43,7 +43,7 @@ Cursor rozlicza chat, agenta i edycje inline w USD i tokenach. Oficjalny usage j
 
 > Jak wskaźnik baterii, ale dla budżetu Cursor: zawsze na dole, jeden klik do pełnej historii.
 
-Po instalacji (zalogowany Cursor) belka pokazuje Current i Today. Klik otwiera tabelę „Last 100 Cursor queries”.
+Po instalacji (zalogowany Cursor) belka pokazuje Current i Today. Klik Current albo Today otwiera Statistics; chip zapytania otwiera tabelę Last N.
 
 ---
 
@@ -72,22 +72,22 @@ Prawa strona belki (`StatusBarAlignment.Right`).
 
 **Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to procenty włączonego limitu (`7%` albo `7% · 0%` dla Cursor Models · Other Models), jak na dashboardzie Cursora — nie cap on-demand w dolarach.
 
-Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cursorCost.recentQueryCount` określa liczbę chipów zapytań (**1–10**, domyślnie **3**). Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Refresh siedzi zaraz za tym chipem, żeby nie znikał gdy belka się przepełnia. Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today / zapytanie otwiera Last 100. Refresh pobiera dane z cursor.com na żądanie.
+Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cursorCost.recentQueryCount` określa liczbę chipów zapytań (**1–10**, domyślnie **3**). Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Refresh siedzi zaraz za tym chipem, żeby nie znikał gdy belka się przepełnia. Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today otwiera Last N na zakładce **Statistics**. Chip zapytania otwiera **listę zapytań**. Refresh pobiera dane z cursor.com na żądanie. Export CSV jest na pasku Last N, nie na belce.
 
 | Element | Tekst | Tooltip | Klik |
 |---------|--------|---------|------|
-| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | Karta hover: plan, miarki included/on-demand, reset, top modele, Open Dashboard / Refresh | **otwórz Last 100** |
-| Today | `$(calendar) 3.79 $ / 11.19 $` | ten sam hover co Current (jeden chip) | **otwórz Last 100** |
+| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | Karta hover: plan, miarki included/on-demand, reset, top modele, Open Dashboard / Refresh | **otwórz Statistics** |
+| Today | `$(calendar) 3.79 $ / 11.19 $` | ten sam hover co Current (jeden chip) | **otwórz Statistics** |
 | Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | tylko odśwież, bez panelu |
-| 1–10 ostatnich (domyślnie 3) | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz Last 100** |
+| 1–10 ostatnich (domyślnie 3) | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz listę zapytań** |
 
 Kolory: przy włączonych ostrzeżeniach dobry stan to `cursorCost.okColor` (domyślnie zieleń `#89D185` na ciemnym motywie, `#18794E` na jasnym). **Team:** przy/ponad miesięcznym lub dziennym capie dolarowym — `cursorCost.warnColor` (domyślnie czerwień `#F14C4C` na ciemnym, `#C50F1F` na jasnym). Własny hex zostaje bez zmian. **Pro / Pro+:** Current (procenty included) i Today (suma zapytań, często bez dziennego capu) zostają w kolorze dobrym — to nie jest overage puli dolarowej. Spike `!` przy ostatnim zapytaniu używa warnColor. Ładowanie/błąd — domyślny. Gdy `cursorCost.showSpikeWarning` jest wyłączone, nie ma `!` ani kolorów na belce. Warn at, kolory i przełącznik ostrzeżeń są w zakładce **Settings**.
 
 Puste sloty ostatnich zapytań są ukryte. Ignore spike’ów (`globalState`) zostaje na później w v1.1.
 
-### 5.2 Klik → Last 100
+### 5.2 Klik → panel historii
 
-Główna ścieżka: **nie** Quick Pick. Od razu tabela.
+Główna ścieżka: **nie** Quick Pick. Od razu panel. Current / Today lądują na **Statistics**. Chip zapytania ląduje na **liście zapytań**.
 
 **Kontener:** `WebviewPanel`, reuse ID, tytuł **Last 100 Cursor queries**.
 
@@ -120,7 +120,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 | ID | Cel | Kryterium |
 |----|-----|-----------|
 | G1 | Koszty w IDE | status bar w ≤ 10 s po starcie (zalogowany user) |
-| G2 | Jeden klik do historii | tabela Last 100 < 2 s (cache) |
+| G2 | Jeden klik do historii | Statistics (Current/Today) albo tabela Last N (chip zapytania) < 2 s (cache) |
 | G3 | Spójne liczby | Current/Today zgodne z usage Cursor (± 0,01 $) |
 | G4 | Zero konfiguracji | VSIX, bez `.env` |
 | G5 | Nie blokuje pracy | brak modalów na zwykłej ścieżce; błąd API = N/A. Blokujący dialog tylko przy krytycznym alercie ostatniego zapytania (domyślnie 10M tokenów lub 5 $) |
@@ -133,7 +133,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 |----|-------|-------|------|
 | A1 | programista | widzieć Current na belce | znać zużycie cyklu |
 | A2 | programista | widzieć Today na belce | pilnować dziennego budżetu |
-| A3 | programista | kliknąć belkę | zobaczyć Last 100 |
+| A3 | programista | kliknąć Current albo Today | zobaczyć Statistics (prognoza miesiąca) |
 | A4 | programista | kolor ostrzegawczy | zauważyć przekroczenie |
 | A5 | programista | Refresh | zsynchronizować po długim agencie |
 | A6 | programista | czytelny błąd bez tokenu | wiedzieć, że trzeba się zalogować |
@@ -249,7 +249,7 @@ Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `
 
 - [ ] VSIX w Cursorze (Windows): Current w ≤ 10 s przy zalogowanym koncie
 - [ ] Today ukryte przy błędzie events; Current nadal widoczne
-- [ ] Klik Current/Today → panel Last 100 z kolumnami z §5.2
+- [ ] Klik Current/Today → zakładka Statistics; chip zapytania → kolumny Last N z §5.2
 - [ ] Close / X zamyka; ponowny klik reużywa panel
 - [ ] Refresh aktualizuje belkę i tabelę
 - [ ] Brak tokenu → komunikat, brak crasha
@@ -282,4 +282,4 @@ UI marketplace po angielsku. Brak skrótu ostatniego zapytania na belce w MVP. N
 
 ## 15. Podsumowanie
 
-Wtyczka Cursor/VS Code. Belka: Current + Today + sync + **`!` przy spike**. Klik: Last 100; wiersze spike można **Ignore**. Bez Advise / auto-naprawy. Stack: TypeScript, esbuild, sql.js, Vitest. Logika usage w `src/usage/`.
+Wtyczka Cursor/VS Code. Belka: Current + Today + sync + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: Last N. Wiersze spike można **Ignore** (później). Bez Advise / auto-naprawy. Stack: TypeScript, esbuild, sql.js, Vitest. Logika usage w `src/usage/`.
