@@ -29,10 +29,20 @@ function ready(overrides: Partial<UsageReady> = {}): UsageSnapshot {
 }
 
 const shown: CursorCostConfig = { ...DEFAULT_CURSOR_COST_CONFIG }
+/** Matches fixture workingDaysLeft: 22 (1 Sep 2026 is Tuesday). */
+const FIXTURE_NOW = new Date(2026, 8, 1, 12, 0, 0)
+
+function viewOf(
+  snapshot: UsageSnapshot,
+  config: CursorCostConfig = shown,
+  refreshing = false,
+): ReturnType<typeof toStatusBarView> {
+  return toStatusBarView(snapshot, config, refreshing, FIXTURE_NOW)
+}
 
 describe('toStatusBarView', () => {
   it('shows a spinner on loading and hides Today', () => {
-    const view = toStatusBarView({ status: 'loading' }, shown)
+    const view = viewOf({ status: 'loading' }, shown)
     expect(view.current.text).toContain('$(loading~spin)')
     expect(view.current.visible).toBe(true)
     expect(view.today.visible).toBe(false)
@@ -42,7 +52,7 @@ describe('toStatusBarView', () => {
   })
 
   it('shows N/A on error and hides Today', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       { status: 'error', message: 'Sign in to Cursor' },
       shown,
     )
@@ -55,27 +65,27 @@ describe('toStatusBarView', () => {
   })
 
   it('shows Unlimited and hides Today', () => {
-    const view = toStatusBarView(ready({ isUnlimited: true, limitUsd: null }), shown)
+    const view = viewOf(ready({ isUnlimited: true, limitUsd: null }), shown)
     expect(view.current.text).toContain('Unlimited')
     expect(view.today.visible).toBe(false)
     expect(view.current.tone).toBe('green')
   })
 
   it('hides Today when todayUsedUsd is null', () => {
-    const view = toStatusBarView(ready({ todayUsedUsd: null }), shown)
+    const view = viewOf(ready({ todayUsedUsd: null }), shown)
     expect(view.current.text).toContain('3.79 $')
     expect(view.current.text).toContain('250.00 $')
     expect(view.today.visible).toBe(false)
   })
 
   it('hides Today when showToday is false', () => {
-    const view = toStatusBarView(ready(), { ...shown, showToday: false })
+    const view = viewOf(ready(), { ...shown, showToday: false })
     expect(view.current.visible).toBe(true)
     expect(view.today.visible).toBe(false)
   })
 
   it('hides all items when showStatusBar is false', () => {
-    const view = toStatusBarView(ready(), { ...shown, showStatusBar: false })
+    const view = viewOf(ready(), { ...shown, showStatusBar: false })
     expect(view.current.visible).toBe(false)
     expect(view.today.visible).toBe(false)
     expect(view.refresh.visible).toBe(false)
@@ -83,20 +93,20 @@ describe('toStatusBarView', () => {
   })
 
   it('uses green when Current is under the limit', () => {
-    const view = toStatusBarView(ready({ usedUsd: 91, limitUsd: 100 }), shown)
+    const view = viewOf(ready({ usedUsd: 91, limitUsd: 100 }), shown)
     expect(view.current.tone).toBe('green')
   })
 
   it('uses red when Current is at or over the limit', () => {
-    const view = toStatusBarView(ready({ usedUsd: 100, limitUsd: 100 }), shown)
+    const view = viewOf(ready({ usedUsd: 100, limitUsd: 100 }), shown)
     expect(view.current.tone).toBe('red')
-    const over = toStatusBarView(ready({ usedUsd: 101, limitUsd: 100 }), shown)
+    const over = viewOf(ready({ usedUsd: 101, limitUsd: 100 }), shown)
     expect(over.current.tone).toBe('red')
   })
 
   it('uses green when Today is under the daily budget', () => {
-    const view = toStatusBarView(
-      ready({ todayUsedUsd: 8, dailyBudgetUsd: 10 }),
+    const view = viewOf(
+      ready({ todayUsedUsd: 8, dailyBudgetUsd: 10, remainingUsd: 220 }),
       shown,
     )
     expect(view.today.visible).toBe(true)
@@ -104,15 +114,15 @@ describe('toStatusBarView', () => {
   })
 
   it('uses red when Today is over the daily budget', () => {
-    const view = toStatusBarView(
-      ready({ todayUsedUsd: 11, dailyBudgetUsd: 10 }),
+    const view = viewOf(
+      ready({ todayUsedUsd: 11, dailyBudgetUsd: 10, remainingUsd: 220 }),
       shown,
     )
     expect(view.today.tone).toBe('red')
   })
 
   it('renders Current tooltip with email, plan, and cycle end', () => {
-    const view = toStatusBarView(ready(), shown)
+    const view = viewOf(ready(), shown)
     expect(view.current.tooltip).toBe(
       'dev@example.com · pro · cycle ends 2026-09-30 · Cycle pool used / limit (not the sum of today\'s queries)',
     )
@@ -129,14 +139,14 @@ describe('toStatusBarView', () => {
   })
 
   it('spins Refresh while a fetch is in flight', () => {
-    const view = toStatusBarView(ready(), shown, true)
+    const view = viewOf(ready(), shown, true)
     expect(view.refresh.text).toBe('$(sync~spin)\u00A0')
     expect(view.refresh.tooltip).toContain('Refreshing')
     expect(view.current.text).toContain('3.79 $')
   })
 
   it('renders a dash when limit is missing on a metered plan', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({ limitUsd: null, isUnlimited: false }),
       shown,
     )
@@ -145,7 +155,7 @@ describe('toStatusBarView', () => {
   })
 
   it('shows a dash for Today when the daily budget is $0', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({
         usedUsd: 20,
         limitUsd: 20,
@@ -164,7 +174,7 @@ describe('toStatusBarView', () => {
   })
 
   it('shows the configured three newest queries after Today', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({
         recentQueries: [
           {
@@ -227,7 +237,7 @@ describe('toStatusBarView', () => {
     expect(view.refresh.visible).toBe(true)
     expect(view.refresh.command).toBe('cursorCost.refresh')
     expect(view.refresh.text).toContain('$(sync)')
-    expect(toBudgetStatusItem(view, ready({ recentQueries: [] }), shown).command).toEqual({
+    expect(toBudgetStatusItem(view, ready({ recentQueries: [] }), shown, FIXTURE_NOW).command).toEqual({
       command: 'cursorCost.showHistory',
       title: 'Show Cursor Cost statistics',
       arguments: ['stats'],
@@ -247,13 +257,13 @@ describe('toStatusBarView', () => {
       cacheReadTokens: 0,
     }))
 
-    const one = toStatusBarView(
+    const one = viewOf(
       ready({ recentQueries }),
       { ...shown, recentQueryCount: 1 },
     )
     expect(one.recent.filter((item) => item.visible)).toHaveLength(1)
 
-    const ten = toStatusBarView(
+    const ten = viewOf(
       ready({ recentQueries }),
       { ...shown, recentQueryCount: 10 },
     )
@@ -261,7 +271,7 @@ describe('toStatusBarView', () => {
   })
 
   it('prefixes ! and uses red when a recent query is at least 1M tokens', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({
         recentQueries: [
           {
@@ -298,7 +308,7 @@ describe('toStatusBarView', () => {
   })
 
   it('omits ! when showSpikeWarning is false', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({
         recentQueries: [
           {
@@ -323,7 +333,7 @@ describe('toStatusBarView', () => {
   })
 
   it('drops Current/Today colors when warnings are off', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({ usedUsd: 100, limitUsd: 100 }),
       { ...shown, showSpikeWarning: false },
     )
@@ -372,8 +382,8 @@ describe('status bar chips', () => {
         },
       ],
     })
-    const view = toStatusBarView(snapshot, shown)
-    const budget = toBudgetStatusItem(view, snapshot, shown)
+    const view = viewOf(snapshot, shown)
+    const budget = toBudgetStatusItem(view, snapshot, shown, FIXTURE_NOW)
     expect(budget.text).toBe(
       ['$(credit-card) 3.79 $ / 250.00 $', '$(calendar) 3.79 $ / 11.19 $'].join(
         STATUS_CHIP_SEPARATOR,
@@ -409,37 +419,98 @@ describe('status bar chips', () => {
           },
         ],
       })
-    const view = toStatusBarView(
+    const view = viewOf(
       snapshot,
       { ...shown, spikeTokenThreshold: 10_000_000 },
     )
-    expect(toBudgetStatusItem(view, snapshot, shown).tone).toBe('red')
+    expect(toBudgetStatusItem(view, snapshot, shown, FIXTURE_NOW).tone).toBe('red')
     expect(view.recent[0]?.text).toBe('1.24 $ - 2.3M')
     expect(view.recent[0]?.tone).toBe('green')
   })
 
-  it('shows included-quota percents for personal Pro and keeps Today in dollars', () => {
-    const view = toStatusBarView(
+  it('shows Pro Current as averaged cycle % vs 100% and Today as averaged pace + sum $', () => {
+    const now = FIXTURE_NOW
+    const view = viewOf(
       ready({
         spendDisplay: 'percent',
         includedQuotas: [
-          { name: 'Cursor Models', used: 1400, limit: 20000, percent: 7 },
-          { name: 'Other Models', used: 0, limit: 100, percent: 0 },
+          { name: 'Cursor Models', used: 1400, limit: 20000, percent: 33 },
+          { name: 'Other Models', used: 0, limit: 100, percent: 31 },
         ],
         usedUsd: 20,
         limitUsd: 20,
+        todayUsedUsd: 17.12,
+        recentQueries: [
+          {
+            timestamp: now.getTime(),
+            model: 'gpt',
+            kind: 'USAGE_EVENT_KIND_INCLUDED_IN_BUSINESS',
+            costUsd: 17.12,
+            tokens: 1000,
+            inputTokens: 500,
+            outputTokens: 500,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
       }),
       shown,
     )
-    expect(view.current.text).toBe('$(credit-card) 7% · 0%')
+    // (33+31)/2 = 32. Sep 2026 has 22 weekdays → daily pace ≈ 4.5%.
+    // Month spend = today → attributed = full cycle %; avg today = 32%.
+    expect(view.current.text).toBe('$(credit-card) 32% / 100%')
     expect(view.current.tone).toBe('green')
-    expect(view.current.tooltip).toContain('Cursor Models 7% used')
-    expect(view.current.tooltip).toContain('Other Models 0% used')
+    expect(view.current.tooltip).toContain('Cursor Models 33% used')
+    expect(view.current.tooltip).toContain('Other Models 31% used')
     expect(view.today.visible).toBe(true)
-    expect(view.today.text).toContain('3.79 $')
+    expect(view.today.text).toBe('$(calendar) 32% / 4.5% (17.12 $)')
+    expect(view.today.tone).toBe('red')
   })
 
-  it('keeps Pro Current and Today green — percents and today spend are not a dollar-pool cap', () => {
+  it('attributes Today % from month spend so partial days average below cycle %', () => {
+    const now = FIXTURE_NOW
+    const view = viewOf(
+      ready({
+        spendDisplay: 'percent',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 1400, limit: 20000, percent: 33 },
+          { name: 'Other Models', used: 31, limit: 100, percent: 31 },
+        ],
+        todayUsedUsd: 17.12,
+        recentQueries: [
+          {
+            timestamp: now.getTime(),
+            model: 'a',
+            kind: null,
+            costUsd: 17.12,
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+          {
+            timestamp: new Date(2026, 8, 2, 12, 0, 0).getTime(),
+            model: 'b',
+            kind: null,
+            costUsd: 17.12 * (32 / 3.5 - 1),
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
+      }),
+      shown,
+    )
+    expect(view.current.text).toBe('$(credit-card) 32% / 100%')
+    // today/month * 32% ≈ 3.5%; daily pace 4.5%
+    expect(view.today.text).toBe('$(calendar) 3.5% / 4.5% (17.12 $)')
+    expect(view.today.tone).toBe('green')
+  })
+
+  it('keeps Pro Current green; Today is green when attributed % is under daily pace', () => {
     const snapshot = ready({
         spendDisplay: 'percent',
         includedQuotas: [
@@ -452,16 +523,59 @@ describe('status bar chips', () => {
         todayUsedUsd: 4.86,
         dailyBudgetUsd: 0,
       })
-    const view = toStatusBarView(snapshot, shown)
-    expect(view.current.text).toBe('$(credit-card) 9% · 0%')
+    const view = viewOf(snapshot, shown)
+    expect(view.current.text).toBe('$(credit-card) 4.5% / 100%')
     expect(view.current.tone).toBe('green')
-    expect(view.today.text).toContain('/ —')
+    expect(view.today.text).toContain('/ 4.5%')
+    expect(view.today.text).toContain('(4.86 $)')
     expect(view.today.tone).toBe('green')
-    expect(toBudgetStatusItem(view, snapshot, shown).tone).toBe('green')
+    expect(toBudgetStatusItem(view, snapshot, shown, FIXTURE_NOW).tone).toBe('green')
+  })
+
+  it('uses red for Pro Today when attributed % is at or over daily pace', () => {
+    const now = FIXTURE_NOW
+    const view = viewOf(
+      ready({
+        spendDisplay: 'percent',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 1400, limit: 20000, percent: 33 },
+          { name: 'Other Models', used: 31, limit: 100, percent: 31 },
+        ],
+        todayUsedUsd: 17.12,
+        recentQueries: [
+          {
+            timestamp: now.getTime(),
+            model: 'a',
+            kind: null,
+            costUsd: 17.12,
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+          {
+            // month ≈ today / 0.147 → attributed avg ≈ 4.7% > pace 4.5%
+            timestamp: new Date(2026, 8, 2, 12, 0, 0).getTime(),
+            model: 'b',
+            kind: null,
+            costUsd: 17.12 * (32 / 4.7 - 1),
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
+      }),
+      shown,
+    )
+    expect(view.today.text).toBe('$(calendar) 4.7% / 4.5% (17.12 $)')
+    expect(view.today.tone).toBe('red')
   })
 
   it('keeps Pro Current green even when an included quota is at 100%', () => {
-    const view = toStatusBarView(
+    const view = viewOf(
       ready({
         spendDisplay: 'percent',
         includedQuotas: [
@@ -472,17 +586,17 @@ describe('status bar chips', () => {
       }),
       shown,
     )
-    expect(view.current.text).toBe('$(credit-card) 100%')
+    expect(view.current.text).toBe('$(credit-card) 100% / 100%')
     expect(view.current.tone).toBe('green')
   })
 
   it('hides Today and recent queries in minimalMode', () => {
-    const view = toStatusBarView(ready(), { ...shown, minimalMode: true })
+    const view = viewOf(ready(), { ...shown, minimalMode: true })
     expect(view.current.visible).toBe(true)
     expect(view.today.visible).toBe(false)
     expect(view.refresh.visible).toBe(true)
     expect(view.recent.every((item) => item.visible === false)).toBe(true)
-    const budget = toBudgetStatusItem(view, ready(), { ...shown, minimalMode: true })
+    const budget = toBudgetStatusItem(view, ready(), { ...shown, minimalMode: true }, FIXTURE_NOW)
     expect(budget.text).toContain('3.79 $')
     expect(budget.text.includes('Today')).toBe(false)
   })
@@ -504,7 +618,7 @@ describe('status bar chips', () => {
         },
       ],
     })
-    const view = toStatusBarView(snapshot, shown)
+    const view = viewOf(snapshot, shown)
     const budget = toBudgetStatusItem(
       view,
       snapshot,

@@ -8,6 +8,9 @@ dist/
 # Generated PR descriptions (command `2-pr-description`)
 .ai/reports/
 
+# Social launch copy (Facebook / LinkedIn) — local only
+docs/
+
 # Packaged extension (do not commit unless a release asset is requested)
 *.vsix
 

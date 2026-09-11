@@ -33,3 +33,6 @@ ChatGPT Image*
 
 # README screenshots load from GitHub raw after vsce rewrite — keep them out of the VSIX
 screenshots/**
+
+# Social/marketplace copy lives on GitHub, not inside the extension
+docs/**

@@ -11,9 +11,11 @@
   const applyEl = document.getElementById('applyThreshold')
   const historyLimitEl = document.getElementById('historyLimit')
   const applyHistoryLimitEl = document.getElementById('applyHistoryLimit')
-  const historyLimitBarEl = document.getElementById('historyLimitBar')
-  const applyHistoryLimitBarEl = document.getElementById('applyHistoryLimitBar')
-  const spikesOnlyEl = document.getElementById('spikesOnly')
+  const historyFromDateEl = document.getElementById('historyFromDate')
+  const fromMonthSettingEl = document.getElementById('fromMonthSetting')
+  const fromTodaySettingEl = document.getElementById('fromTodaySetting')
+  const clearFromDateSettingEl = document.getElementById('clearFromDateSetting')
+  const filterSpikesOnlyEl = document.getElementById('filterSpikesOnly')
   const refreshQueriesEl = document.getElementById('refreshQueries')
   const showWarningEl = document.getElementById('showWarning')
   const showCriticalAlertEl = document.getElementById('showCriticalAlert')
@@ -25,6 +27,8 @@
   const showTodayEl = document.getElementById('showToday')
   const minimalModeEl = document.getElementById('minimalMode')
   const recentQueryCountEl = document.getElementById('recentQueryCount')
+  const budgetDayBasisEl = document.getElementById('budgetDayBasis')
+  const optimizeDepthSettingEl = document.getElementById('optimizeDepthSetting')
   const pollIntervalEl = document.getElementById('pollInterval')
   const applyPollIntervalEl = document.getElementById('applyPollInterval')
   const statusBarPreviewEl = document.getElementById('statusBarPreview')
@@ -46,21 +50,44 @@
   const chartsMtdEl = document.getElementById('chartsMtd')
   const chartTipEl = document.getElementById('chartTip')
   const periodCardsEl = document.getElementById('periodCards')
+  const optimizeViewEl = document.getElementById('optimizeView')
+  const optimizeEmptyEl = document.getElementById('optimizeEmpty')
+  const optimizeContentEl = document.getElementById('optimizeContent')
+  const optimizeSummaryEl = document.getElementById('optimizeSummary')
+  const optimizeNoteEl = document.getElementById('optimizeNote')
+  const optimizeLifetimeHeadingEl = document.getElementById(
+    'optimizeLifetimeHeading',
+  )
+  const optimizeLifetimeEmptyEl = document.getElementById(
+    'optimizeLifetimeEmpty',
+  )
+  const optimizeLifetimeProjectsEl = document.getElementById(
+    'optimizeLifetimeProjects',
+  )
+  const optimizeFindingsEl = document.getElementById('optimizeFindings')
+  const optimizeDepthCardsEl = document.getElementById('optimizeDepthCards')
+  const runOptimizeToolbarEl = document.getElementById('runOptimizeToolbar')
+  const supportViewEl = document.getElementById('supportView')
   const settingsViewEl = document.getElementById('settingsView')
   const tabQueriesEl = document.getElementById('tabQueries')
   const tabStatsEl = document.getElementById('tabStats')
   const tabChartsEl = document.getElementById('tabCharts')
+  const tabOptimizeEl = document.getElementById('tabOptimize')
+  const tabSupportEl = document.getElementById('tabSupport')
   const tabSettingsEl = document.getElementById('tabSettings')
   const extensionVersionEl = document.getElementById('extensionVersion')
   const toolbarVersionEl = document.querySelector('.toolbar-version')
   let debounceTimer = 0
   let colorTimer = 0
   let historyLimitDirty = false
+  let historyFromDateDirty = false
   let pollIntervalDirty = false
   let thresholdDirty = false
   let criticalTokenDirty = false
   let criticalCostDirty = false
-  const historyLimitEls = [historyLimitEl, historyLimitBarEl].filter(Boolean)
+  const historyLimitEls = [historyLimitEl].filter(Boolean)
+  const historyFromDateEls = [historyFromDateEl].filter(Boolean)
+  let historyFromDate = ''
   let chartPoints = []
   let mtdForecastPoints = []
   let mtdForecastSeries = []
@@ -68,6 +95,8 @@
   let mtdMax = null
   let mtdChartRange = 'month'
   let mtdForecastSvgs = []
+  let budgetDayBasis = 'workingDays'
+  let optimizeDepth = 'balanced'
   let chartResizeTimer = 0
   let tableEvents = []
   let tableWarnOn = true
@@ -137,7 +166,61 @@
     return n
   }
 
+  function pad2(n) {
+    return n < 10 ? '0' + String(n) : String(n)
+  }
+
+  function isoFromLocal(date) {
+    return (
+      date.getFullYear() +
+      '-' +
+      pad2(date.getMonth() + 1) +
+      '-' +
+      pad2(date.getDate())
+    )
+  }
+
+  function startOfMonthIso() {
+    const now = new Date()
+    return now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-01'
+  }
+
+  function parseFromDate(value) {
+    if (typeof value !== 'string') {
+      return ''
+    }
+    const trimmed = value.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return ''
+    }
+    const parts = trimmed.split('-')
+    const year = Number(parts[0])
+    const month = Number(parts[1])
+    const day = Number(parts[2])
+    const date = new Date(year, month - 1, day)
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return ''
+    }
+    return trimmed
+  }
+
+  function formatFromDateLabel(iso) {
+    const parsed = parseFromDate(iso)
+    if (!parsed) {
+      return ''
+    }
+    const parts = parsed.split('-')
+    return Number(parts[2]) + '.' + parts[1] + '.' + parts[0]
+  }
+
   function lastHeading(limit) {
+    if (historyFromDate) {
+      return 'From ' + formatFromDateLabel(historyFromDate)
+    }
     return 'Last ' + clampHistoryLimit(limit)
   }
 
@@ -319,6 +402,8 @@
     const tab =
       next === 'stats' ||
       next === 'charts' ||
+      next === 'optimize' ||
+      next === 'support' ||
       next === 'settings' ||
       next === 'queries'
         ? next
@@ -328,11 +413,23 @@
     if (chartsViewEl) {
       chartsViewEl.hidden = tab !== 'charts'
     }
+    if (optimizeViewEl) {
+      optimizeViewEl.hidden = tab !== 'optimize'
+    }
+    if (supportViewEl) {
+      supportViewEl.hidden = tab !== 'support'
+    }
     settingsViewEl.hidden = tab !== 'settings'
     tabQueriesEl.classList.toggle('is-active', tab === 'queries')
     tabStatsEl.classList.toggle('is-active', tab === 'stats')
     if (tabChartsEl) {
       tabChartsEl.classList.toggle('is-active', tab === 'charts')
+    }
+    if (tabOptimizeEl) {
+      tabOptimizeEl.classList.toggle('is-active', tab === 'optimize')
+    }
+    if (tabSupportEl) {
+      tabSupportEl.classList.toggle('is-active', tab === 'support')
     }
     tabSettingsEl.classList.toggle('is-active', tab === 'settings')
     if (tab === 'charts' || tab === 'stats') {
@@ -372,17 +469,20 @@
     if (!Number.isFinite(n) || n <= 0) {
       return 1
     }
-    const exp = Math.pow(10, Math.floor(Math.log10(n)))
-    const scaled = n / exp
-    let nice = 1
-    if (scaled > 5) {
-      nice = 10
-    } else if (scaled > 2) {
-      nice = 5
-    } else if (scaled > 1) {
-      nice = 2
+    const ticks = 4
+    const padded = n * 1.08
+    const rawStep = padded / ticks
+    const exp = Math.pow(10, Math.floor(Math.log10(rawStep)))
+    const scaled = rawStep / exp
+    const steps = [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 8, 10]
+    let nice = 10
+    for (let i = 0; i < steps.length; i++) {
+      if (scaled <= steps[i]) {
+        nice = steps[i]
+        break
+      }
     }
-    return nice * exp
+    return nice * exp * ticks
   }
 
   function compactTokens(n) {
@@ -476,13 +576,24 @@
     return node
   }
 
-  function tipRow(label, value) {
+  function tipRow(label, value, swatchClass, valueClass) {
     const row = el('div', 'chart-tip-row')
+    if (swatchClass) {
+      row.className = 'chart-tip-row ' + swatchClass
+    }
+    const labelWrap = el('span', 'chart-tip-label-wrap')
+    const swatch = el('span', 'chart-tip-swatch')
+    swatch.setAttribute('aria-hidden', 'true')
     const labelEl = el('span', 'chart-tip-label')
     const valueEl = el('span', 'chart-tip-value')
+    if (valueClass) {
+      valueEl.className = 'chart-tip-value ' + valueClass
+    }
     setText(labelEl, label)
     setText(valueEl, value)
-    row.appendChild(labelEl)
+    labelWrap.appendChild(swatch)
+    labelWrap.appendChild(labelEl)
+    row.appendChild(labelWrap)
     row.appendChild(valueEl)
     return row
   }
@@ -509,51 +620,50 @@
     return { tip: chartTipEl, wrap: chartsViewEl }
   }
 
-  function showMtdForecastTip(point, lines, index, clientX, clientY, svg) {
+  function mtdTipLimit(point, line, index) {
+    if (
+      point &&
+      point.allowanceUsd !== null &&
+      point.allowanceUsd !== undefined
+    ) {
+      const allowance = Number(point.allowanceUsd)
+      if (Number.isFinite(allowance)) {
+        return allowance
+      }
+    }
+    if (!line || !line.forecast) {
+      return null
+    }
+    return line.forecast[index]
+  }
+
+  function mtdTipValueClass(used, limit) {
+    const usedNum = Number(used)
+    const limitNum = Number(limit)
+    if (!Number.isFinite(usedNum) || !Number.isFinite(limitNum)) {
+      return ''
+    }
+    return usedNum > limitNum + 0.005 ? 'is-over' : 'is-ok'
+  }
+
+  function showMtdForecastTip(point, line, index, clientX, clientY, svg) {
     const host = mtdTipHost(svg)
-    if (!host.tip || !host.wrap || !point) {
+    if (!host.tip || !host.wrap || !point || !line) {
       return
     }
+    const label = line.label || 'Used'
+    const tone = line.tone || 'is-s0'
+    const used = line.used ? line.used[index] : null
+    const limit = mtdTipLimit(point, line, index)
     host.tip.replaceChildren()
-    host.tip.appendChild(tipTitle(point.date))
     host.tip.appendChild(
-      tipSub(
-        point.weekday && point.workingDayIndex
-          ? 'Working day ' + point.workingDayIndex
-          : 'Weekend',
+      tipRow(
+        point.date + ' ' + label,
+        costOrDash(used) + ' / ' + costOrDash(limit),
+        'is-used ' + tone,
+        mtdTipValueClass(used, limit),
       ),
     )
-    const list = lines || []
-    for (let i = 0; i < list.length; i++) {
-      const line = list[i]
-      const label = line.label || 'Used'
-      if (line.day && line.day[index] !== null && line.day[index] !== undefined) {
-        host.tip.appendChild(
-          tipRow(label + ' that day', costOrDash(line.day[index])),
-        )
-      }
-      if (line.used && line.used[index] !== null && line.used[index] !== undefined) {
-        host.tip.appendChild(tipRow(label, costOrDash(line.used[index])))
-      }
-      if (
-        line.forecast &&
-        line.forecast[index] !== null &&
-        line.forecast[index] !== undefined
-      ) {
-        host.tip.appendChild(
-          tipRow(label + ' forecast', costOrDash(line.forecast[index])),
-        )
-      }
-      if (
-        line.ideal &&
-        line.ideal[index] !== null &&
-        line.ideal[index] !== undefined
-      ) {
-        host.tip.appendChild(
-          tipRow(label + ' ideal', costOrDash(line.ideal[index])),
-        )
-      }
-    }
     placeTip(host.tip, host.wrap, clientX, clientY)
   }
 
@@ -580,7 +690,7 @@
     const width = 800
     const height = 280
     const left = 52
-    const right = 56
+    const right = 16
     const top = 16
     const bottom = 36
     const plotW = width - left - right
@@ -609,17 +719,14 @@
       return
     }
 
-    const per = []
     const cum = []
     let running = 0
     for (let i = 0; i < points.length; i++) {
       const value = kind === 'tokens' ? points[i].tokens : points[i].costUsd
       const safe = Number.isFinite(value) ? Math.max(0, value) : 0
-      per.push(safe)
       running += safe
       cum.push(running)
     }
-    const maxPer = niceMax(Math.max.apply(null, per))
     const maxCum = niceMax(running)
     const format = kind === 'tokens' ? compactTokens : compactCost
     const ticks = 4
@@ -641,16 +748,8 @@
         y: String(y + 3),
         'text-anchor': 'end',
       })
-      setText(leftLabel, format(maxPer * frac))
+      setText(leftLabel, format(maxCum * frac))
       svg.appendChild(leftLabel)
-      const rightLabel = svgNode('text', {
-        class: 'chart-label',
-        x: String(left + plotW + 6),
-        y: String(y + 3),
-        'text-anchor': 'start',
-      })
-      setText(rightLabel, format(maxCum * frac))
-      svg.appendChild(rightLabel)
     }
 
     const labelAt = [0, Math.floor((points.length - 1) / 2), points.length - 1]
@@ -678,7 +777,7 @@
       const barW = Math.max(1, Math.min(10, gap * 0.55))
       for (let i = 0; i < points.length; i++) {
         const x = pointX(i, points.length, left, plotW)
-        const y = yAt(per[i], maxPer, top, plotH)
+        const y = yAt(cum[i], maxCum, top, plotH)
         const h = top + plotH - y
         if (h <= 0) {
           continue
@@ -958,7 +1057,7 @@
     const width = 800
     const height = 280
     const left = 52
-    const right = 56
+    const right = 16
     const top = 16
     const bottom = 36
     const plotW = width - left - right
@@ -979,15 +1078,6 @@
         class: 'chart-axis',
         x1: String(left),
         y1: String(top + plotH),
-        x2: String(left + plotW),
-        y2: String(top + plotH),
-      }),
-    )
-    svg.appendChild(
-      svgNode('line', {
-        class: 'chart-axis',
-        x1: String(left + plotW),
-        y1: String(top),
         x2: String(left + plotW),
         y2: String(top + plotH),
       }),
@@ -1026,11 +1116,9 @@
       }
     }
 
-    let maxDay = 0
     let dataMax = 0
     let hasIdeal = false
     for (let i = 0; i < lines.length; i++) {
-      maxDay = Math.max(maxDay, numericMax(lines[i].day))
       dataMax = Math.max(
         dataMax,
         numericMax(lines[i].used),
@@ -1041,7 +1129,6 @@
         hasIdeal = true
       }
     }
-    const maxPer = niceMax(maxDay)
     const capped = typeof max === 'number' && Number.isFinite(max) && max > 0
     const maxCum = capped ? max : niceMax(dataMax)
     const ticks = 4
@@ -1063,16 +1150,8 @@
         y: String(y + 3),
         'text-anchor': 'end',
       })
-      setText(leftLabel, formatMtdAmount(maxPer * frac))
+      setText(leftLabel, formatMtdAmount(maxCum * frac))
       svg.appendChild(leftLabel)
-      const rightLabel = svgNode('text', {
-        class: 'chart-label',
-        x: String(left + plotW + 6),
-        y: String(y + 3),
-        'text-anchor': 'start',
-      })
-      setText(rightLabel, formatMtdAmount(maxCum * frac))
-      svg.appendChild(rightLabel)
     }
 
     const labelAt = [0, Math.floor((points.length - 1) / 2), points.length - 1]
@@ -1116,12 +1195,12 @@
     for (let i = 0; i < points.length; i++) {
       const cx = pointX(i, points.length, left, plotW)
       for (let s = 0; s < lines.length; s++) {
-        const dayVal = lines[s].day[i]
-        if (dayVal === null || dayVal === undefined || !(dayVal > 0)) {
+        const usedVal = lines[s].used[i]
+        if (usedVal === null || usedVal === undefined || !(usedVal > 0)) {
           continue
         }
         const offset = (s - (lines.length - 1) / 2) * barW
-        const y = yAt(dayVal, maxPer, top, plotH)
+        const y = yAt(Math.min(usedVal, maxCum), maxCum, top, plotH)
         const h = top + plotH - y
         if (h <= 0) {
           continue
@@ -1149,7 +1228,7 @@
         areaPts.push(lastUsedX + ',' + (top + plotH))
         svg.appendChild(
           svgNode('polygon', {
-            class: 'chart-area',
+            class: 'chart-area is-s0',
             points: areaPts.join(' '),
           }),
         )
@@ -1283,9 +1362,21 @@
           best = i
         }
       }
+      // Pick the nearest series bar for that day (each bar gets its own tip).
+      let bestSeries = 0
+      let bestSeriesDist = Infinity
+      for (let s = 0; s < lines.length; s++) {
+        const offset = (s - (lines.length - 1) / 2) * barW
+        const barX = pointX(best, points.length, left, plotW) + offset
+        const dist = Math.abs(barX - xSvg)
+        if (dist < bestSeriesDist) {
+          bestSeriesDist = dist
+          bestSeries = s
+        }
+      }
       showMtdForecastTip(
         points[best],
-        lines,
+        lines[bestSeries],
         best,
         event.clientX,
         event.clientY,
@@ -1798,13 +1889,13 @@
     setText(
       hint,
       mtdUnit === 'percent'
-        ? 'Bars are that day’s included burn. Solid lines are cumulative used. Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).'
-        : 'Bars are that day’s spend. Solid lines are cumulative used. Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).',
+        ? 'Bars and solid lines are cumulative used (same 0–100% scale). Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).'
+        : 'Bars and solid lines are cumulative spend (same dollar scale). Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).',
     )
     card.appendChild(hint)
     const legend = el('div', 'chart-legend')
     const barItem = el('span', 'chart-legend-item is-bar')
-    setText(barItem, 'That day')
+    setText(barItem, 'Cumulative')
     legend.appendChild(barItem)
     for (let i = 0; i < series.length; i++) {
       const tone = ' is-s' + (i % 4)
@@ -1838,8 +1929,8 @@
       role: 'img',
       'aria-label':
         mtdUnit === 'percent'
-          ? 'That day burn, cumulative used, ideal budget, and month-end forecast'
-          : 'That day spend, cumulative used, ideal budget, and month-end forecast',
+          ? 'Cumulative used, ideal budget, and month-end forecast'
+          : 'Cumulative spend, ideal budget, and month-end forecast',
     })
     frame.appendChild(svg)
     card.appendChild(frame)
@@ -2189,6 +2280,23 @@
       )
     }
     if (
+      (data.budgetDayBasis === 'workingDays' ||
+        data.budgetDayBasis === 'calendarDays') &&
+      budgetDayBasisEl &&
+      document.activeElement !== budgetDayBasisEl
+    ) {
+      budgetDayBasisEl.value = data.budgetDayBasis
+    }
+    if (
+      (data.optimizeDepth === 'quick' ||
+        data.optimizeDepth === 'balanced' ||
+        data.optimizeDepth === 'deep') &&
+      optimizeDepthSettingEl &&
+      document.activeElement !== optimizeDepthSettingEl
+    ) {
+      optimizeDepthSettingEl.value = data.optimizeDepth
+    }
+    if (
       typeof data.pollIntervalMinutes === 'number' &&
       pollIntervalEl &&
       !pollIntervalDirty
@@ -2212,8 +2320,23 @@
       for (let i = 0; i < historyLimitEls.length; i++) {
         fillIfIdle(historyLimitEls[i], text)
       }
+    }
+    if (!historyFromDateDirty) {
+      const nextDate =
+        typeof data.historyFromDate === 'string'
+          ? parseFromDate(data.historyFromDate)
+          : ''
+      historyFromDate = nextDate
+      const todayIso = isoFromLocal(new Date())
+      for (let i = 0; i < historyFromDateEls.length; i++) {
+        historyFromDateEls[i].max = todayIso
+        fillIfIdle(historyFromDateEls[i], nextDate)
+      }
+    }
+    if (typeof data.historyLimit === 'number') {
       applyHistoryTitle(data.historyLimit)
     }
+    syncHistoryRangeUi()
   }
 
   function rowIsSpike(row, warnOn) {
@@ -2226,9 +2349,17 @@
     return typeof row.tokens === 'string' && row.tokens.indexOf('!') !== -1
   }
 
-  function visibleTableEvents(events, warnOn) {
+  function syncSpikesFilterUi() {
+    if (!filterSpikesOnlyEl) {
+      return
+    }
+    filterSpikesOnlyEl.checked = spikesOnly
+    filterSpikesOnlyEl.setAttribute('aria-checked', spikesOnly ? 'true' : 'false')
+  }
+
+  function visibleRows(events, warnOn) {
     const list = events || []
-    if (!spikesOnly || !warnOn) {
+    if (!spikesOnly) {
       return list
     }
     const out = []
@@ -2240,34 +2371,23 @@
     return out
   }
 
-  function syncSpikesOnlyControl(warnOn) {
-    if (!spikesOnlyEl) {
-      return
-    }
-    spikesOnlyEl.disabled = !warnOn
-    spikesOnlyEl.checked = warnOn && spikesOnly
-  }
-
   function paintRows(events, warnOn) {
     while (rowsEl.firstChild) {
       rowsEl.removeChild(rowsEl.firstChild)
     }
-    const list = events || []
-    const shown = visibleTableEvents(list, warnOn)
+    const list = visibleRows(events, warnOn)
     if (list.length === 0) {
       emptyEl.hidden = false
-      setText(emptyEl, 'No queries yet')
-      return
-    }
-    if (shown.length === 0) {
-      emptyEl.hidden = false
-      setText(emptyEl, 'No queries over the token warning')
+      setText(
+        emptyEl,
+        spikesOnly ? 'No queries over Warn at' : 'No queries yet',
+      )
       return
     }
     emptyEl.hidden = true
     setText(emptyEl, 'No queries yet')
-    for (let i = 0; i < shown.length; i++) {
-      const row = shown[i]
+    for (let i = 0; i < list.length; i++) {
+      const row = list[i]
       const tr = document.createElement('tr')
       addCell(tr, row.time)
       addCell(tr, row.model)
@@ -2280,6 +2400,198 @@
     }
   }
 
+  function syncOptimizeDefaultUi(depth) {
+    const cards = document.querySelectorAll('[data-optimize-card]')
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i]
+      const value = card.getAttribute('data-optimize-card')
+      card.classList.toggle('is-default', value === depth)
+    }
+    const badges = document.querySelectorAll('[data-default-badge]')
+    for (let i = 0; i < badges.length; i++) {
+      const badge = badges[i]
+      badge.hidden = badge.getAttribute('data-default-badge') !== depth
+    }
+    const setBtns = document.querySelectorAll('[data-set-default]')
+    for (let i = 0; i < setBtns.length; i++) {
+      const btn = setBtns[i]
+      btn.hidden = btn.getAttribute('data-set-default') === depth
+    }
+    if (runOptimizeToolbarEl) {
+      const label =
+        depth === 'quick' ? 'Quick' : depth === 'deep' ? 'Deep' : 'Balanced'
+      setText(runOptimizeToolbarEl, 'Run Optimize (' + label + ')')
+      runOptimizeToolbarEl.title =
+        'Paste the default ' + label + ' prompt into the last chat'
+    }
+  }
+
+  function promptMetaLabel(depth, text) {
+    const depthLabel =
+      depth === 'quick' ? 'Quick' : depth === 'deep' ? 'Deep' : 'Balanced'
+    if (!text) {
+      return depthLabel + ' prompt — empty'
+    }
+    const chars = text.length
+    const lines = text.split('\n').length
+    return (
+      depthLabel +
+      ' · ' +
+      lines +
+      ' lines · ' +
+      chars.toLocaleString('en-US') +
+      ' chars — expand to preview'
+    )
+  }
+
+  function renderOptimizeLifetime(lifetime) {
+    const data =
+      lifetime && typeof lifetime === 'object'
+        ? lifetime
+        : { projects: [], empty: true }
+    const projects = Array.isArray(data.projects) ? data.projects : []
+    const isEmpty = data.empty === true || projects.length === 0
+    if (optimizeLifetimeHeadingEl) {
+      optimizeLifetimeHeadingEl.hidden = isEmpty
+    }
+    if (optimizeLifetimeEmptyEl) {
+      optimizeLifetimeEmptyEl.hidden = !isEmpty
+    }
+    if (!optimizeLifetimeProjectsEl) {
+      return
+    }
+    while (optimizeLifetimeProjectsEl.firstChild) {
+      optimizeLifetimeProjectsEl.removeChild(
+        optimizeLifetimeProjectsEl.firstChild,
+      )
+    }
+    if (isEmpty) {
+      return
+    }
+    for (let i = 0; i < projects.length; i++) {
+      const row = projects[i]
+      const li = document.createElement('li')
+      const label = document.createElement('span')
+      label.className = 'project-label'
+      setText(label, row && row.label ? String(row.label) : 'Project')
+      const values = document.createElement('span')
+      values.className = 'project-values'
+      const tokens =
+        row && Number.isFinite(row.tokens) ? compactTokens(row.tokens) : '0'
+      const usd =
+        row && Number.isFinite(row.usd) ? compactCost(row.usd) : '0.00 $'
+      setText(values, '~' + tokens + ' · ~' + usd)
+      li.appendChild(label)
+      li.appendChild(values)
+      optimizeLifetimeProjectsEl.appendChild(li)
+    }
+  }
+
+  function renderOptimize(optimize) {
+    if (!optimizeViewEl || !optimizeSummaryEl) {
+      return
+    }
+    const empty = !optimize || optimize.empty === true
+    if (optimizeEmptyEl) {
+      optimizeEmptyEl.hidden = !empty
+    }
+    if (optimizeContentEl) {
+      optimizeContentEl.hidden = empty
+    }
+    if (runOptimizeToolbarEl) {
+      runOptimizeToolbarEl.disabled = empty
+    }
+    if (empty) {
+      syncOptimizeDefaultUi(optimizeDepth)
+      return
+    }
+    const depth =
+      optimize.depth === 'quick' || optimize.depth === 'deep'
+        ? optimize.depth
+        : 'balanced'
+    optimizeDepth = depth
+    syncOptimizeDefaultUi(depth)
+    setText(
+      optimizeSummaryEl,
+      optimize.summary || 'Projected save per similar request: 0 / 0.00 $',
+    )
+    if (optimizeNoteEl) {
+      setText(
+        optimizeNoteEl,
+        optimize.note ||
+          'Projected cost saved on a similar request. Stays 0 / 0.00 $ until you Run Optimize and press Start.',
+      )
+    }
+    renderOptimizeLifetime(optimize.lifetime)
+    if (optimizeFindingsEl) {
+      while (optimizeFindingsEl.firstChild) {
+        optimizeFindingsEl.removeChild(optimizeFindingsEl.firstChild)
+      }
+      const findings = Array.isArray(optimize.findings) ? optimize.findings : []
+      for (let i = 0; i < findings.length; i++) {
+        const finding = findings[i]
+        const li = document.createElement('li')
+        setText(
+          li,
+          (finding.label || 'Finding') +
+            (finding.detail ? ' — ' + finding.detail : ''),
+        )
+        optimizeFindingsEl.appendChild(li)
+      }
+    }
+    const prompts =
+      optimize.prompts && typeof optimize.prompts === 'object'
+        ? optimize.prompts
+        : {}
+    const depths = ['quick', 'balanced', 'deep']
+    for (let i = 0; i < depths.length; i++) {
+      const key = depths[i]
+      const text =
+        typeof prompts[key] === 'string'
+          ? prompts[key]
+          : key === depth && typeof optimize.prompt === 'string'
+            ? optimize.prompt
+            : ''
+      const body = document.querySelector(
+        '[data-prompt-body="' + key + '"]',
+      )
+      const summary = document.querySelector(
+        '[data-prompt-summary="' + key + '"]',
+      )
+      if (body) {
+        setText(body, text)
+      }
+      if (summary) {
+        setText(summary, promptMetaLabel(key, text))
+      }
+      const runBtn = document.querySelector(
+        '[data-run-depth="' + key + '"]',
+      )
+      if (runBtn) {
+        runBtn.disabled = !text
+      }
+    }
+  }
+
+  function renderSupport(support) {
+    if (!supportViewEl) {
+      return
+    }
+    const ready = support && typeof support === 'object' ? support : {}
+    const buttons = supportViewEl.querySelectorAll('[data-support-link]')
+    for (let i = 0; i < buttons.length; i++) {
+      const btn = buttons[i]
+      const linkId = btn.getAttribute('data-support-link')
+      const isReady = ready[linkId] === true
+      btn.disabled = !isReady
+      btn.title = isReady ? 'Opens in your browser' : 'Link coming soon'
+      const card = btn.closest('.support-coffee-card, .support-tier')
+      if (card) {
+        card.classList.toggle('is-ready', isReady)
+      }
+    }
+  }
+
   function render(events, message, stats, settings) {
     if (message) {
       statusEl.hidden = false
@@ -2289,13 +2601,27 @@
       setText(statusEl, '')
     }
 
+    if (
+      settings.budgetDayBasis === 'workingDays' ||
+      settings.budgetDayBasis === 'calendarDays'
+    ) {
+      budgetDayBasis = settings.budgetDayBasis
+    }
+    if (
+      settings.optimizeDepth === 'quick' ||
+      settings.optimizeDepth === 'balanced' ||
+      settings.optimizeDepth === 'deep'
+    ) {
+      optimizeDepth = settings.optimizeDepth
+    }
+
     renderSettings(settings)
     applyRefreshing(settings.refreshing === true)
 
     const warnOn = settings.showSpikeWarning !== false
     tableEvents = events || []
     tableWarnOn = warnOn
-    syncSpikesOnlyControl(warnOn)
+    syncSpikesFilterUi()
     paintRows(tableEvents, warnOn)
 
     applyMtdPayload(settings.mtd)
@@ -2303,6 +2629,8 @@
     renderChartsMtd(settings.mtd)
     chartPoints = Array.isArray(settings.charts) ? settings.charts : []
     renderPeriodCards(settings.periods)
+    renderOptimize(settings.optimize)
+    renderSupport(settings.support)
     if (
       (chartsViewEl && !chartsViewEl.hidden) ||
       (statsViewEl && !statsViewEl.hidden)
@@ -2384,15 +2712,49 @@
     }
     const value = clampHistoryLimit(source.value)
     historyLimitDirty = false
+    historyFromDateDirty = false
+    historyFromDate = ''
     for (let i = 0; i < historyLimitEls.length; i++) {
       historyLimitEls[i].value = String(value)
     }
+    for (let i = 0; i < historyFromDateEls.length; i++) {
+      historyFromDateEls[i].value = ''
+    }
     applyHistoryTitle(value)
+    syncHistoryRangeUi()
     vscode.postMessage({ type: 'setHistoryLimit', value: value })
   }
 
   function markHistoryLimitDirty() {
     historyLimitDirty = true
+  }
+
+  function syncHistoryRangeUi() {
+    const hasDate = historyFromDate !== ''
+    for (let i = 0; i < historyLimitEls.length; i++) {
+      historyLimitEls[i].disabled = hasDate
+    }
+    if (applyHistoryLimitEl) {
+      applyHistoryLimitEl.disabled = hasDate
+    }
+  }
+
+  function submitHistoryFromDate(value) {
+    const parsed = parseFromDate(value)
+    historyFromDateDirty = false
+    historyFromDate = parsed
+    const todayIso = isoFromLocal(new Date())
+    for (let i = 0; i < historyFromDateEls.length; i++) {
+      historyFromDateEls[i].max = todayIso
+      historyFromDateEls[i].value = parsed
+    }
+    const limitSource = historyLimitEls[0]
+    const limit = limitSource
+      ? clampHistoryLimit(limitSource.value)
+      : 1000
+    applyHistoryTitle(limit)
+    syncHistoryRangeUi()
+    vscode.postMessage({ type: 'setHistoryFromDate', value: parsed })
   }
 
   for (let i = 0; i < historyLimitEls.length; i++) {
@@ -2414,17 +2776,34 @@
       submitHistoryLimit(historyLimitEl)
     })
   }
-  if (applyHistoryLimitBarEl) {
-    applyHistoryLimitBarEl.addEventListener('click', function () {
-      submitHistoryLimit(historyLimitBarEl)
+  for (let i = 0; i < historyFromDateEls.length; i++) {
+    const inputEl = historyFromDateEls[i]
+    inputEl.addEventListener('input', function () {
+      historyFromDateDirty = true
+    })
+    inputEl.addEventListener('change', function () {
+      submitHistoryFromDate(inputEl.value)
     })
   }
-  if (spikesOnlyEl) {
-    spikesOnlyEl.addEventListener('change', function () {
-      if (spikesOnlyEl.disabled) {
-        return
-      }
-      spikesOnly = spikesOnlyEl.checked === true
+  if (fromMonthSettingEl) {
+    fromMonthSettingEl.addEventListener('click', function () {
+      submitHistoryFromDate(startOfMonthIso())
+    })
+  }
+  if (fromTodaySettingEl) {
+    fromTodaySettingEl.addEventListener('click', function () {
+      submitHistoryFromDate(isoFromLocal(new Date()))
+    })
+  }
+  if (clearFromDateSettingEl) {
+    clearFromDateSettingEl.addEventListener('click', function () {
+      submitHistoryFromDate('')
+    })
+  }
+  if (filterSpikesOnlyEl) {
+    filterSpikesOnlyEl.addEventListener('change', function () {
+      spikesOnly = filterSpikesOnlyEl.checked === true
+      syncSpikesFilterUi()
       paintRows(tableEvents, tableWarnOn)
     })
   }
@@ -2540,6 +2919,68 @@
       vscode.postMessage({ type: 'setRecentQueryCount', value: value })
     })
   }
+  if (budgetDayBasisEl) {
+    budgetDayBasisEl.addEventListener('change', function () {
+      const value =
+        budgetDayBasisEl.value === 'calendarDays'
+          ? 'calendarDays'
+          : 'workingDays'
+      budgetDayBasisEl.value = value
+      budgetDayBasis = value
+      vscode.postMessage({ type: 'setBudgetDayBasis', value: value })
+    })
+  }
+  if (optimizeDepthSettingEl) {
+    optimizeDepthSettingEl.addEventListener('change', function () {
+      const raw = optimizeDepthSettingEl.value
+      const value =
+        raw === 'quick' || raw === 'deep' ? raw : 'balanced'
+      optimizeDepthSettingEl.value = value
+      optimizeDepth = value
+      syncOptimizeDefaultUi(value)
+      vscode.postMessage({ type: 'setOptimizeDepth', value: value })
+    })
+  }
+  if (optimizeDepthCardsEl) {
+    optimizeDepthCardsEl.addEventListener('click', function (event) {
+      const target = event.target
+      if (!target || !target.closest) {
+        return
+      }
+      const setBtn = target.closest('[data-set-default]')
+      if (setBtn) {
+        const raw = setBtn.getAttribute('data-set-default')
+        const value =
+          raw === 'quick' || raw === 'deep' ? raw : 'balanced'
+        if (value === optimizeDepth) {
+          return
+        }
+        optimizeDepth = value
+        syncOptimizeDefaultUi(value)
+        if (optimizeDepthSettingEl) {
+          optimizeDepthSettingEl.value = value
+        }
+        vscode.postMessage({ type: 'setOptimizeDepth', value: value })
+        return
+      }
+      const runBtn = target.closest('[data-run-depth]')
+      if (runBtn) {
+        const raw = runBtn.getAttribute('data-run-depth')
+        const value =
+          raw === 'quick' || raw === 'deep' ? raw : 'balanced'
+        vscode.postMessage({ type: 'runOptimize', depth: value })
+      }
+    })
+  }
+  if (runOptimizeToolbarEl) {
+    runOptimizeToolbarEl.addEventListener('click', function () {
+      const depth =
+        optimizeDepth === 'quick' || optimizeDepth === 'deep'
+          ? optimizeDepth
+          : 'balanced'
+      vscode.postMessage({ type: 'runOptimize', depth: depth })
+    })
+  }
   function submitPollInterval() {
     if (!pollIntervalEl) {
       return
@@ -2586,9 +3027,33 @@
       setView('charts')
     })
   }
+  if (tabOptimizeEl) {
+    tabOptimizeEl.addEventListener('click', function () {
+      setView('optimize')
+    })
+  }
+  if (tabSupportEl) {
+    tabSupportEl.addEventListener('click', function () {
+      setView('support')
+    })
+  }
   tabSettingsEl.addEventListener('click', function () {
     setView('settings')
   })
+
+  if (supportViewEl) {
+    supportViewEl.addEventListener('click', function (event) {
+      const btn = event.target.closest('[data-support-link]')
+      if (!btn || btn.disabled) {
+        return
+      }
+      const linkId = btn.getAttribute('data-support-link')
+      if (!linkId) {
+        return
+      }
+      vscode.postMessage({ type: 'openSupportLink', id: linkId })
+    })
+  }
 
   closeEl.addEventListener('click', function () {
     vscode.postMessage({ type: 'close' })

@@ -4,15 +4,31 @@ import {
   type CursorCostConfig,
 } from '../config'
 import { isSpike } from '../spikes/threshold'
-import { stripModelPrefix } from '../usage/parse'
+import {
+  applyBudgetDayBasis,
+  stripModelPrefix,
+  sumMonthUsedUsd,
+} from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
 import { buildBudgetTooltipMarkdown } from './statusBarTooltip'
+import {
+  averageTodayPercent,
+  dailyPacePercent,
+  proCurrentStatusText,
+  proTodayStatusText,
+} from './proPercentSummary'
 
 export const SHOW_HISTORY_COMMAND = 'cursorCost.showHistory'
 export const REFRESH_COMMAND = 'cursorCost.refresh'
 export const RECENT_STATUS_SLOTS = MAX_RECENT_QUERY_COUNT
 
-export type HistoryTab = 'queries' | 'stats' | 'charts' | 'settings'
+export type HistoryTab =
+  | 'queries'
+  | 'stats'
+  | 'charts'
+  | 'optimize'
+  | 'support'
+  | 'settings'
 
 export type StatusBarCommand =
   | string
@@ -103,7 +119,7 @@ function currentTooltip(data: UsageReady): string {
     : text
 }
 
-function todayTooltip(data: UsageReady): string {
+function todayTooltip(data: UsageReady, config: CursorCostConfig): string {
   if (data.remainingUsd !== null && data.remainingUsd <= 0) {
     return "Today = sum of today's queries. Cycle remaining is $0, so there is no daily budget. Today can exceed Current (events vs plan pool)."
   }
@@ -111,7 +127,11 @@ function todayTooltip(data: UsageReady): string {
   if (days === null) {
     return "Today = sum of today's queries vs remaining cycle allowance."
   }
-  return `Today = sum of today's queries vs remaining cycle ÷ working days left (${days} days).`
+  const unit =
+    config.budgetDayBasis === 'calendarDays'
+      ? 'calendar days'
+      : 'working days'
+  return `Today = sum of today's queries vs remaining cycle ÷ ${unit} left (${days} days).`
 }
 
 function currentText(data: UsageReady): string {
@@ -119,10 +139,10 @@ function currentText(data: UsageReady): string {
     return '$(credit-card) Unlimited'
   }
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
-    const percents = data.includedQuotas
-      .map((quota) => formatPercentUsed(quota.percent))
-      .join(' · ')
-    return `$(credit-card) ${percents}`
+    const averaged = proCurrentStatusText(data.includedQuotas)
+    if (averaged !== null) {
+      return `$(credit-card) ${averaged}`
+    }
   }
   const used = formatDollars(data.usedUsd)
   if (data.limitUsd === null) {
@@ -142,7 +162,24 @@ function currentTone(data: UsageReady): SpendTone {
   return spendTone(data.usedUsd, data.limitUsd)
 }
 
-function todayText(data: UsageReady): string {
+function todayText(
+  data: UsageReady,
+  now: Date,
+  budgetDayBasis: CursorCostConfig['budgetDayBasis'],
+): string {
+  if (isPercentPlan(data) && data.includedQuotas.length > 0) {
+    const todayUsd = data.todayUsedUsd ?? 0
+    const monthUsd = Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd)
+    const averaged = proTodayStatusText(
+      data.includedQuotas,
+      todayUsd,
+      monthUsd,
+      dailyPacePercent(now, budgetDayBasis),
+    )
+    if (averaged !== null) {
+      return `$(calendar) ${averaged}`
+    }
+  }
   const used = formatDollars(data.todayUsedUsd ?? 0)
   if (data.dailyBudgetUsd === null || data.dailyBudgetUsd <= 0) {
     return `$(calendar) ${used} / —`
@@ -150,7 +187,21 @@ function todayText(data: UsageReady): string {
   return `$(calendar) ${used} / ${formatDollars(data.dailyBudgetUsd)}`
 }
 
-function todayTone(data: UsageReady): SpendTone {
+function todayTone(
+  data: UsageReady,
+  now: Date,
+  budgetDayBasis: CursorCostConfig['budgetDayBasis'],
+): SpendTone {
+  if (isPercentPlan(data) && data.includedQuotas.length > 0) {
+    const todayUsd = data.todayUsedUsd ?? 0
+    const monthUsd = Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd)
+    const avg = averageTodayPercent(data.includedQuotas, todayUsd, monthUsd)
+    const pace = dailyPacePercent(now, budgetDayBasis)
+    if (avg === null || pace === null) {
+      return 'green'
+    }
+    return spendTone(avg, pace)
+  }
   if (isPercentPlan(data)) {
     return 'green'
   }
@@ -272,6 +323,7 @@ export function toStatusBarView(
   snapshot: UsageSnapshot,
   config: CursorCostConfig,
   refreshing = false,
+  now: Date = new Date(),
 ): StatusBarView {
   const spinning = refreshing || snapshot.status === 'loading'
   const refresh = refreshItem(config, spinning)
@@ -317,7 +369,7 @@ export function toStatusBarView(
     }
   }
 
-  const data = snapshot.data
+  const data = applyBudgetDayBasis(snapshot.data, config.budgetDayBasis, now)
   const minimal = config.minimalMode
   const todayVisible =
     !minimal &&
@@ -337,9 +389,9 @@ export function toStatusBarView(
       },
       today: {
         visible: todayVisible,
-        text: todayText(data),
-        tooltip: todayTooltip(data),
-        tone: todayTone(data),
+        text: todayText(data, now, config.budgetDayBasis),
+        tooltip: todayTooltip(data, config),
+        tone: todayTone(data, now, config.budgetDayBasis),
         command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
         accessibility: 'Cursor cost today',
       },
@@ -423,9 +475,10 @@ export function toBudgetStatusItem(
   if (snapshot.status !== 'ready') {
     return item
   }
+  const data = applyBudgetDayBasis(snapshot.data, config.budgetDayBasis, now)
   return {
     ...item,
-    tooltip: buildBudgetTooltipMarkdown(snapshot.data, now),
+    tooltip: buildBudgetTooltipMarkdown(data, now),
     tooltipMarkdown: true,
   }
 }
@@ -474,7 +527,7 @@ export const STATUS_BAR_PREVIEW_SNAPSHOT: UsageSnapshot = {
     includedQuotas: [],
     usedUsd: 12.4,
     limitUsd: 250,
-    remainingUsd: 237.6,
+    remainingUsd: 246.18,
     todayUsedUsd: 3.79,
     dailyBudgetUsd: 11.19,
     workingDaysLeft: 22,
@@ -534,18 +587,24 @@ function previewChipFromView(
 
 export function toStatusBarPreviewChips(
   config: CursorCostConfig,
+  now: Date = new Date(2026, 8, 1, 12, 0, 0),
 ): StatusBarPreviewChip[] {
   const snapshot = STATUS_BAR_PREVIEW_SNAPSHOT
-  const view = toStatusBarView(snapshot, config)
-  const budget = toBudgetStatusItem(view, snapshot, config)
+  const view = toStatusBarView(snapshot, config, false, now)
+  const budget = toBudgetStatusItem(view, snapshot, config, now)
   // Fill every sample slot with text so Settings can retarget the count
   // locally (and after a host round-trip) without empty placeholders.
-  const filled = toStatusBarView(snapshot, {
-    ...config,
-    showStatusBar: true,
-    minimalMode: false,
-    recentQueryCount: MAX_RECENT_QUERY_COUNT,
-  })
+  const filled = toStatusBarView(
+    snapshot,
+    {
+      ...config,
+      showStatusBar: true,
+      minimalMode: false,
+      recentQueryCount: MAX_RECENT_QUERY_COUNT,
+    },
+    false,
+    now,
+  )
   const recentLimit =
     !config.showStatusBar || config.minimalMode ? 0 : config.recentQueryCount
   return [

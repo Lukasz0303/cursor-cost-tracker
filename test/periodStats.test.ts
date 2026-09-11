@@ -82,26 +82,34 @@ describe('toPeriodStats', () => {
   })
 
   it('shows Pro Current as included percents', () => {
+    const now = new Date(2026, 8, 1, 12, 0, 0)
     const stats = toPeriodStats(
       ready({
         plan: 'pro',
         spendDisplay: 'percent',
+        todayUsedUsd: 4,
         includedQuotas: [
           { name: 'Cursor Models', used: 1400, limit: 20000, percent: 7 },
           { name: 'Other Models', used: 0, limit: 100, percent: 0 },
         ],
       }),
-      [],
-      { spikeTokenThreshold: DEFAULT_SPIKE_TOKEN_THRESHOLD },
+      [query({ timestamp: now.getTime(), costUsd: 4 })],
+      { spikeTokenThreshold: DEFAULT_SPIKE_TOKEN_THRESHOLD, now },
     )
+    // 22 working days in Sep 2026 → daily pace 100/22 ≈ 4.5%.
     expect(stats.glossary[0]?.value).toBe('7% · 0%')
     expect(stats.glossary[0]?.body).toBe(CURRENT_PRO_BODY)
     expect(stats.glossary[0]?.bars).toEqual([
       { label: 'Cursor Models', value: '7%', percent: 7 },
       { label: 'Other Models', value: '0%', percent: 0 },
     ])
+    expect(stats.glossary[1]?.title).toBe('Today · sum 4.00 $')
+    expect(stats.glossary[1]?.value).toBe('7% / 4.5% · 0% / 4.5%')
     expect(stats.glossary[1]?.body).toBe(TODAY_PRO_BODY)
-    expect(stats.glossary[1]?.bars).toEqual([])
+    expect(stats.glossary[1]?.bars).toEqual([
+      { label: 'Cursor Models', value: '7% / 4.5%', percent: 154 },
+      { label: 'Other Models', value: '0% / 4.5%', percent: 0 },
+    ])
     expect(stats.cycle.find((row) => row.id === 'plan')?.value).toBe('Pro')
     expect(stats.cycle.some((row) => row.label === 'Cursor Models')).toBe(false)
     expect(stats.cycle.some((row) => row.label === 'Remaining')).toBe(false)
@@ -190,6 +198,26 @@ describe('toPeriodStats', () => {
     expect(stats.sample.find((row) => row.label === 'Last 100 total')).toBeDefined()
     expect(stats.sampleNote).toBe('Last 100 is recent queries, not Current.')
     expect(stats.queryCount).toBe(100)
+  })
+
+  it('labels the sample from a calendar day', () => {
+    const stats = toPeriodStats(
+      ready({ remainingUsd: 100, dailyBudgetUsd: 10 }),
+      [query({ timestamp: 1, costUsd: 2 })],
+      {
+        spikeTokenThreshold: DEFAULT_SPIKE_TOKEN_THRESHOLD,
+        historyFromDate: '2026-09-01',
+      },
+    )
+    expect(stats.sampleNote).toBe(
+      'From 1.09.2026 is recent queries, not Current.',
+    )
+    expect(
+      stats.cycle.some((row) => row.label === 'From 1.09.2026 vs Current'),
+    ).toBe(true)
+    expect(
+      stats.sample.find((row) => row.label === 'From 1.09.2026 total')?.value,
+    ).toBe('2.00 $')
   })
 
   it('shows a Today meter only when a daily budget exists', () => {

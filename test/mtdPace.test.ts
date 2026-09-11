@@ -83,7 +83,7 @@ describe('toMtdPace', () => {
       '10.00 $',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Under')
-    expect(stats.body).toContain('Bars are dollars')
+    expect(stats.body).toContain('Bars are cumulative dollars')
     expect(stats.metrics.find((row) => row.id === 'mtdAvg')?.value).toBe(
       '8.40 $',
     )
@@ -283,6 +283,26 @@ describe('toMtdChart', () => {
 describe('workingDaysInMonth', () => {
   it('counts Mon–Fri in the calendar month', () => {
     expect(workingDaysInMonth(new Date(2026, 8, 3, 12, 0, 0))).toBe(22)
+  })
+})
+
+describe('calendar day budget basis', () => {
+  it('paces month spend across all calendar days', () => {
+    const now = new Date(2026, 8, 5, 12, 0, 0)
+    const stats = toMtdPace(
+      ready({ dailyBudgetUsd: 10, remainingUsd: 200 }),
+      [query({ timestamp: now.getTime(), costUsd: 20 })],
+      { now, budgetDayBasis: 'calendarDays' },
+    )
+    // 5 calendar days so far × $10 daily budget.
+    expect(stats.metrics.find((row) => row.id === 'mtdDays')?.label).toBe(
+      'Days so far',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdDays')?.value).toBe('5')
+    expect(stats.forecast).toHaveLength(30)
+    expect(stats.forecast[4]?.workingDayIndex).toBe(5)
+    expect(stats.forecast[4]?.allowanceUsd).toBe(50)
+    expect(stats.forecast[29]?.workingDayIndex).toBe(30)
   })
 })
 

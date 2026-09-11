@@ -89,6 +89,79 @@ describe('cursorCostConfigFrom', () => {
     expect(config.criticalTokenThreshold).toBe(20_000_000)
     expect(config.criticalCostUsdThreshold).toBe(7.5)
     expect(config.recentQueryCount).toBe(10)
+    expect(config.historyFromDate).toBeNull()
+  })
+
+  it('reads historyFromDate from settings', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'historyFromDate') {
+          return '2026-09-01'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.historyFromDate).toBe('2026-09-01')
+  })
+
+  it('clears invalid historyFromDate', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'historyFromDate') {
+          return '01.09.2026'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.historyFromDate).toBeNull()
+  })
+
+  it('reads budgetDayBasis from settings', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'budgetDayBasis') {
+          return 'calendarDays'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.budgetDayBasis).toBe('calendarDays')
+  })
+
+  it('falls back to workingDays for unknown budgetDayBasis', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'budgetDayBasis') {
+          return 'weekendsOnly'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.budgetDayBasis).toBe('workingDays')
+  })
+
+  it('reads optimizeDepth from settings', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'optimizeDepth') {
+          return 'deep'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.optimizeDepth).toBe('deep')
+  })
+
+  it('falls back to balanced for unknown optimizeDepth', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'optimizeDepth') {
+          return 'mega'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.optimizeDepth).toBe('balanced')
   })
 })
 

@@ -1,13 +1,19 @@
 import {
   clampRecentQueryCount,
+  DEFAULT_BUDGET_DAY_BASIS,
   DEFAULT_CURSOR_COST_CONFIG,
   DEFAULT_OK_COLOR,
+  DEFAULT_OPTIMIZE_DEPTH,
   DEFAULT_RECENT_QUERY_COUNT,
   DEFAULT_WARN_COLOR,
+  type BudgetDayBasis,
+  type OptimizeDepth,
 } from '../config'
+import { parseHistoryFromDate } from '../historyFromDate'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
+  sampleSizeLimit,
 } from '../historyLimit'
 import { formatDateTime, formatDollars, formatKind, formatTokens } from '../format'
 import {
@@ -15,12 +21,21 @@ import {
   DEFAULT_CRITICAL_TOKEN_THRESHOLD,
 } from '../spikes/criticalAlert'
 import { DEFAULT_SPIKE_TOKEN_THRESHOLD, isSpike } from '../spikes/threshold'
-import { stripModelPrefix } from '../usage/parse'
+import { applyBudgetDayBasis, stripModelPrefix } from '../usage/parse'
 import type { UsageQuery, UsageSnapshot } from '../usage/types'
 import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
 import { toChartSeries, type ChartPoint } from './chartSeries'
 import { toPeriodCards, type PeriodCard } from './periodCards'
 import { toMtdPace, type MtdPacePayload } from './mtdPace'
+import {
+  toOptimizePayload,
+  type OptimizePayload,
+} from './optimizePayload'
+import type { LifetimeSavings } from './optimizeLifetimeSavings'
+import {
+  supportLinkReady,
+  type SupportLinkId,
+} from '../supportLinks'
 import {
   toStatusBarPreviewChips,
   type StatusBarPreviewChip,
@@ -56,12 +71,21 @@ export type HistoryRowOptions = {
   warnColor?: string
   extensionVersion?: string
   historyLimit?: number
+  historyFromDate?: string | null
   refreshing?: boolean
   pollIntervalMinutes?: number
   showStatusBar?: boolean
   showToday?: boolean
   minimalMode?: boolean
   recentQueryCount?: number
+  budgetDayBasis?: BudgetDayBasis
+  optimizeDepth?: OptimizeDepth
+  /** Raw `.ai/optimize-savings.md` when present (agent-written after Start). */
+  optimizeSavingsMarkdown?: string | null
+  /** Workspace folder basename for Optimize fence `project:`. */
+  optimizeProjectLabel?: string
+  /** Credited lifetime savings from extension globalState. */
+  optimizeLifetimeSavings?: LifetimeSavings | null
 }
 
 export function toHistoryRows(
@@ -91,16 +115,6 @@ export function toHistoryRows(
   })
 }
 
-export function visibleHistoryRows(
-  rows: HistoryRow[],
-  spikesOnly: boolean,
-): HistoryRow[] {
-  if (!spikesOnly) {
-    return rows
-  }
-  return rows.filter((row) => row.spike)
-}
-
 export type HistoryDataPayload = {
   type: 'data'
   events: HistoryRow[]
@@ -114,16 +128,21 @@ export type HistoryDataPayload = {
   warnColor: string
   extensionVersion: string
   historyLimit: number
+  historyFromDate: string | null
   pollIntervalMinutes: number
   showStatusBar: boolean
   showToday: boolean
   minimalMode: boolean
   recentQueryCount: number
+  budgetDayBasis: BudgetDayBasis
+  optimizeDepth: OptimizeDepth
   statusBarPreview: StatusBarPreviewChip[]
   stats: PeriodStatsPayload
   charts: ChartPoint[]
   periods: PeriodCard[]
   mtd: MtdPacePayload
+  optimize: OptimizePayload
+  support: Record<SupportLinkId, boolean>
   refreshing: boolean
 }
 
@@ -144,6 +163,8 @@ export function historyDataPayload(
   const historyLimit = clampHistoryLimit(
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
+  const historyFromDate = parseHistoryFromDate(options?.historyFromDate)
+  const sampleLimit = sampleSizeLimit(historyLimit, historyFromDate)
   const pollIntervalMinutes =
     options?.pollIntervalMinutes ??
     DEFAULT_CURSOR_COST_CONFIG.pollIntervalMinutes
@@ -153,13 +174,23 @@ export function historyDataPayload(
   const recentQueryCount = clampRecentQueryCount(
     options?.recentQueryCount ?? DEFAULT_RECENT_QUERY_COUNT,
   )
+  const budgetDayBasis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const optimizeDepth = options?.optimizeDepth ?? DEFAULT_OPTIMIZE_DEPTH
+  const pacedSnapshot: UsageSnapshot =
+    snapshot.status === 'ready'
+      ? {
+          status: 'ready',
+          data: applyBudgetDayBasis(snapshot.data, budgetDayBasis),
+        }
+      : snapshot
   const rowOptions: HistoryRowOptions = {
     spikeTokenThreshold,
     showSpikeWarning,
     showCriticalAlert,
     criticalTokenThreshold,
     criticalCostUsdThreshold,
-    historyLimit,
+    historyLimit: sampleLimit,
+    historyFromDate,
     okColor: options?.okColor ?? DEFAULT_OK_COLOR,
     warnColor: options?.warnColor ?? DEFAULT_WARN_COLOR,
     extensionVersion: options?.extensionVersion ?? '0.0.0',
@@ -168,6 +199,8 @@ export function historyDataPayload(
     showToday,
     minimalMode,
     recentQueryCount,
+    budgetDayBasis,
+    optimizeDepth,
   }
   const payload: HistoryDataPayload = {
     type: 'data',
@@ -181,11 +214,14 @@ export function historyDataPayload(
     warnColor: rowOptions.warnColor ?? DEFAULT_WARN_COLOR,
     extensionVersion: rowOptions.extensionVersion ?? '0.0.0',
     historyLimit,
+    historyFromDate,
     pollIntervalMinutes,
     showStatusBar,
     showToday,
     minimalMode,
     recentQueryCount,
+    budgetDayBasis,
+    optimizeDepth,
     statusBarPreview: toStatusBarPreviewChips({
       ...DEFAULT_CURSOR_COST_CONFIG,
       spikeTokenThreshold,
@@ -194,14 +230,34 @@ export function historyDataPayload(
       showToday,
       minimalMode,
       recentQueryCount,
+      budgetDayBasis,
+      optimizeDepth,
     }),
-    stats: toPeriodStats(snapshot, queries, {
+    stats: toPeriodStats(pacedSnapshot, queries, {
       spikeTokenThreshold,
       historyLimit,
+      historyFromDate,
+      budgetDayBasis,
     }),
-    charts: toChartSeries(queries, historyLimit),
-    periods: toPeriodCards(queries, { historyLimit }),
-    mtd: toMtdPace(snapshot, queries, { historyLimit }),
+    charts: toChartSeries(queries, sampleLimit),
+    periods: toPeriodCards(queries, { historyLimit: sampleLimit }),
+    mtd: toMtdPace(pacedSnapshot, queries, {
+      historyLimit,
+      historyFromDate,
+      budgetDayBasis,
+    }),
+    optimize: toOptimizePayload(queries, {
+      depth: optimizeDepth,
+      historyLimit: sampleLimit,
+      spikeTokenThreshold,
+      savingsMarkdown: options?.optimizeSavingsMarkdown ?? null,
+      projectLabel: options?.optimizeProjectLabel ?? '',
+      lifetimeSavings: options?.optimizeLifetimeSavings ?? null,
+    }),
+    support: {
+      buyMeACoffee: supportLinkReady('buyMeACoffee'),
+      githubSponsors: supportLinkReady('githubSponsors'),
+    },
     refreshing: options?.refreshing === true,
   }
   if (message !== undefined && message !== '') {

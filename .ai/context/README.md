@@ -4,9 +4,9 @@ This folder describes the **product vision** and **target stack**. Once code exi
 
 ## 1. Product vision
 
-- **Title:** Cursor Cost Tracker — *See Cursor AI spend without leaving the editor.*
+- **Title:** Cursor Cost Tracker — *See spend · forecast run-out · Optimize expensive queries locally.*
 - **Shape:** VS Code extension compatible with **Cursor** (primary target).
-- **Value:** Current, Today, and 1–10 recent queries (default 3) on the **status bar**; click opens **Last N Cursor queries** (default 1000). `!` on a query ≥ token threshold (default 1M). Blocking dialog if the newest query hits 10M tokens or $5. Ignore of spikes is a follow-up.
+- **Value (three goals):** (1) **Status bar** — Current, Today, 1–10 recent queries; (2) **Monthly cost forecast** — when Team money / Pro included limits run out; (3) **Optimize** — last red query prompts + local `.ai/optimize-savings.md` only. `!` on a query ≥ token threshold (default 1M). Blocking dialog if the newest query hits 10M tokens or $5. Ignore of spikes is a follow-up.
 - **Zero setup:** read the local Cursor session (`state.vscdb`); no `.env` and no API key in settings (MVP).
 - **Full requirements:** [prd.md](./prd.md) (English, canonical) · [prd.pl.md](./prd.pl.md) (Polish).
 
@@ -16,17 +16,17 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 
 | Topic | Rule |
 |-------|------|
-| Status bar | Team: Current `used $ / limit $`. Pro: included-quota percents. Today, Refresh (on demand), 1–10 recent queries (`cost - tokens`, default 3); `!` on a query ≥ token threshold (default 1M) |
+| Status bar | Team: Current `used $ / limit $`. Pro: mean included % vs 100% (`32% / 100%`); Today mean today % / daily pace (`3.5% / 4.5% (17.12 $)`). Refresh (on demand), 1–10 recent queries (`cost - tokens`, default 3); `!` on a query ≥ token threshold (default 1M) |
 | Critical alert | Blocking dialog when the newest query hits 10M tokens or $5 (configurable; once per query) |
 | Click Current/Today | Statistics tab immediately (not Quick Pick). A recent-query chip opens the queries list |
-| History | Four tabs: Last N (default 1000), Statistics (incl. MTD pace / forecast chart), Charts (tokens/cost + the same Monthly cost forecast control + period mix cards), Settings (all `cursorCost.*` keys; status bar editor with sample preview) |
+| History | Six tabs: Last N (default 1000; Show last / From date in Settings; queries toolbar filters **Over Warn at**), Statistics (incl. MTD pace / forecast chart), Charts (tokens/cost + the same Monthly cost forecast control + period mix cards), Optimize (last-red-query prompts → paste into last chat; one collapsed projected-save-per-similar-request card from `.ai/optimize-savings.md` after Start; expand for explanation + per-project credits in `globalState`), Support (Buy Me a Coffee live; GitHub Sponsors hidden until the URL is set in `src/supportLinks.ts`), Settings (all `cursorCost.*` keys; status bar editor with sample preview) |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |
 | Token | extension host only; never `postMessage`, logs, or webview |
 | Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `1.0.2`. See [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `1.0.3`. See [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 
