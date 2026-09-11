@@ -3,25 +3,25 @@
   "date": "2026-09-11",
   "gitTag": "v1.0.3",
   "title": "Release notes — Cursor Cost Tracker (1.0.3)",
-  "intro": "Optimize and Support tabs, From date, working-day vs calendar budget, Pro percent status bar, Over Warn at filter, and marketplace copy with Buy Me a Coffee.",
+  "intro": "Optimize and Support tabs, From date, budget day basis, Pro percent status bar, Over Warn at filter, and marketplace copy. Canonical line is 1.0.0 → 1.0.3 only (no 1.1.x).",
   "sections": [
     {
       "name": "New features",
       "items": [
-        "**Optimize tab** — Quick / Balanced (default) / Deep prompts from usage metadata for the last red query (≥ Warn at). **Run Optimize** pastes into the last Agent chat; after Start the agent writes projected savings to `.ai/optimize-savings.md` (`0 / 0.00 $` until that file exists). One collapsed card shows the projected save on a similar request; expand for the explanation and credited totals per project.",
-        "**Support tab** — Buy Me a Coffee (`https://buymeacoffee.com/lzzzielinsn`). GitHub Sponsors is omitted from the tab until the account is live.",
-        "**Budget day basis** — pace Today / MTD / forecast by working days (Mon–Fri, default) or all calendar days (`cursorCost.budgetDayBasis`).",
-        "**From date** — load queries from a local calendar day (e.g. start of month) through today instead of Show last (`cursorCost.historyFromDate`). Lives under Settings → Recent queries.",
-        "**Optimize depth** — `cursorCost.optimizeDepth` Quick / Balanced / Deep, also on Settings."
+        "**Optimize tab** — Quick / Balanced (default) / Deep for the last red query (≥ Warn at). Run pastes into the last Agent chat; projected save from local `.ai/optimize-savings.md` (`0 / 0.00 $` until the file exists).",
+        "**Support tab** — Buy Me a Coffee (`https://buymeacoffee.com/lzzzielinsn`). GitHub Sponsors omitted until the account is live.",
+        "**Budget day basis** — working days (default) or all calendar days (`cursorCost.budgetDayBasis`).",
+        "**From date** — load from a local calendar day through today (`cursorCost.historyFromDate`).",
+        "**Optimize depth** — `cursorCost.optimizeDepth` Quick / Balanced / Deep."
       ]
     },
     {
       "name": "Improvements / Fixes",
       "items": [
-        "**Pro status bar** — Current as mean included `% / 100%`; Today as mean today `% / daily pace` plus today’s `$`; Today turns red when attributed % is at or over pace.",
-        "**Queries toolbar** — **Over Warn at** pill switch filters the table to queries at or over the token warning; Show last / From date stay under Settings.",
-        "**Charts** — Y-axis follows the data so tokens / cost / forecast fill the plot. Forecast hover shows used vs that day’s calculated budget (Enterprise / Team denominator stays put on refresh). Amounts are green when under budget, red when over.",
-        "**README / marketplace** — three product goals (status bar, monthly cost forecast, local Optimize), Optimize screenshot, and Buy Me a Coffee."
+        "**Pro status bar** — Current `% / 100%`; Today `% / pace ($)` turns red when at or over daily pace.",
+        "**Queries toolbar** — **Over Warn at** pill; Show last / From date under Settings.",
+        "**Charts / forecast** — Y-axis follows data; hover uses that day’s calculated budget with green / red amounts.",
+        "**Marketplace** — three product goals, Optimize screenshot, Buy Me a Coffee."
       ]
     }
   ]
