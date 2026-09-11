@@ -29,10 +29,14 @@ export function activate(context: vscode.ExtensionContext): void {
           locateWasm: (file) => join(__dirname, file),
         }),
       fetchSummary: fetchUsageSummary,
-      fetchEvents: (cookie, signal) =>
-        fetchRecentEvents(cookie, signal, {
-          limit: readWorkspaceConfig().historyLimit,
-        }),
+      fetchEvents: (cookie, signal) => {
+        const next = readWorkspaceConfig()
+        return fetchRecentEvents(cookie, signal, {
+          limit: next.historyLimit,
+          fromDate: next.historyFromDate,
+        })
+      },
+      budgetDayBasis: () => readWorkspaceConfig().budgetDayBasis,
     },
     { pollIntervalMinutes: config.pollIntervalMinutes },
   )
@@ -54,6 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
       void saveQueriesCsv(
         service.getCachedQueries(),
         readWorkspaceConfig().historyLimit,
+        readWorkspaceConfig().historyFromDate,
       )
     }),
     vscode.commands.registerCommand(OPEN_DASHBOARD_COMMAND, () => {
@@ -65,7 +70,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const next = readWorkspaceConfig()
       service.reconfigure({ pollIntervalMinutes: next.pollIntervalMinutes })
-      if (event.affectsConfiguration('cursorCost.historyLimit')) {
+      if (
+        event.affectsConfiguration('cursorCost.historyLimit') ||
+        event.affectsConfiguration('cursorCost.historyFromDate')
+      ) {
         void service.refresh()
       }
     }),

@@ -171,6 +171,53 @@ describe('fetchRecentEvents', () => {
       JSON.parse(String((fetchMock().mock.calls[1] as [string, RequestInit])[1].body)),
     ).toEqual({ page: 2, pageSize: 100 })
   })
+
+  it('POSTs local day bounds when fromDate is set and drops older rows', async () => {
+    const now = new Date(2026, 8, 7, 12, 0, 0)
+    const start = new Date(2026, 8, 1).getTime()
+    const end = new Date(2026, 8, 7).getTime() + 24 * 60 * 60 * 1000 - 1
+    fetchMock().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          usageEventsDisplay: [
+            {
+              timestamp: start + 60_000,
+              model: 'kept',
+              chargedCents: 10,
+              tokenUsage: { inputTokens: 1, outputTokens: 1 },
+            },
+            {
+              timestamp: start - 60_000,
+              model: 'old',
+              chargedCents: 10,
+              tokenUsage: { inputTokens: 1, outputTokens: 1 },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+
+    const result = await fetchRecentEvents(
+      cookie,
+      new AbortController().signal,
+      { fromDate: '2026-09-01', now },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+    expect(result.queries).toHaveLength(1)
+    expect(result.queries[0]?.model).toBe('kept')
+    expect(
+      JSON.parse(String((fetchMock().mock.calls[0] as [string, RequestInit])[1].body)),
+    ).toEqual({
+      page: 1,
+      pageSize: 100,
+      startDate: String(start),
+      endDate: String(end),
+    })
+  })
 })
 
 describe('fetchTodayEvents', () => {

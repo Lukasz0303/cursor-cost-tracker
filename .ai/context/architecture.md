@@ -30,16 +30,27 @@ The token **never** goes to the webview.
 | `src/ui/periodStats.ts` | Period stats glossary and aggregates |
 | `src/ui/chartSeries.ts` | Charts tab series (tokens/cost over time) |
 | `src/ui/periodCards.ts` | Charts tab Today / This month / All time mix cards |
-| `src/ui/mtdPace.ts` | Month-to-date meter (elapsed weekdays × daily budget), working-day forecast, and chart series |
+| `src/ui/mtdPace.ts` | Month-to-date meter (elapsed pace days × daily budget), forecast, and chart series; pace days follow `budgetDayBasis` |
+| `src/ui/optimizeInsights.ts` | Usage-metadata waste signals for Optimize |
+| `src/ui/optimizeSavings.ts` | Parse agent-written `.ai/optimize-savings.md` (`cct-savings` + `project`); no fixed heuristic |
+| `src/ui/optimizeSavingsFile.ts` | Read / watch workspace savings file |
+| `src/ui/optimizeLifetimeSavings.ts` | Credited lifetime savings in `globalState` (total + per project; mid deltas per Optimize run) |
+| `src/ui/optimizePrompt.ts` | Quick / Balanced / Deep prompt templates (require tokens/USD/project report) |
+| `src/ui/optimizePayload.ts` | Optimize tab payload (projection + lifetime) |
+| `src/ui/openOptimizeChat.ts` | Prefill last/open Composer chat (fallback new / VS Code Chat); user presses Start |
 | `src/ui/criticalAlert.ts` | Blocking dialog when the newest query hits 10M tokens or $5 |
 | `src/spikes/threshold.ts` | token spike vs setting |
 | `src/spikes/criticalAlert.ts` | last-query critical threshold + once-per-query decision |
 | `src/spikes/ignoreStore.ts` | v1.1 persisted Ignore keys |
 | `src/format.ts` | dollars, percents, tokens, dates, kind |
 | `src/config.ts` | `workspace.getConfiguration('cursorCost')`; light/dark default colors |
-| `src/historyLimit.ts` | clamp Last N (100–10,000, default 1000) |
+| `src/budgetDayBasis.ts` | working days vs calendar days |
+| `src/optimizeDepth.ts` | Optimize prompt depth (`quick` / `balanced` / `deep`) |
+| `src/historyLimit.ts` | clamp Last N (100–10,000, default 1000); From date headings |
+| `src/historyFromDate.ts` | parse `YYYY-MM-DD`, start of month, local day bounds |
 | `src/version.ts` | installed version from `package.json` (webview label) |
-| `media/history.html\|css\|js` | Last N + Statistics + Charts + Settings |
+| `media/history.html\|css\|js` | Last N + Statistics + Charts + Optimize + Support + Settings |
+| `src/supportLinks.ts` | Buy Me a Coffee URL; GitHub Sponsors URL + tiers (hidden in UI until the URL is set) |
 | `esbuild.mjs` | bundle |
 | `package.json` | contributes, engines, activation, `"icon": "icon.png"` |
 | `icon.png` | Extension / marketplace icon (repo root) |
@@ -52,8 +63,8 @@ If you change the directory layout, update this file and `shared.mdc`.
 2. Snapshot: `loading` | `ready` | `error`.
 3. Status bar and the critical-alert controller subscribe to the snapshot.
 4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', events, stats }` (no token). Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value.
-5. Refresh (status bar, Last N toolbar, or command) → `service.refresh()`; if the panel is open it receives a new `data` message. Export CSV on the Last N toolbar saves the Last N sample.
+5. Refresh (status bar, Last N toolbar, or command) → `service.refresh()`; if the panel is open it receives a new `data` message. Export CSV on the Last N toolbar saves the Last N or From-date sample.
 
 ## 4. MVP boundaries
 
-Do not add in MVP: Activity Bar, React, history TreeView, localhost calls, or a manual token in settings (v2 / Secret Storage). Ignore of spikes is a follow-up. No Advise / auto-fix.
+Do not add in MVP: Activity Bar, React, history TreeView, localhost calls, or a manual token in settings (v2 / Secret Storage). Ignore of spikes is a follow-up. Optimize is metadata prompts only — no transcript analysis / auto-fix.

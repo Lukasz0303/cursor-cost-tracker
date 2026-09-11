@@ -4,18 +4,25 @@ import {
   formatDateTime,
   formatDollars,
   formatKind,
+  formatPercentPoint,
   formatPercentUsed,
   formatTokens,
 } from '../format'
+import {
+  DEFAULT_BUDGET_DAY_BASIS,
+  type BudgetDayBasis,
+} from '../budgetDayBasis'
 import { isSpike } from '../spikes/threshold'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
   lastQueriesHeading,
+  sampleSizeLimit,
 } from '../historyLimit'
-import { stripModelPrefix } from '../usage/parse'
+import { budgetDaysInMonth, stripModelPrefix, sumMonthUsedUsd } from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
 import { sharePercents, type PeriodShare } from './periodCards'
+import { todayAttributedPercent } from './proPercentSummary'
 
 const BREAKDOWN_LIMIT = 8
 
@@ -24,17 +31,22 @@ export const CURRENT_PRO_BODY =
 export const CURRENT_TEAM_BODY =
   'Dollar pool used / cap this billing cycle.'
 export const TODAY_PRO_BODY =
-  'Sum of today’s queries. Not the included-percent bars.'
+  'Today’s share of included usage vs even monthly pace (100% ÷ days this month).'
 export const TODAY_TEAM_BODY =
   'Today’s queries vs remaining cycle ÷ weekdays left.'
+export const TODAY_TEAM_BODY_CALENDAR =
+  'Today’s queries vs remaining cycle ÷ calendar days left.'
 export const TODAY_TEAM_NO_BUDGET_BODY =
   'No daily budget — the monthly dollar pool is empty.'
 export const SAMPLE_NOTE_SUFFIX = ' is recent queries, not Current.'
 export const CACHE_HIT_HINT =
   'Share of prompt tokens reused from cache instead of billed as new input. Cached tokens cost less.'
 
-export function sampleNoteForLimit(limit: number): string {
-  return `${lastQueriesHeading(limit)}${SAMPLE_NOTE_SUFFIX}`
+export function sampleNoteForLimit(
+  limit: number,
+  fromDate?: string | null,
+): string {
+  return `${lastQueriesHeading(limit, fromDate)}${SAMPLE_NOTE_SUFFIX}`
 }
 
 export const SAMPLE_NOTE = sampleNoteForLimit(DEFAULT_HISTORY_LIMIT)
@@ -51,14 +63,17 @@ function currentGlossaryBody(data: UsageReady): string {
   return CURRENT_TEAM_BODY
 }
 
-function todayGlossaryBody(data: UsageReady): string {
+function todayGlossaryBody(
+  data: UsageReady,
+  basis: BudgetDayBasis,
+): string {
   if (isPercentPlan(data)) {
     return TODAY_PRO_BODY
   }
   if (data.remainingUsd !== null && data.remainingUsd <= 0) {
     return TODAY_TEAM_NO_BUDGET_BODY
   }
-  return TODAY_TEAM_BODY
+  return basis === 'calendarDays' ? TODAY_TEAM_BODY_CALENDAR : TODAY_TEAM_BODY
 }
 
 export type PeriodBar = {
@@ -106,7 +121,9 @@ export type PeriodStatsPayload = {
 export type PeriodStatsOptions = {
   spikeTokenThreshold: number
   historyLimit?: number
+  historyFromDate?: string | null
   now?: Date
+  budgetDayBasis?: BudgetDayBasis
 }
 
 function dash(value: string | null | undefined): string {
@@ -222,15 +239,43 @@ function currentValue(data: UsageReady): string {
   return `${formatDollars(data.usedUsd)} / ${formatDollars(data.limitUsd)}`
 }
 
-function todayValue(data: UsageReady): string {
+function todayValue(
+  data: UsageReady,
+  monthUsedUsd: number,
+  dailyPct: number | null,
+): string {
   if (data.todayUsedUsd === null) {
     return '—'
+  }
+  if (isPercentPlan(data) && data.includedQuotas.length > 0) {
+    const todayUsd = data.todayUsedUsd ?? 0
+    const monthUsd = Math.max(monthUsedUsd, todayUsd)
+    return data.includedQuotas
+      .map((quota) => {
+        const todayPct = todayAttributedPercent(
+          todayUsd,
+          monthUsd,
+          quota.percent,
+        )
+        if (dailyPct === null) {
+          return formatPercentPoint(todayPct)
+        }
+        return `${formatPercentPoint(todayPct)} / ${formatPercentPoint(dailyPct)}`
+      })
+      .join(' · ')
   }
   const used = formatDollars(data.todayUsedUsd)
   if (data.dailyBudgetUsd === null || data.dailyBudgetUsd <= 0) {
     return `${used} / —`
   }
   return `${used} / ${formatDollars(data.dailyBudgetUsd)}`
+}
+
+function todayTitle(data: UsageReady): string {
+  if (!isPercentPlan(data) || data.todayUsedUsd === null) {
+    return 'Today'
+  }
+  return `Today · sum ${formatDollars(data.todayUsedUsd)}`
 }
 
 function newestQueries(queries: UsageQuery[], limit: number): UsageQuery[] {
@@ -340,9 +385,29 @@ function currentBars(data: UsageReady): PeriodBar[] {
   ]
 }
 
-function todayBars(data: UsageReady): PeriodBar[] {
+function todayBars(
+  data: UsageReady,
+  monthUsedUsd: number,
+  dailyPct: number | null,
+): PeriodBar[] {
   if (data.todayUsedUsd === null) {
     return []
+  }
+  if (isPercentPlan(data) && data.includedQuotas.length > 0 && dailyPct !== null) {
+    const todayUsd = data.todayUsedUsd ?? 0
+    const monthUsd = Math.max(monthUsedUsd, todayUsd)
+    return data.includedQuotas.map((quota) => {
+      const todayPct = todayAttributedPercent(
+        todayUsd,
+        monthUsd,
+        quota.percent,
+      )
+      return {
+        label: quota.name,
+        value: `${formatPercentPoint(todayPct)} / ${formatPercentPoint(dailyPct)}`,
+        percent: poolPercent(todayPct, dailyPct),
+      }
+    })
   }
   if (data.dailyBudgetUsd === null || data.dailyBudgetUsd <= 0) {
     return []
@@ -350,7 +415,7 @@ function todayBars(data: UsageReady): PeriodBar[] {
   return [
     {
       label: 'Today',
-      value: todayValue(data),
+      value: todayValue(data, monthUsedUsd, dailyPct),
       percent: poolPercent(data.todayUsedUsd, data.dailyBudgetUsd),
     },
   ]
@@ -366,7 +431,10 @@ function glossaryItem(
   return { id, title, value, body, bars }
 }
 
-function emptyStats(historyLimit: number): PeriodStatsPayload {
+function emptyStats(
+  historyLimit: number,
+  fromDate?: string | null,
+): PeriodStatsPayload {
   return {
     glossary: [
       glossaryItem('current', 'Current', '—', CURRENT_TEAM_BODY, []),
@@ -376,7 +444,7 @@ function emptyStats(historyLimit: number): PeriodStatsPayload {
     sample: [],
     byModel: [],
     byKind: [],
-    sampleNote: sampleNoteForLimit(historyLimit),
+    sampleNote: sampleNoteForLimit(historyLimit, fromDate),
     historyLimit,
     queryCount: 0,
   }
@@ -387,6 +455,8 @@ function cycleMetrics(
   sampleSum: number,
   historyLimit: number,
   now: Date,
+  basis: BudgetDayBasis,
+  fromDate?: string | null,
 ): PeriodMetric[] {
   const start = isoDay(data.billingCycleStart)
   const end = isoDay(data.billingCycleEnd)
@@ -421,14 +491,16 @@ function cycleMetrics(
       : formatDollars(data.dailyBudgetUsd)
   const days =
     data.workingDaysLeft === null ? '—' : String(data.workingDaysLeft)
+  const daysLabel =
+    basis === 'calendarDays' ? 'Calendar days left' : 'Working days left'
 
   metrics.push(
     metric('remaining', 'Remaining', remaining),
-    metric('workingDays', 'Working days left', days),
+    metric('workingDays', daysLabel, days),
     metric('dailyBudget', 'Daily budget', daily),
     metric(
       'sampleVsCurrent',
-      `${lastQueriesHeading(historyLimit)} vs Current`,
+      `${lastQueriesHeading(historyLimit, fromDate)} vs Current`,
       `${formatDollars(sampleSum)} vs ${formatDollars(data.usedUsd)}`,
     ),
   )
@@ -439,8 +511,9 @@ function sampleMetrics(
   queries: UsageQuery[],
   spikeTokenThreshold: number,
   historyLimit: number,
+  fromDate?: string | null,
 ): PeriodMetric[] {
-  const heading = lastQueriesHeading(historyLimit)
+  const heading = lastQueriesHeading(historyLimit, fromDate)
   if (queries.length === 0) {
     return [
       metric('avgTokens', 'Average per query tokens', '0'),
@@ -544,16 +617,26 @@ export function toPeriodStats(
   const historyLimit = clampHistoryLimit(
     options.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
+  const historyFromDate = options.historyFromDate ?? null
   const now = options.now ?? new Date()
-  const sample = newestQueries(queries, historyLimit)
+  const basis = options.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const sample = newestQueries(
+    queries,
+    sampleSizeLimit(historyLimit, historyFromDate),
+  )
   if (snapshot.status !== 'ready') {
-    const empty = emptyStats(historyLimit)
+    const empty = emptyStats(historyLimit, historyFromDate)
     if (sample.length === 0) {
       return empty
     }
     return {
       ...empty,
-      sample: sampleMetrics(sample, options.spikeTokenThreshold, historyLimit),
+      sample: sampleMetrics(
+        sample,
+        options.spikeTokenThreshold,
+        historyLimit,
+        historyFromDate,
+      ),
       byModel: groupCost(sample, (query) => modelLabel(query.model)),
       byKind: groupCost(sample, (query) => formatKind(query.kind)),
       queryCount: sample.length,
@@ -562,6 +645,10 @@ export function toPeriodStats(
 
   const data = snapshot.data
   const sampleSum = sumCost(sample)
+  const monthUsedUsd = sumMonthUsedUsd(sample, now)
+  const dayTotal = budgetDaysInMonth(now, basis)
+  const dailyPct =
+    isPercentPlan(data) && dayTotal > 0 ? 100 / dayTotal : null
   return {
     glossary: [
       glossaryItem(
@@ -573,17 +660,29 @@ export function toPeriodStats(
       ),
       glossaryItem(
         'today',
-        'Today',
-        todayValue(data),
-        todayGlossaryBody(data),
-        todayBars(data),
+        todayTitle(data),
+        todayValue(data, monthUsedUsd, dailyPct),
+        todayGlossaryBody(data, basis),
+        todayBars(data, monthUsedUsd, dailyPct),
       ),
     ],
-    cycle: cycleMetrics(data, sampleSum, historyLimit, now),
-    sample: sampleMetrics(sample, options.spikeTokenThreshold, historyLimit),
+    cycle: cycleMetrics(
+      data,
+      sampleSum,
+      historyLimit,
+      now,
+      basis,
+      historyFromDate,
+    ),
+    sample: sampleMetrics(
+      sample,
+      options.spikeTokenThreshold,
+      historyLimit,
+      historyFromDate,
+    ),
     byModel: groupCost(sample, (query) => modelLabel(query.model)),
     byKind: groupCost(sample, (query) => formatKind(query.kind)),
-    sampleNote: sampleNoteForLimit(historyLimit),
+    sampleNote: sampleNoteForLimit(historyLimit, historyFromDate),
     historyLimit,
     queryCount: sample.length,
   }

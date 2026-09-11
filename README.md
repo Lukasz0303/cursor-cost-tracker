@@ -7,54 +7,58 @@
 </div>
 
 <p align="center">
-  <strong>Status bar for Cursor spend — and a monthly cost forecast before the bill surprises you.</strong>
+  <strong>See spend · forecast when budget runs out · Optimize expensive queries locally.</strong>
 </p>
 
 <p align="center">
   Always-on <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong> (default 3)
-  on the IDE status bar. Click Current or Today to open <strong>Statistics</strong> with
-  <strong>Monthly cost forecast</strong> (used · forecast · ideal · run-out date).
-  A query chip opens Last N (100–10,000). No extra app. No pasted token.
-  No data sent anywhere except Cursor’s own usage APIs.
+  on the IDE status bar. <strong>Monthly cost forecast</strong> shows used · forecast · ideal and when
+  Team dollars or Pro included quota run out. <strong>Optimize</strong> builds Quick / Balanced / Deep
+  prompts for the last red query — projected savings stay in <code>.ai/optimize-savings.md</code> inside
+  your project only. No extra app. No pasted token.
 </p>
 
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.2-blue.svg" alt="Version 1.0.2">
+  <img src="https://img.shields.io/badge/version-1.0.3-blue.svg" alt="Version 1.0.3">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
+  <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
 
 ---
 
-**Cursor Cost Tracker** is a VS Code / Cursor extension whose core product is the **status bar** plus **spend prediction**:
+**Cursor Cost Tracker** is a VS Code / Cursor extension with three core goals:
 
 1. **Status bar** — see cycle spend, daily pace, and the newest queries while you code (green = ok, red = over budget or token spike).
-2. **Monthly cost forecast** — answer “how much will this month cost?” and “when does included quota run out?” with used / forecast / ideal lines.
-3. **Last N history** — full table, Statistics, Charts, and Settings one click away.
+2. **Monthly cost forecast** — a clear prediction chart so you know **when** Team / Business money or Pro included limits run out (used / forecast / ideal / run-out date).
+3. **Optimize** — cut repeating expensive queries in the project: ready prompts for the last red (Warn at) query, paste into the last Agent chat, and grow projected token/$ savings in **local** `.ai/optimize-savings.md` only — nothing leaves the project.
 
 - Click **Current** or **Today** → **Statistics** (monthly cost forecast).
 - Click a **recent-query chip** → **Last N** query list.
 - **Refresh** on the bar only syncs. **Export CSV** is on the Last N toolbar, not the status bar.
+- **Run Optimize** pastes into the last active chat; savings appear after you press Start and the agent writes the local file.
 
-The panel has four tabs:
+The panel has six tabs:
 
-- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000). **Over limit only** filters to token-spike rows. **Export CSV**.
+- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From date** (e.g. start of month). **Export CSV**.
 - **Statistics** — Current/Today glossary, **Monthly cost forecast** (Team dollars or Pro included percent; used / forecast / ideal; run-out date), Last N totals, average/median, cache hit, token mix, spend by model and by kind.
-- **Charts** — tokens and cost over time (per query + cumulative), the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards (from the loaded sample, not the full Cursor dashboard).
-- **Settings** — every `cursorCost.*` key. Status-bar preview, content, warnings, and colors; **Critical alert** (blocking dialog at 10M tokens or $5); Show last; Auto-refresh interval.
+- **Charts** — tokens and cost over time (cumulative bars + line on one scale), the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards (from the loaded sample, not the full Cursor dashboard).
+- **Optimize** — Quick / Balanced / Deep prompts for the last red query; one collapsed card for projected cost saved on a similar request (`0 / 0.00 $` until the first run); expand for the explanation and credited totals per project.
+- **Support** — Buy Me a Coffee if the tracker paid for itself.
+- **Settings** — every `cursorCost.*` key. Status-bar preview, content, warnings, and colors; **Critical alert**; Optimize depth; Show last / From date; Auto-refresh interval.
 
 If you are already signed in to Cursor, there is nothing to configure.
 
-| Status bar (primary) | Forecast (primary) | History |
-|----------------------|--------------------|---------|
-| Pro percents or team `$ / $` · Today · 1–10 recent (`cost - tokens`, `!` on a spike) | Used · forecast · ideal · run-out / “lasts the month” | Last N · Statistics · Charts · Settings |
+| Status bar | Forecast | Optimize |
+|------------|----------|----------|
+| Pro percents or team `$ / $` · Today · 1–10 recent (`cost - tokens`, `!` on a spike) | Used · forecast · ideal · run-out / “lasts the month” | Last red query · local savings file · Quick / Balanced / Deep |
 
 ---
 
 ## Screenshots
 
-Captures from **1.0.2**. The two features that matter most are first: the **status bar** and **Monthly cost forecast**.
+Captures from **1.0.3**. The three product goals first: **status bar**, **Monthly cost forecast**, then **Optimize**.
 
 ### 1. Status bar — always on while you code
 
@@ -62,13 +66,13 @@ Captures from **1.0.2**. The two features that matter most are first: the **stat
 
 <img src="screenshots/status_bar.png" alt="Status bar: Current 30.66 $ / 250.00 $, Today over daily budget, five recent query chips" width="100%">
 
-**Pro (dark)** — Current as included-quota percents (`28% · 31%`), Today in dollars, and a red `!` on a query at or above your token warning.
+**Pro (dark)** — Current as mean included % vs 100% (`32% / 100%`), Today as mean today % / daily pace with today’s `$` (`3.5% / 4.5% (17.12 $)`), and a red `!` on a query at or above your token warning.
 
 <img src="screenshots/status_bar_dark.png" alt="Dark status bar: Pro included percents, Today spend, token-spike warning on a 1.5M query" width="100%">
 
-### 2. Monthly cost forecast — how much you can still spend
+### 2. Monthly cost forecast — when money / limits run out
 
-The headline analytics surface. Bars are that day’s burn; solid lines are cumulative used; dashed lines are the forecast if today’s working-day pace continues; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**.
+The headline analytics surface. Bars and solid lines are cumulative used on one scale; dashed lines are the forecast if today’s working-day pace continues; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**.
 
 **Team dollars (light)** — “Lasts the month”, daily pace, and month-end forecast if the working-day pace continues.
 
@@ -82,15 +86,30 @@ The headline analytics surface. Bars are that day’s burn; solid lines are cumu
 
 <img src="screenshots/statistics_2.png" alt="Monthly cost forecast zoomed to 7 days with working days, daily pace, and month forecast cards" width="100%">
 
-### 3. Last N Cursor queries
+### 3. Optimize — cut repeating expensive queries (local only)
 
-Full table inside the editor: Show last, **Over limit only**, **Export CSV**. Spike rows show `!` on **TOKENS**.
+When a query lights up red (**Warn at**, default 1M tokens), **Optimize** builds a ready prompt for that **last red query** — not a whole-repo audit, and the extension never reads the chat transcript.
+
+Typical flow:
+
+1. A query goes red on the status bar or in Last N.
+2. **Run Optimize** (toolbar, default depth) pastes into the **last Agent chat** — or open this tab, expand a colored card, preview, and **Run** that depth.
+3. You press **Start**. After the agent finishes, projected savings land in **`.ai/optimize-savings.md` inside this project only**.
+4. The top card shows **Projected save per similar request** (`0 / 0.00 $` until the first run; then mid tokens / USD, e.g. `~1.6M · ~0.97 $`). Expand it for the explanation and credited totals per project.
+
+Three depths: **Quick** (why the last turn burned + next-message tips), **Balanced** (pattern, plan, a small rules snippet), **Deep** (full playbook). **Set default** pins which card the toolbar Run uses. Findings name the last red query, how many spikes are in the sample, and the top cost model as context.
+
+<img src="screenshots/optimize.png" alt="Optimize tab: projected save ~1.6M · ~0.97 $, findings for the last red query, Quick Balanced Deep depth cards with Run" width="100%">
+
+### 4. Last N Cursor queries
+
+Full table inside the editor: Show last / From date, **Export CSV**. Spike rows show `!` on **TOKENS**.
 
 <img src="screenshots/alert_list.png" alt="Last 1000 Cursor queries table with cost, tokens, and spike warnings" width="100%">
 
-<img src="screenshots/list.png" alt="Last N filtered to Over limit only — token-spike rows with red !" width="100%">
+<img src="screenshots/list.png" alt="Last N Cursor queries table" width="100%">
 
-### 4. Statistics — Current / Today, sample totals, spend by model
+### 5. Statistics — Current / Today, sample totals, spend by model
 
 **Current / Today meters** (Pro included bars + today’s dollar sum):
 
@@ -106,7 +125,7 @@ Full table inside the editor: Show last, **Over limit only**, **Export CSV**. Sp
 
 <img src="screenshots/statistics_dark_3.png" alt="Spend breakdown by model and by kind with share bars" width="100%">
 
-### 5. Critical alert
+### 6. Critical alert
 
 Blocking dialog when the **newest** query hits your critical token or dollar threshold (default 10M tokens or $5). Independent of the status-bar `!`.
 
@@ -114,7 +133,7 @@ Blocking dialog when the **newest** query hits your critical token or dollar thr
 
 <img src="screenshots/critiacal_alert_1_dark.png" alt="Settings: Critical alert thresholds for tokens and dollars" width="100%">
 
-### 6. Settings — status bar preview and content
+### 7. Settings — status bar preview and content
 
 Live sample of the bar (example spend, not your totals), Show status bar, Show Today, Minimal mode, and **1–10** recent requests on the bar.
 
@@ -126,15 +145,16 @@ Live sample of the bar (example spend, not your totals), Show status bar, Show T
 
 ## Why Cursor Cost Tracker?
 
-Cursor’s built-in dashboard shows aggregated totals on the website. While you code, you do not see how much of the monthly limit is used, how much of the daily budget is left, **what this month will cost if you keep this pace**, or which recent query was expensive.
+Cursor’s built-in dashboard shows aggregated totals on the website. While you code, you do not see how much of the monthly limit is used, how much of the daily budget is left, **when money or included quota runs out**, which recent query blew a token spike, or a **local** way to shrink the next similar expensive turn.
 
-This extension keeps those numbers next to Git and Problems — the same place you already look — and adds a **monthly forecast** so you can decide how much you can still spend.
+This extension keeps those numbers next to Git and Problems, adds a **monthly forecast**, and an **Optimize** tab whose savings file stays in the project (`.ai/optimize-savings.md`) — no chat transcript upload, no third-party analytics.
 
 | Capability | Cursor Dashboard | Cursor Cost Tracker |
 |------------|:----------------:|:-------------------:|
 | Current cycle spend on the **status bar** | — | Yes |
 | Today vs remaining daily budget on the bar | — | Yes |
 | **Monthly cost forecast** (used / forecast / ideal / run-out) | — | Yes |
+| **Optimize** last red query (local projected save) | — | Yes |
 | Last N queries inside the editor (100–10,000) | — | Yes |
 | Per-query cost, tokens, model, kind | Website only | Yes |
 | Statistics (totals, averages, spike count) | Website | Yes |
@@ -149,7 +169,7 @@ This extension keeps those numbers next to Git and Problems — the same place y
 | Zero setup (local Cursor session) | — | Yes |
 | No token pasted into Settings | — | Yes |
 
-Not in scope: payments, team dashboards, other IDEs, estimating cost *before* you send a prompt, or rewriting your code to “save tokens.”
+Not in scope: payments, team dashboards, other IDEs, estimating cost *before* you send a prompt, reading chat transcripts, or auto-rewriting your codebase. **Optimize** only builds metadata prompts you paste yourself; savings numbers come from the agent writing a **local** project file.
 
 ---
 
@@ -157,7 +177,7 @@ Not in scope: payments, team dashboards, other IDEs, estimating cost *before* yo
 
 ### Real-time status bar (primary)
 
-Always-on **Current** (Pro: included-quota percents such as `13% · 0%`; Team: used vs dollar cap), **Today** (spend vs daily budget, or `—` when there is no cap), and **1–10 newest queries** (`cost - tokens`, default 3). Click Current or Today for **Statistics** (forecast). Click a query chip for the Last N list. A query at or above your token warning (default **1,000,000**, configurable) shows `!` in red. **Unlimited** plans show the cycle total and hide Today. Refresh stays on the bar. Export CSV does not.
+Always-on **Current** (Pro: mean included % vs 100% such as `32% / 100%`; Team: used vs dollar cap), **Today** (Pro: mean today % / daily pace with today’s `$`, e.g. `3.5% / 4.5% (17.12 $)`; Team: spend vs daily budget, or `—` when there is no cap), and **1–10 newest queries** (`cost - tokens`, default 3). Click Current or Today for **Statistics** (forecast). Click a query chip for the Last N list. A query at or above your token warning (default **1,000,000**, configurable) shows `!` in red. **Unlimited** plans show the cycle total and hide Today. Refresh stays on the bar. Export CSV does not.
 
 Colors: **Team** is **green** within the dollar pool and **red** at or over the cap (or when Today is over the daily budget). **Pro** Current/Today stay green. Recent queries go **red** on a token spike. Defaults are darker on a light theme so they stay readable.
 
@@ -166,17 +186,26 @@ Colors: **Team** is **green** within the dollar pool and **red** at or over the 
 Answer two questions without opening cursor.com:
 
 - **How much will this month cost** if the current working-day pace continues?
-- **When does included quota run out** (Pro), or will the dollar pool last the month (Team / Business / Enterprise)?
+- **When does included quota or Team money run out**, or will the dollar pool last the month?
 
-**Team / Business / Enterprise** — dollars: that-day bars, cumulative Spend, dashed forecast, dotted ideal leftover, working days so far, daily pace, and month forecast. **Pro** — included percent for Cursor Models and Other Models, run-out dates, and the same used / forecast / ideal chart. Range toggle: **Today** · **7 days** · **Month** (default Month). Same control on **Statistics** and **Charts**.
+**Team / Business / Enterprise** — dollars: cumulative Spend bars + line on one scale, dashed forecast, dotted ideal leftover, working days so far, daily pace, and month forecast. **Pro** — included percent for Cursor Models and Other Models, run-out dates, and the same used / forecast / ideal chart. Range toggle: **Today** · **7 days** · **Month** (default Month). Same control on **Statistics** and **Charts**.
+
+### Optimize (primary)
+
+Third product goal: shrink **repeating expensive turns** in this project.
+
+- Targets the **last red query** (tokens ≥ **Warn at** in Settings), not just the newest cheap request. Findings also show how many spikes are in the Last N sample and the top cost model (context only).
+- Three depths: **Quick** (short — why the last turn burned, three next-message tips) / **Balanced** (default — pattern, plan, small rules snippet) / **Deep** (full playbook). Prompts come from usage metadata only (model, tokens, cost). No chat transcript is read by the extension. **Set default** on a card; toolbar **Run Optimize** always pastes that depth.
+- **Run** focuses the **last active Agent chat** and pastes the prompt; you press Start.
+- After Start, the agent writes projected savings to **`.ai/optimize-savings.md`** in the workspace (including **project** name + mid tokens/USD). The panel shows those numbers as **Projected save per similar request** (`0 / 0.00 $` until the first run). Expand the card for the explanation and credited totals per project (extension `globalState`). Projection file stays **local to the project**; lifetime ledger is global across workspaces.
 
 ### Last N Cursor queries
 
-Click a **recent-query chip** (or Command Palette **Show Usage History**) to open the queries table. Click **Current** or **Today** to open the same panel on **Statistics**. Newest first. **Show last** (100–10,000, default 1,000) sits above the table — type the full number, then **Apply**. Columns:
+Click a **recent-query chip** (or Command Palette **Show Usage History**) to open the queries table. Click **Current** or **Today** to open the same panel on **Statistics**. Newest first. **Show last** (100–10,000, default 1,000) sits above the table — type the full number, then **Apply**. **From** a local calendar day (Start of month, or a date like 1.09.2026) loads every query from that day through today instead (cap 10,000). Columns:
 
 `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
-Four tabs: **Last N** · **Statistics** · **Charts** · **Settings**. **Over limit only** and **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. No intermediate menu.
+Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. No intermediate menu.
 
 ### Statistics
 
@@ -184,13 +213,13 @@ Last N sample totals (not the Current pool): total spend, average and median per
 
 ### Charts
 
-- **Tokens over time** and **Cost over time** — each loaded query on the axis (oldest → newest). Bars are that request; the line is cumulative.
-- **Monthly cost forecast** — same control as Statistics: cycle meters, Today / 7 days / Month range, that-day bars, cumulative used, dashed forecast, and dotted leftover-budget lines.
+- **Tokens over time** and **Cost over time** — each loaded query on the axis (oldest → newest). Bars and the line share one scale: cumulative total.
+- **Monthly cost forecast** — same control as Statistics: cycle meters, Today / 7 days / Month range, cumulative bars + used line on one scale, dashed forecast, and dotted leftover-budget lines.
 - **Today / This month / All time** cards — API-equivalent cost, messages, cache hit, input / output / cache write / cache read, and a mix bar. Figures come from the Last N loaded queries, not the full Cursor website dashboard.
 
 ### Token-spike warning
 
-A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**). Settings: **Warn at** in **k**, plus Show warnings. On Last N, **Over limit only** hides every row that is not a spike.
+A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**). Settings: **Warn at** in **k**, plus Show warnings.
 
 ### Critical last-query alert
 
@@ -240,7 +269,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.2.vsix
+cursor --install-extension cursor-cost-tracker-1.0.3.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -257,7 +286,8 @@ Right side of the bar.
 
 | Item | Shows | Click |
 |------|--------|-------|
-| **Current** | Team: used vs dollar cap. Pro: included-quota percents (`Unlimited` when the plan has no cap) | Opens **Statistics** |
+| **Current** | Team: used vs dollar cap. Pro: mean included % / 100% (`Unlimited` when the plan has no cap) | Opens **Statistics** |
+| **Today** | Team: spend vs daily budget. Pro: mean today % / daily pace (`3.5% / 4.5%`) plus today’s `$` in parentheses | Opens **Statistics** |
 | **Today** | Spend vs daily budget (hidden on unlimited plans) | Opens **Statistics** |
 | **Refresh** | Sync icon (spins while fetching) | Pulls latest usage from cursor.com — no panel |
 | **Recent queries (1–10)** | `cost - compact tokens` for the newest queries | Opens the **Last N** list |
@@ -268,7 +298,7 @@ A `!` prefixes a recent query (and the table **TOKENS** cell) when that query is
 
 ## History panel
 
-The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **Auto-refresh** is 1–60 minutes.
+The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** loads from that local day through today (Start of month / Today). **Auto-refresh** is 1–60 minutes.
 
 | TIME | MODEL | COST | TOKENS | INPUT / OUTPUT | KIND |
 |------|-------|------|--------|----------------|------|
@@ -308,7 +338,8 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.showCriticalAlert` | `true` | Blocking dialog when the newest query hits the critical token or dollar threshold |
 | `cursorCost.criticalTokenThreshold` | `10000000` | Minimum `1000`. Settings tab in **k** (10000 = 10M tokens) |
 | `cursorCost.criticalCostUsdThreshold` | `5` | Minimum `$0.01`. Either this or the token threshold is enough |
-| `cursorCost.historyLimit` | `1000` | Newest queries to load (100–10,000). Settings tab: **Show last** |
+| `cursorCost.historyLimit` | `1000` | Newest queries to load (100–10,000). Settings tab: **Show last**. Ignored when From date is set |
+| `cursorCost.historyFromDate` | (empty) | Local `YYYY-MM-DD`; load from that day through today. Empty uses Show last |
 | `cursorCost.okColor` | `#89D185` | Good-state color (darker green on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | Warning color (darker red on light themes) |
 
@@ -388,12 +419,26 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.2.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.3.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).
 
 Private / team only: skip stores, ship the VSIX, **Install from VSIX**.
+
+---
+
+## Support
+
+Cursor Cost Tracker is free and open source (**MIT**). If it helped you catch an expensive query before it ate the budget — or if the monthly forecast paid for itself — you can buy me a coffee. Tips keep the tracker in step with Cursor’s usage APIs and fund the next forecast / Optimize fix. No paywall, no extra features behind a tip.
+
+<p align="center">
+  <a href="https://buymeacoffee.com/lzzzielinsn">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50">
+  </a>
+</p>
+
+[buymeacoffee.com/lzzzielinsn](https://buymeacoffee.com/lzzzielinsn)
 
 ---
 

@@ -1,5 +1,6 @@
 import { USAGE_CANCELLED, USAGE_LOAD_ERROR } from './api'
 import type { FetchEventsResult, FetchSummaryResult } from './api'
+import type { BudgetDayBasis } from '../budgetDayBasis'
 import { buildUsageReady } from './parse'
 import type { SessionResult } from './session'
 import type { UsageQuery, UsageReady, UsageSnapshot } from './types'
@@ -21,6 +22,7 @@ export type UsageDependencies = {
     signal: AbortSignal,
   ) => Promise<FetchEventsResult>
   now?: () => Date
+  budgetDayBasis?: () => BudgetDayBasis
 }
 
 export type UsageServiceOptions = {
@@ -202,6 +204,7 @@ export class UsageService implements Disposable {
         eventsAvailable: events.ok,
         now: this.now(),
         email: session.email,
+        budgetDayBasis: this.deps.budgetDayBasis?.(),
       })
       this.cachedReady = data
       this.markFetched()

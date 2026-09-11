@@ -1,8 +1,13 @@
 import { mapEventsPayload } from './parse'
 import type { UsageQuery } from './types'
 import {
-  clampHistoryLimit,
+  historyFromDateBounds,
+  historyFromDateStartMs,
+  parseHistoryFromDate,
+} from '../historyFromDate'
+import {
   DEFAULT_HISTORY_LIMIT,
+  sampleSizeLimit,
 } from '../historyLimit'
 
 export const USAGE_SUMMARY_URL = 'https://cursor.com/api/usage-summary'
@@ -182,13 +187,27 @@ export async function fetchUsageSummary(
   }
 }
 
+export type FetchRecentEventsOptions = {
+  pageSize?: number
+  limit?: number
+  fromDate?: string | null
+  now?: Date
+}
+
 export async function fetchRecentEvents(
   cookie: string,
   signal: AbortSignal,
-  options?: { pageSize?: number; limit?: number },
+  options?: FetchRecentEventsOptions,
 ): Promise<FetchEventsResult> {
   const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE
-  const limit = clampHistoryLimit(options?.limit ?? DEFAULT_HISTORY_LIMIT)
+  const fromDate = parseHistoryFromDate(options?.fromDate)
+  const now = options?.now ?? new Date()
+  const bounds = fromDate ? historyFromDateBounds(fromDate, now) : null
+  const startMs = fromDate ? historyFromDateStartMs(fromDate) : null
+  const limit = sampleSizeLimit(
+    options?.limit ?? DEFAULT_HISTORY_LIMIT,
+    fromDate,
+  )
   const collected: UsageQuery[] = []
   const maxPages = Math.max(1, Math.ceil(limit / pageSize))
 
@@ -196,6 +215,7 @@ export async function fetchRecentEvents(
     const result = await postEventsPage(cookie, signal, {
       page,
       pageSize,
+      ...(bounds ?? {}),
     })
     if (!result.ok) {
       return result
@@ -207,13 +227,23 @@ export async function fetchRecentEvents(
     if (result.queries.length < pageSize) {
       break
     }
+    if (
+      startMs !== null &&
+      result.queries.some((query) => query.timestamp < startMs)
+    ) {
+      break
+    }
     if (collected.length >= limit) {
       break
     }
   }
 
   collected.sort((left, right) => right.timestamp - left.timestamp)
-  return { ok: true, queries: collected.slice(0, limit) }
+  const inRange =
+    startMs === null
+      ? collected
+      : collected.filter((query) => query.timestamp >= startMs)
+  return { ok: true, queries: inRange.slice(0, limit) }
 }
 
 export async function fetchTodayEvents(

@@ -2,6 +2,24 @@
 
 User-facing notes for Cursor Cost Tracker. Open VSX and Cursor Extensions show this file on the **Changelog** tab.
 
+## 1.0.3 — 2026-09-11
+
+### Added
+
+- **Optimize tab** — Quick / Balanced (default) / Deep prompts from usage metadata for the last red query (≥ Warn at). **Run Optimize** pastes into the last Agent chat (`composer.focusComposer`); after Start the agent writes projected savings to `.ai/optimize-savings.md` (`0 / 0.00 $` until that file exists). One collapsed card shows the projected save on a similar request; expand for the explanation and credited totals per project.
+- **Support tab** — Buy Me a Coffee (`https://buymeacoffee.com/lzzzielinsn`). GitHub Sponsors is omitted from the tab until the account is live.
+- **Budget day basis** — pace Today / MTD / forecast by working days (default) or all calendar days (`cursorCost.budgetDayBasis`).
+- **From date** — load queries from a local calendar day (e.g. start of month) through today instead of Show last (`cursorCost.historyFromDate`). Lives under Settings → Recent queries.
+- **`cursorCost.optimizeDepth`** — Quick / Balanced / Deep, also on Settings.
+
+### Changed
+
+- **Pro status bar** — Current as mean included `% / 100%`; Today as mean today `% / daily pace` plus today’s `$`; Today turns red when attributed % is at or over pace.
+- **Queries toolbar** — **Over Warn at** pill switch filters the table to queries at or over the token warning; Show last / From date stay under Settings.
+- **Charts** — Y-axis follows the data so tokens / cost / forecast fill the plot instead of jumping to 500$ or 1000M.
+- **Monthly cost forecast** — hover shows used vs that day’s calculated budget (Enterprise / Team denominator stays put on refresh). Amounts are green when under budget, red when over. Spend fill matches the blue series.
+- **README / marketplace** — three product goals: status bar, monthly cost forecast, and local Optimize; Buy Me a Coffee.
+
 ## 1.0.2 — 2026-09-03
 
 ### Added

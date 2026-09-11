@@ -2,8 +2,8 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.14  
-**Date:** 2026-09-03  
+**Document version:** 2.15  
+**Date:** 2026-09-07  
 **Status:** Product decision (MVP)  
 **Canonical location:** this file (`.ai/context/prd.md`)  
 **Polish translation:** [prd.pl.md](./prd.pl.md)
@@ -34,7 +34,7 @@ Cursor bills chat, agent, and inline edits in USD and tokens. Official usage liv
 3. History (time, model, cost, tokens, input/output, kind) requires leaving the IDE.
 4. There is no in-editor warning when a single query blows a token spike, and no way to dismiss or inspect that row.
 
-**Non-goals:** Cursor payments, other IDEs, team dashboards, estimating cost *before* a prompt is sent, auto-fixing or rewriting the user’s code, analyzing a specific chat/prompt, or advising how to cut that conversation’s tokens.
+**Non-goals:** Cursor payments, other IDEs, team dashboards, estimating cost *before* a prompt is sent, auto-fixing or rewriting the user’s code, reading chat/agent transcript bodies, or workspace LLM scans. **Allowed (Optimize tab):** ready prompts built only from usage metadata (model, tokens, cost) that the user opens in Cursor Chat.
 
 ---
 
@@ -69,14 +69,14 @@ Right side (`StatusBarAlignment.Right`).
 … │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  ↻  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │
 ```
 
-**Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current is included-quota percents (`7%` or `7% · 0%` for Cursor Models · Other Models), matching the Cursor dashboard — not the on-demand dollar cap.
+**Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current is the **average** of included-quota percents vs 100% (`32% / 100%` when Cursor Models and Other Models are 33% and 31%). Today is the **average** of today’s attributed % vs even daily pace, with today’s dollar sum in parentheses (`3.5% / 4.5% (17.12 $)`).
 
 Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCost.recentQueryCount` controls how many query chips are shown (**1–10**, default **3**). Current+Today share one chip (priorities far from Ln/Col ~100). Refresh sits after that chip so it stays visible when query chips overflow. Each recent query is its **own** item so only a spike is red — VS Code cannot color part of one item. Each query is `cost - compact tokens`. Prefix `!` when that query has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**) and `cursorCost.showSpikeWarning` is on. Click Current / Today opens Last N on the **Statistics** tab. A recent-query chip opens the **queries list**. Refresh fetches from cursor.com on demand. Export CSV is on the Last N toolbar, not the status bar.
 
 | Item | Text | Tooltip | Click |
 |------|------|---------|-------|
-| Current | Team: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` or `7% · 0%` | Hover card: plan, included/on-demand meters, reset, top models, Open Dashboard / Refresh | **open Statistics** |
-| Today | `$(calendar) 3.79 $ / 11.19 $` | same hover as Current (one chip) | **open Statistics** |
+| Current | Team: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 32% / 100%` (mean of included quotas) | Hover card: plan, included/on-demand meters, reset, top models, Open Dashboard / Refresh | **open Statistics** |
+| Today | Team: `$(calendar) 3.79 $ / 11.19 $`. Pro: `$(calendar) 3.5% / 4.5% (17.12 $)` (mean today % / daily pace, today $) | same hover as Current (one chip) | **open Statistics** |
 | Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | refresh only, no panel |
 | Last 1–10 queries (default 3) | `0.03 $ - 64.8k` or `! 1.20 $ - 1.2M` | model · time · tokens · kind | **open queries list** |
 
@@ -96,7 +96,7 @@ Primary path: **not** Quick Pick. Open the panel immediately. Current / Today la
 
 Newest first, monospace body, CSS `--vscode-*`. Command Palette: `Cursor Cost: Show Usage History`.
 
-Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Settings**. Queries toolbar: **Refresh** (fetch from cursor.com), **Over limit only** (filters the table to token-spike `!` rows; local to the panel, off when Show warnings is off), and **Export CSV**. Statistics is the glossary for Current/Today, a **Month to date** meter (this month’s spend vs working days so far × daily budget, or vs a working-day pace forecast when there is no daily cap) with a used/forecast chart — on Pro one line pair per included quota on a 0–100% axis, plus a today-vs-daily-budget meter per quota — plus cycle / Last N aggregates. Charts: tokens and cost per query over time plus cumulative, the same **Monthly cost forecast** control as Statistics (meters, range, used/forecast/ideal), then Today / This month / All time mix cards from that Last N sample. Settings holds Warn at, Show last, Show warnings, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
+Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Queries toolbar: **Over Warn at** (toggle — only queries at/over the token warning), **Refresh** (fetch from cursor.com), and **Export CSV**. Show last / From date stay under Settings. Statistics is the glossary for Current/Today, a **Month to date** meter (this month’s spend vs working days so far × daily budget, or vs a working-day pace forecast when there is no daily cap) with a used/forecast chart — on Pro one line pair per included quota on a 0–100% axis, plus a today-vs-daily-budget meter per quota — plus cycle / Last N aggregates. Charts: tokens and cost over time as cumulative bars + line on one scale, the same **Monthly cost forecast** control as Statistics (meters, range, used/forecast/ideal), then Today / This month / All time mix cards from that Last N sample. **Optimize:** three colored collapsible depth cards (Quick / Balanced / Deep) with per-card Run + expand-to-preview; Default badge follows `cursorCost.optimizeDepth` (Balanced by default). Toolbar **Run Optimize** pastes the default-depth prompt into the last Composer chat. Findings focus the last expensive / red query. Projected save shows `0 / 0.00 $` until the agent writes `.ai/optimize-savings.md` (`cct-savings` with `project`, mid tokens/USD, `run`); every prompt requires a closing tokens/USD/project report. One collapsed card is the **projected cost saved on a similar request**; expand for the explanation plus credited per-project totals from `globalState`. Not a whole-workspace audit. No chat transcript is read by the extension. **Support:** Buy Me a Coffee (URL in `src/supportLinks.ts`). GitHub Sponsors tiers stay in code but are hidden until the sponsor URL is set. Settings holds Warn at, Show last, **From date**, Show warnings, Optimize depth, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
 
 **Token spike (v1.1, required after MVP):** extra column or leading `!` when `tokens >=` the user threshold. Row actions:
 
@@ -104,13 +104,13 @@ Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** 
 |--------|--------|
 | **Ignore** | Persist fingerprint in `globalState`. Bang hidden on that row and dropped from the status-bar spike set. |
 
-No **Advise**, auto-repair, or “what to cut in this conversation.” Ignored keys survive reload. Un-ignore (optional): small “Show ignored” control in the table.
+No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignore (persist in `globalState`) remains v1.1 follow-up. Un-ignore (optional): small “Show ignored” control in the table.
 
 **Critical last-query alert:** when the **newest** query is at or above `cursorCost.criticalTokenThreshold` (default **10,000,000** tokens) **or** `cursorCost.criticalCostUsdThreshold` (default **$5**), the extension host shows a blocking error dialog. Independent of the status-bar `!` (`showSpikeWarning`). Each newest-query fingerprint is processed once (`globalState` `cursorCost.lastCriticalSeenKey`). A historical last query older than five minutes is remembered on first load — no modal — so a restart does not block work. A query that just completed still alerts. **Open History** opens Last N. Toggle: `showCriticalAlert`.
 
 ### 5.3 Out of MVP
 
-Quick Pick as default click, Activity Bar, blocking modal on the history click path, 6-column TreeView, React/Vue in the webview, a separate Electron app, Advise / workspace scan / LLM auto-fix.
+Quick Pick as default click, Activity Bar, blocking modal on the history click path, 6-column TreeView, React/Vue in the webview, a separate Electron app, auto-repair / workspace scan / reading chat transcript bodies.
 
 ---
 
@@ -166,13 +166,13 @@ v1.2: sidebar; optional Quick Pick.
 
 **Current:** `GET https://cursor.com/api/usage-summary`. Team / company: dollar pool (individual onDemand → plan → team onDemand → overall). Drop any pool whose limit is above **1,000,000 cents** ($10,000) — that is the org `pooled` / leftover on-demand cap (e.g. $24,800), not the personal $250 seat. Same filter as Stack Manager `isPersonalMonthlyPool`. Never read `teamUsage.pooled`. Personal Pro: dashboard bars `autoPercentUsed` (Cursor Models) and `apiPercentUsed` (Other Models) — not `plan.used/limit`. Unlimited → hide Today.
 
-**Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / working days left`; `todayUsed` = sum of today’s cents (local timezone).
+**Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / days left` where days follow `cursorCost.budgetDayBasis` (`workingDays` = Mon–Fri left, default; `calendarDays` = every remaining calendar day); `todayUsed` = sum of today’s cents (local timezone).
 
-**Month to date / Monthly cost forecast:** same events sample. **Unit follows the plan:** Team / Business / Enterprise use **dollars** (`unit: 'usd'`); personal Pro / Pro+ use **included percent** (`unit: 'percent'`). Team: this calendar month’s spend / (working days so far × daily budget), one Spend series with run-out / today vs daily budget meters. Personal Pro: included quotas vs even pace (100% ÷ working days this month). Working days are Mon–Fri, local TZ, including today when today is a weekday. The same forecast chart appears on Statistics and Charts (calendar days 1st → month end: that day’s spend, cumulative used, dashed forecast, dotted leftover ideal). No daily dollar budget on Team: spend / working-day dollar forecast. No weekday yet → spend / — without a meter.
+**Month to date / Monthly cost forecast:** same events sample. **Unit follows the plan:** Team / Business / Enterprise use **dollars** (`unit: 'usd'`); personal Pro / Pro+ use **included percent** (`unit: 'percent'`). Team: this calendar month’s spend / (pace days so far × daily budget), one Spend series with run-out / today vs daily budget meters. Personal Pro: included quotas vs even pace (100% ÷ pace days this month). Pace days follow `budgetDayBasis`: Mon–Fri by default, or all calendar days. The same forecast chart appears on Statistics and Charts (calendar days 1st → month end: cumulative bars + used on one scale, dashed forecast, dotted leftover ideal). No daily dollar budget on Team: spend / pace-day dollar forecast. No pace day yet → spend / — without a meter.
 
 On Pro the block is titled **Monthly cost forecast**. Each quota meter shows cycle used vs 100% plus a run-out date (or “lasts the month”), and the 0–100% chart marks where each forecast hits the ceiling. Quota percent is only reported per cycle, so a day’s share is weighted by that day’s dollar spend.
 
-**Last N:** same events API, `pageSize=100`, extra pages until `cursorCost.historyLimit` (default **1000**, min 100, max 10_000).
+**Last N:** same events API, `pageSize=100`, extra pages until `cursorCost.historyLimit` (default **1000**, min 100, max 10_000). When `cursorCost.historyFromDate` is a local calendar day (`YYYY-MM-DD`, e.g. `2026-09-01` for the start of September), fetch from that day’s 00:00 through today instead of Last N (still capped at 10,000).
 
 **Spike fingerprint (v1.1):** stable id from the API if present, else `${timestamp}|${tokens}|${costUsd}|${model}`. Ignored ids in `context.globalState` key `cursorCost.ignoredSpikes`.
 
@@ -219,7 +219,9 @@ media/history.{html,css,js}
 | `cursorCost.showCriticalAlert` | true | blocking dialog when the newest query hits the critical token or dollar threshold |
 | `cursorCost.criticalTokenThreshold` | 10000000 | min 1000; Settings tab in **k** (10000 = 10M); either threshold is enough |
 | `cursorCost.criticalCostUsdThreshold` | 5 | min 0.01 USD; either threshold is enough |
-| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last** |
+| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignored when From date is set |
+| `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date** (Start of month / Today); empty = Last N |
+| `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (Mon–Fri, default) or `calendarDays` (every day in the month); Settings **Pace by** — Today daily budget, MTD meters, forecast |
 | `cursorCost.okColor` | `#89D185` | good-state color (darker `#18794E` on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | warning color (darker `#C50F1F` on light themes) |
 
@@ -281,4 +283,4 @@ Marketplace UI in English. No last-query shortcut on the bar in MVP. Ship a loca
 
 ## 15. Summary
 
-Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (follow-up). No Advise / auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.
+Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (follow-up). Optimize tab: metadata prompts only (no transcript). No auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.

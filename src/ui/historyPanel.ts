@@ -11,17 +11,22 @@ import {
   colorSchemeFromKind,
   DEFAULT_OK_COLOR,
   DEFAULT_WARN_COLOR,
+  parseBudgetDayBasis,
   parseHexColor,
+  parseOptimizeDepth,
   patchCursorCostConfigOverlay,
   readCursorCostConfig,
   reconcileCursorCostConfigOverlay,
   resolveStatusColors,
+  type BudgetDayBasis,
   type CursorCostConfig,
+  type OptimizeDepth,
 } from '../config'
 import {
   isUnregisteredConfigError,
   persistedSettingKey,
 } from '../settingsStore'
+import { parseHistoryFromDate } from '../historyFromDate'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
@@ -38,12 +43,35 @@ import {
   type UsageService,
 } from '../usage/service'
 import { resolveExtensionVersion } from '../version'
+import { resolveSupportUrl } from '../supportLinks'
 import { buildQueriesCsv } from './exportCsv'
 import { payloadForSnapshot } from './historyRows'
+import { openOptimizeChat } from './openOptimizeChat'
+import {
+  applyOptimizeCredit,
+  basenameLabel,
+  LIFETIME_SAVINGS_STATE_KEY,
+  parseLifetimeSavings,
+  type LifetimeSavings,
+} from './optimizeLifetimeSavings'
+import {
+  parseOptimizeSavingsMarkdown,
+} from './optimizeSavings'
+import {
+  readOptimizeSavingsMarkdown,
+  watchOptimizeSavingsFile,
+} from './optimizeSavingsFile'
 import type { HistoryTab } from './statusBarView'
 
 const VIEW_TYPE = 'cursorCost.history'
-const HISTORY_TABS: HistoryTab[] = ['queries', 'stats', 'charts', 'settings']
+const HISTORY_TABS: HistoryTab[] = [
+  'queries',
+  'stats',
+  'charts',
+  'optimize',
+  'support',
+  'settings',
+]
 
 export function parseHistoryTab(value: unknown): HistoryTab {
   if (typeof value === 'string' && HISTORY_TABS.includes(value as HistoryTab)) {
@@ -73,12 +101,18 @@ function asConfigPatch(
     case 'criticalCostUsdThreshold':
     case 'historyLimit':
       return { [key]: value as number }
+    case 'historyFromDate':
+      return { historyFromDate: parseHistoryFromDate(value) }
     case 'showStatusBar':
     case 'showToday':
     case 'minimalMode':
     case 'showSpikeWarning':
     case 'showCriticalAlert':
       return { [key]: value === true }
+    case 'budgetDayBasis':
+      return { budgetDayBasis: parseBudgetDayBasis(value) }
+    case 'optimizeDepth':
+      return { optimizeDepth: parseOptimizeDepth(value) }
     case 'okColor':
     case 'warnColor':
       return { [key]: String(value) }
@@ -117,6 +151,8 @@ export class HistoryPanel {
   private readonly globalState: vscode.Memento
   private readonly disposables: vscode.Disposable[] = []
   private pendingTab: HistoryTab
+  private optimizeSavingsMarkdown: string | null = null
+  private postDataSeq = 0
 
   private constructor(
     context: vscode.ExtensionContext,
@@ -159,6 +195,9 @@ export class HistoryPanel {
       vscode.window.onDidChangeActiveColorTheme(() => {
         this.postData()
       }),
+      watchOptimizeSavingsFile(() => {
+        this.postData()
+      }),
     )
   }
 
@@ -191,6 +230,17 @@ export class HistoryPanel {
     }
     if (type === 'openDashboard') {
       void vscode.commands.executeCommand(OPEN_DASHBOARD_COMMAND)
+      return
+    }
+    if (type === 'openSupportLink') {
+      const url = resolveSupportUrl((message as { id?: unknown }).id)
+      if (!url) {
+        void vscode.window.showInformationMessage(
+          'That support link is not live yet — check back after the next release.',
+        )
+        return
+      }
+      void vscode.env.openExternal(vscode.Uri.parse(url))
       return
     }
     if (type === 'setSpikeThreshold') {
@@ -276,6 +326,38 @@ export class HistoryPanel {
       )
       return
     }
+    if (type === 'setBudgetDayBasis') {
+      void this.writeSetting(
+        'budgetDayBasis',
+        parseBudgetDayBasis((message as { value?: unknown }).value),
+      )
+      return
+    }
+    if (type === 'setOptimizeDepth') {
+      void this.writeSetting(
+        'optimizeDepth',
+        parseOptimizeDepth((message as { value?: unknown }).value),
+      )
+      return
+    }
+    if (type === 'runOptimize') {
+      const raw = (message as { depth?: unknown }).depth
+      const depth =
+        raw === 'quick' || raw === 'balanced' || raw === 'deep'
+          ? raw
+          : undefined
+      void this.runOptimizeAction('chat', depth)
+      return
+    }
+    if (type === 'copyOptimizePrompt') {
+      const raw = (message as { depth?: unknown }).depth
+      const depth =
+        raw === 'quick' || raw === 'balanced' || raw === 'deep'
+          ? raw
+          : undefined
+      void this.runOptimizeAction('copy', depth)
+      return
+    }
     if (type === 'setOkColor') {
       void this.writeSetting(
         'okColor',
@@ -294,10 +376,23 @@ export class HistoryPanel {
       const raw = (message as { value?: unknown }).value
       const parsed = typeof raw === 'number' ? raw : Number(raw)
       void this.writeSetting('historyLimit', clampHistoryLimit(parsed)).then(
-        () => {
+        async () => {
+          const current = readCursorCostConfig(
+            vscode.workspace.getConfiguration('cursorCost'),
+          )
+          if (current.historyFromDate !== null) {
+            await this.writeSetting('historyFromDate', '')
+          }
           void this.service.refresh()
         },
       )
+      return
+    }
+    if (type === 'setHistoryFromDate') {
+      const parsed = parseHistoryFromDate((message as { value?: unknown }).value)
+      void this.writeSetting('historyFromDate', parsed ?? '').then(() => {
+        void this.service.refresh()
+      })
     }
   }
 
@@ -345,6 +440,89 @@ export class HistoryPanel {
     this.postData(patch)
   }
 
+  private async runOptimizeAction(
+    mode: 'chat' | 'copy',
+    depthOverride?: OptimizeDepth,
+  ): Promise<void> {
+    const savingsMarkdown = await readOptimizeSavingsMarkdown()
+    this.optimizeSavingsMarkdown = savingsMarkdown
+    const lifetime = await this.creditOptimizeSavings(savingsMarkdown)
+    const project = this.workspaceProject()
+    const config = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    const depth = depthOverride ?? config.optimizeDepth
+    const optimize = payloadForSnapshot(
+      this.service.getSnapshot(),
+      this.service.getCachedQueries(),
+      {
+        spikeTokenThreshold: config.spikeTokenThreshold,
+        showSpikeWarning: config.showSpikeWarning,
+        historyLimit: config.historyLimit,
+        historyFromDate: config.historyFromDate,
+        optimizeDepth: depth,
+        optimizeSavingsMarkdown: savingsMarkdown,
+        optimizeProjectLabel: project.label,
+        optimizeLifetimeSavings: lifetime,
+      },
+    ).optimize
+    const prompt = optimize.prompts[depth] || optimize.prompt
+    if (mode === 'chat') {
+      void openOptimizeChat(prompt)
+      return
+    }
+    await vscode.env.clipboard.writeText(prompt)
+    void vscode.window.showInformationMessage('Optimize prompt copied.')
+  }
+
+  private workspaceProject(): { key: string; label: string } {
+    const folder = vscode.workspace.workspaceFolders?.[0]
+    if (folder === undefined) {
+      return { key: '', label: '' }
+    }
+    return {
+      key: folder.uri.fsPath,
+      label: basenameLabel(folder.uri.fsPath),
+    }
+  }
+
+  private readLifetimeSavings(): LifetimeSavings {
+    return parseLifetimeSavings(
+      this.globalState.get(LIFETIME_SAVINGS_STATE_KEY),
+    )
+  }
+
+  /**
+   * When `.ai/optimize-savings.md` has a new Optimize run, credit mid growth
+   * into globalState (total + per workspace folder).
+   */
+  private async creditOptimizeSavings(
+    savingsMarkdown: string | null,
+  ): Promise<LifetimeSavings> {
+    const current = this.readLifetimeSavings()
+    const project = this.workspaceProject()
+    if (project.key === '' || savingsMarkdown === null) {
+      return current
+    }
+    const savings = parseOptimizeSavingsMarkdown(savingsMarkdown)
+    if (!savings.hasProjection) {
+      return current
+    }
+    const label =
+      savings.project?.trim() || project.label || basenameLabel(project.key)
+    const result = applyOptimizeCredit(current, project.key, {
+      run: savings.run,
+      tokensMid: savings.estTokensSaved,
+      usdMid: savings.estUsdSaved,
+      label,
+    })
+    if (!result.changed) {
+      return current
+    }
+    await this.globalState.update(LIFETIME_SAVINGS_STATE_KEY, result.state)
+    return result.state
+  }
+
   private postData(
     overrides?: Partial<{
       spikeTokenThreshold: number
@@ -355,14 +533,52 @@ export class HistoryPanel {
       okColor: string
       warnColor: string
       historyLimit: number
+      historyFromDate: string | null
       pollIntervalMinutes: number
       showStatusBar: boolean
       showToday: boolean
       minimalMode: boolean
       recentQueryCount: number
+      budgetDayBasis: BudgetDayBasis
+      optimizeDepth: OptimizeDepth
       refreshing: boolean
     }>,
   ): void {
+    void this.postDataAsync(overrides)
+  }
+
+  private async postDataAsync(
+    overrides?: Partial<{
+      spikeTokenThreshold: number
+      showSpikeWarning: boolean
+      showCriticalAlert: boolean
+      criticalTokenThreshold: number
+      criticalCostUsdThreshold: number
+      okColor: string
+      warnColor: string
+      historyLimit: number
+      historyFromDate: string | null
+      pollIntervalMinutes: number
+      showStatusBar: boolean
+      showToday: boolean
+      minimalMode: boolean
+      recentQueryCount: number
+      budgetDayBasis: BudgetDayBasis
+      optimizeDepth: OptimizeDepth
+      refreshing: boolean
+    }>,
+  ): Promise<void> {
+    const seq = ++this.postDataSeq
+    const savingsMarkdown = await readOptimizeSavingsMarkdown()
+    if (seq !== this.postDataSeq) {
+      return
+    }
+    this.optimizeSavingsMarkdown = savingsMarkdown
+    const lifetime = await this.creditOptimizeSavings(savingsMarkdown)
+    if (seq !== this.postDataSeq) {
+      return
+    }
+    const project = this.workspaceProject()
     const snapshot = this.service.getSnapshot()
     const queries = this.service.getCachedQueries()
     const config = {
@@ -373,7 +589,10 @@ export class HistoryPanel {
       config,
       colorSchemeFromKind(vscode.window.activeColorTheme.kind),
     )
-    this.panel.title = lastQueriesTitle(config.historyLimit)
+    this.panel.title = lastQueriesTitle(
+      config.historyLimit,
+      config.historyFromDate,
+    )
     void this.panel.webview.postMessage(
       payloadForSnapshot(snapshot, queries, {
         spikeTokenThreshold: config.spikeTokenThreshold,
@@ -385,11 +604,17 @@ export class HistoryPanel {
         warnColor: colors.warnColor,
         extensionVersion: this.panelVersion,
         historyLimit: config.historyLimit,
+        historyFromDate: config.historyFromDate,
         pollIntervalMinutes: config.pollIntervalMinutes,
         showStatusBar: config.showStatusBar,
         showToday: config.showToday,
         minimalMode: config.minimalMode,
         recentQueryCount: config.recentQueryCount,
+        budgetDayBasis: config.budgetDayBasis,
+        optimizeDepth: config.optimizeDepth,
+        optimizeSavingsMarkdown: this.optimizeSavingsMarkdown,
+        optimizeProjectLabel: project.label,
+        optimizeLifetimeSavings: lifetime,
         refreshing: overrides?.refreshing ?? this.service.isRefreshing(),
       }),
     )
@@ -423,13 +648,19 @@ export class HistoryPanel {
 export async function saveQueriesCsv(
   queries: UsageQuery[],
   limit: number = DEFAULT_HISTORY_LIMIT,
+  fromDate?: string | null,
 ): Promise<void> {
   const historyLimit = clampHistoryLimit(limit)
-  const csv = buildQueriesCsv(queries, historyLimit)
+  const iso = parseHistoryFromDate(fromDate)
+  const csv = buildQueriesCsv(queries, historyLimit, iso)
+  const fileName =
+    iso === null
+      ? `cursor-last-${historyLimit}.csv`
+      : `cursor-from-${iso}.csv`
   const uri = await vscode.window.showSaveDialog({
     defaultUri: vscode.Uri.joinPath(
       vscode.Uri.file(homedir()),
-      `cursor-last-${historyLimit}.csv`,
+      fileName,
     ),
     filters: { CSV: ['csv'] },
     saveLabel: 'Export',

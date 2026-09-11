@@ -1,10 +1,20 @@
+import {
+  DEFAULT_BUDGET_DAY_BASIS,
+  type BudgetDayBasis,
+} from '../budgetDayBasis'
 import { formatDollars, formatPercentPoint } from '../format'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
   lastQueriesHeading,
+  sampleSizeLimit,
 } from '../historyLimit'
-import { sumMonthUsedUsd, workingDaysElapsedInMonth } from '../usage/parse'
+import {
+  budgetDaysAfterToday,
+  budgetDaysElapsedInMonth,
+  budgetDaysInMonth,
+  sumMonthUsedUsd,
+} from '../usage/parse'
 import type { IncludedQuota, UsageQuery, UsageSnapshot } from '../usage/types'
 import type { PeriodBar, PeriodMetric } from './periodStats'
 
@@ -13,8 +23,14 @@ export const MTD_NO_BUDGET_BODY =
   'This calendar month from Last N. No daily dollar budget to pace against.'
 export const MTD_NO_DAYS_BODY =
   'No working day so far this month — weekend before the first weekday.'
-export const MTD_FORECAST_BODY =
+export const MTD_NO_DAYS_BODY_CALENDAR =
+  'No day so far this month.'
+export const MTD_FORECAST_BODY_WORKING =
   'This calendar month from Last N. Forecast keeps the current working-day pace through month end.'
+export const MTD_FORECAST_BODY_CALENDAR =
+  'This calendar month from Last N. Forecast keeps the current daily pace through month end.'
+/** @deprecated Prefer MTD_FORECAST_BODY_WORKING; kept for existing imports. */
+export const MTD_FORECAST_BODY = MTD_FORECAST_BODY_WORKING
 export const MTD_SPEND_SERIES_LABEL = 'Spend'
 /** Included quota tops out at 100%; on-demand spend has no ceiling. */
 export const MTD_PERCENT_MAX = 100
@@ -78,14 +94,16 @@ export type MtdPacePayload = {
 
 export type MtdPaceOptions = {
   historyLimit?: number
+  historyFromDate?: string | null
   now?: Date
+  budgetDayBasis?: BudgetDayBasis
 }
 
 export type DayFrame = {
   date: string
   weekday: boolean
   workingDayIndex: number | null
-  /** Weekdays from the 1st through this day. Repeats on weekends. */
+  /** Pace days from the 1st through this day. Plateaus on non-pace days. */
   workingCount: number
   future: boolean
   usd: number
@@ -134,7 +152,16 @@ function dailyBudget(snapshot: UsageSnapshot): number | null {
   return value
 }
 
-function remainingDaysHint(remaining: number): string {
+function remainingDaysHint(remaining: number, basis: BudgetDayBasis): string {
+  if (basis === 'calendarDays') {
+    if (remaining === 0) {
+      return 'No days left this month'
+    }
+    if (remaining === 1) {
+      return '1 day left this month'
+    }
+    return `${remaining} days left this month`
+  }
   if (remaining === 0) {
     return 'No working days left this month'
   }
@@ -142,6 +169,24 @@ function remainingDaysHint(remaining: number): string {
     return '1 working day left this month'
   }
   return `${remaining} working days left this month`
+}
+
+function paceLabel(basis: BudgetDayBasis): string {
+  return basis === 'calendarDays' ? 'daily pace' : 'working-day pace'
+}
+
+function noDaysBody(basis: BudgetDayBasis): string {
+  return basis === 'calendarDays' ? MTD_NO_DAYS_BODY_CALENDAR : MTD_NO_DAYS_BODY
+}
+
+function forecastBody(basis: BudgetDayBasis): string {
+  return basis === 'calendarDays'
+    ? MTD_FORECAST_BODY_CALENDAR
+    : MTD_FORECAST_BODY_WORKING
+}
+
+function daysSoFarLabel(basis: BudgetDayBasis): string {
+  return basis === 'calendarDays' ? 'Days so far' : 'Working days so far'
 }
 
 /** Cursor Models first, then Other Models — dashboard order. */
@@ -163,31 +208,7 @@ function lastDateOfMonth(now: Date): number {
 }
 
 export function workingDaysInMonth(now: Date): number {
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const last = lastDateOfMonth(now)
-  let count = 0
-  for (let day = 1; day <= last; day++) {
-    if (isWeekend(year, month, day)) {
-      continue
-    }
-    count += 1
-  }
-  return count
-}
-
-function workingDaysAfterToday(now: Date): number {
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const last = lastDateOfMonth(now)
-  let count = 0
-  for (let day = now.getDate() + 1; day <= last; day++) {
-    if (isWeekend(year, month, day)) {
-      continue
-    }
-    count += 1
-  }
-  return count
+  return budgetDaysInMonth(now, 'workingDays')
 }
 
 function mtdBody(
@@ -195,18 +216,27 @@ function mtdBody(
   budget: number | null,
   historyLimit: number,
   forecastEom: number | null,
+  basis: BudgetDayBasis,
+  fromDate?: string | null,
 ): string {
   if (budget === null) {
     if (forecastEom !== null) {
-      return MTD_FORECAST_BODY
+      return forecastBody(basis)
     }
     return MTD_NO_BUDGET_BODY
   }
   if (elapsed <= 0) {
-    return MTD_NO_DAYS_BODY
+    return noDaysBody(basis)
   }
-  const days = elapsed === 1 ? '1 working day' : `${elapsed} working days`
-  return `This month vs ${days} × daily budget (${lastQueriesHeading(historyLimit)} sample).`
+  const days =
+    basis === 'calendarDays'
+      ? elapsed === 1
+        ? '1 day'
+        : `${elapsed} days`
+      : elapsed === 1
+        ? '1 working day'
+        : `${elapsed} working days`
+  return `This month vs ${days} × daily budget (${lastQueriesHeading(historyLimit, fromDate)} sample).`
 }
 
 function paceHint(used: number, allowance: number, unit: MtdUnit): string {
@@ -238,6 +268,7 @@ export function toMtdChart(
   queries: UsageQuery[],
   budget: number | null,
   now: Date,
+  basis: BudgetDayBasis = DEFAULT_BUDGET_DAY_BASIS,
 ): MtdChartPoint[] {
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -248,7 +279,8 @@ export function toMtdChart(
   let elapsed = 0
   for (let day = 1; day <= last; day++) {
     const weekday = !isWeekend(year, month, day)
-    if (weekday) {
+    const paceDay = basis === 'calendarDays' || weekday
+    if (paceDay) {
       elapsed += 1
     }
     const dayUsed = byDay.get(localDayKey(year, month, day)) ?? 0
@@ -256,7 +288,7 @@ export function toMtdChart(
     points.push({
       date: dayLabel(day, month),
       weekday,
-      workingDayIndex: weekday ? elapsed : null,
+      workingDayIndex: paceDay ? elapsed : null,
       dayUsedUsd: dayUsed,
       usedUsd: used,
       allowanceUsd: budget === null ? null : elapsed * budget,
@@ -265,7 +297,11 @@ export function toMtdChart(
   return points
 }
 
-export function toMonthFrames(queries: UsageQuery[], now: Date): DayFrame[] {
+export function toMonthFrames(
+  queries: UsageQuery[],
+  now: Date,
+  basis: BudgetDayBasis = DEFAULT_BUDGET_DAY_BASIS,
+): DayFrame[] {
   const year = now.getFullYear()
   const month = now.getMonth()
   const today = now.getDate()
@@ -275,14 +311,15 @@ export function toMonthFrames(queries: UsageQuery[], now: Date): DayFrame[] {
   let workingCount = 0
   for (let day = 1; day <= last; day++) {
     const weekday = !isWeekend(year, month, day)
-    if (weekday) {
+    const paceDay = basis === 'calendarDays' || weekday
+    if (paceDay) {
       workingCount += 1
     }
     const future = day > today
     frames.push({
       date: dayLabel(day, month),
       weekday,
-      workingDayIndex: weekday ? workingCount : null,
+      workingDayIndex: paceDay ? workingCount : null,
       workingCount,
       future,
       usd: future ? 0 : (byDay.get(localDayKey(year, month, day)) ?? 0),
@@ -355,7 +392,7 @@ export function toMtdSeries(
       const value =
         scale !== null
           ? frame.usd * scale
-          : perWorkingDay !== null && frame.weekday
+          : perWorkingDay !== null && frame.workingDayIndex !== null
             ? perWorkingDay
             : frame.usd
       running += value
@@ -366,7 +403,7 @@ export function toMtdSeries(
       perWorkingDay === null ? null : frame.workingCount * perWorkingDay,
     )
     // Ideal from today: burn the leftover ceiling evenly over remaining
-    // working days so you land on the limit at month end. Past days stay
+    // pace days so you land on the limit at month end. Past days stay
     // null so each quota keeps its own visible slope.
     if (ceiling === null || left === null || today < 0 || i < today) {
       ideal.push(null)
@@ -378,10 +415,10 @@ export function toMtdSeries(
       ideal.push(total + (left * (frame.workingCount - elapsed)) / remaining)
     }
   }
-  const lastWorking = lastWorkingDate(frames)
+  const lastWorking = lastPaceDate(frames)
   const rawRunOut =
     ceiling === null ? null : firstRunOutDate(forecast, frames, ceiling)
-  // Hitting the ceiling on the last working day still "lasts the month".
+  // Hitting the ceiling on the last pace day still "lasts the month".
   const runOutDate =
     rawRunOut !== null && rawRunOut === lastWorking ? null : rawRunOut
   return {
@@ -428,10 +465,10 @@ function runOutLabelFor(
   return 'Lasts the month'
 }
 
-function lastWorkingDate(frames: DayFrame[]): string | null {
+function lastPaceDate(frames: DayFrame[]): string | null {
   for (let i = frames.length - 1; i >= 0; i--) {
     const frame = frames[i]
-    if (frame?.weekday) {
+    if (frame?.workingDayIndex !== null && frame !== undefined) {
       return frame.date
     }
   }
@@ -442,8 +479,9 @@ function percentVerdict(
   series: MtdSeries[],
   overPace: boolean,
   frames: DayFrame[],
+  basis: BudgetDayBasis,
 ): { verdict: MtdVerdict; body: string } {
-  const lastWorking = lastWorkingDate(frames)
+  const lastWorking = lastPaceDate(frames)
   const early = series.filter(
     (line) =>
       line.runOutDate !== null &&
@@ -453,24 +491,24 @@ function percentVerdict(
   if (series.some((line) => line.runOutLabel === 'Already at the limit')) {
     return {
       verdict: 'over',
-      body: percentBody(series, early, true),
+      body: percentBody(series, early, true, basis),
     }
   }
   if (early.length > 0) {
     return {
       verdict: 'over',
-      body: percentBody(series, early, false),
+      body: percentBody(series, early, false, basis),
     }
   }
   if (overPace) {
     return {
       verdict: 'tight',
-      body: percentBody(series, early, false),
+      body: percentBody(series, early, false, basis),
     }
   }
   return {
     verdict: 'ok',
-    body: percentBody(series, early, false),
+    body: percentBody(series, early, false, basis),
   }
 }
 
@@ -478,13 +516,14 @@ function percentBody(
   series: MtdSeries[],
   early: MtdSeries[],
   spent: boolean,
+  basis: BudgetDayBasis,
 ): string {
   if (spent) {
     return 'At least one included quota is already at 100%. On-demand usage may apply after that.'
   }
   if (early.length > 0) {
     const bits = early.map((line) => `${line.label} ${line.runOutLabel.toLowerCase()}`)
-    return `At this working-day pace: ${bits.join('; ')}. Dotted ideal lines show leftover budget spread evenly to month end.`
+    return `At this ${paceLabel(basis)}: ${bits.join('; ')}. Dotted ideal lines show leftover budget spread evenly to month end.`
   }
   const bits = series.map((line) => `${line.label}: ${line.runOutLabel.toLowerCase()}`)
   return `${bits.join('. ')}. Bars show cycle used vs 100%. Dotted ideal lines show leftover budget to month end.`
@@ -496,8 +535,9 @@ function usdVerdict(
   monthCap: number | null,
   series: MtdSeries[],
   frames: DayFrame[],
+  basis: BudgetDayBasis,
 ): { verdict: MtdVerdict; body: string } {
-  const lastWorking = lastWorkingDate(frames)
+  const lastWorking = lastPaceDate(frames)
   const early = series.filter(
     (line) =>
       line.runOutDate !== null &&
@@ -507,7 +547,7 @@ function usdVerdict(
   if (series.some((line) => line.runOutLabel === 'Already at the limit')) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, true),
+      body: usdBody(series, early, true, basis),
     }
   }
   if (
@@ -517,24 +557,24 @@ function usdVerdict(
   ) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, false),
+      body: usdBody(series, early, false, basis),
     }
   }
   if (early.length > 0) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, false),
+      body: usdBody(series, early, false, basis),
     }
   }
   if (overPace) {
     return {
       verdict: 'tight',
-      body: usdBody(series, early, false),
+      body: usdBody(series, early, false, basis),
     }
   }
   return {
     verdict: 'ok',
-    body: usdBody(series, early, false),
+    body: usdBody(series, early, false, basis),
   }
 }
 
@@ -542,16 +582,19 @@ function usdBody(
   series: MtdSeries[],
   early: MtdSeries[],
   spent: boolean,
+  basis: BudgetDayBasis,
 ): string {
   if (spent) {
-    return 'Month spend is already at the working-day budget ceiling for this month.'
+    return basis === 'calendarDays'
+      ? 'Month spend is already at the daily budget ceiling for this month.'
+      : 'Month spend is already at the working-day budget ceiling for this month.'
   }
   if (early.length > 0) {
     const bits = early.map((line) => `${line.label} ${line.runOutLabel.toLowerCase()}`)
-    return `At this working-day pace: ${bits.join('; ')}. Bars are dollars. Dotted ideal lines show leftover budget spread evenly to month end.`
+    return `At this ${paceLabel(basis)}: ${bits.join('; ')}. Bars are cumulative dollars. Dotted ideal lines show leftover budget spread evenly to month end.`
   }
   const bits = series.map((line) => `${line.label}: ${line.runOutLabel.toLowerCase()}`)
-  return `${bits.join('. ')}. Bars are dollars. Dotted ideal lines show leftover budget to month end.`
+  return `${bits.join('. ')}. Bars are cumulative dollars. Dotted ideal lines show leftover budget to month end.`
 }
 
 function appendPaceMetrics(
@@ -565,6 +608,7 @@ function appendPaceMetrics(
     used: number
     overPace: boolean
     unit: MtdUnit
+    basis: BudgetDayBasis
     remainingPct?: number | null
     quotaLabel?: string
   },
@@ -585,7 +629,7 @@ function appendPaceMetrics(
         args.unit === 'percent'
           ? formatPercentPoint(args.avg)
           : formatDollars(args.avg),
-      hint: remainingDaysHint(args.remaining),
+      hint: remainingDaysHint(args.remaining, args.basis),
     })
   }
   if (args.forecastEom !== null) {
@@ -596,7 +640,10 @@ function appendPaceMetrics(
         args.unit === 'percent'
           ? formatPercentPoint(args.forecastEom)
           : formatDollars(args.forecastEom),
-      hint: 'If this working-day pace continues',
+      hint:
+        args.basis === 'calendarDays'
+          ? 'If this daily pace continues'
+          : 'If this working-day pace continues',
     })
   }
   if (args.daily !== null) {
@@ -609,7 +656,9 @@ function appendPaceMetrics(
           : formatDollars(args.daily),
       hint:
         args.unit === 'percent'
-          ? '100% ÷ working days this month'
+          ? args.basis === 'calendarDays'
+            ? '100% ÷ days this month'
+            : '100% ÷ working days this month'
           : undefined,
     })
   }
@@ -640,12 +689,17 @@ export function toMtdPace(
   const historyLimit = clampHistoryLimit(
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
+  const historyFromDate = options?.historyFromDate ?? null
   const now = options?.now ?? new Date()
-  const sample = newestQueries(queries, historyLimit)
-  const elapsed = workingDaysElapsedInMonth(now)
-  const weekdayTotal = workingDaysInMonth(now)
-  const remaining = workingDaysAfterToday(now)
-  const frames = toMonthFrames(sample, now)
+  const basis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const sample = newestQueries(
+    queries,
+    sampleSizeLimit(historyLimit, historyFromDate),
+  )
+  const elapsed = budgetDaysElapsedInMonth(now, basis)
+  const weekdayTotal = budgetDaysInMonth(now, basis)
+  const remaining = budgetDaysAfterToday(now, basis)
+  const frames = toMonthFrames(sample, now, basis)
   const quotas = includedQuotas(snapshot)
   const primary = quotas[0]
 
@@ -675,9 +729,9 @@ export function toMtdPace(
       elapsed <= 0
         ? {
             verdict: 'ok' as const,
-            body: MTD_NO_DAYS_BODY,
+            body: noDaysBody(basis),
           }
-        : percentVerdict(series, overPace, frames)
+        : percentVerdict(series, overPace, frames, basis)
     const bars: PeriodBar[] = series.map((line, index) => {
       const cycleUsed = Math.max(0, quotas[index]?.percent ?? 0)
       const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
@@ -694,7 +748,7 @@ export function toMtdPace(
     const metrics: PeriodMetric[] = [
       {
         id: 'mtdDays',
-        label: 'Working days so far',
+        label: daysSoFarLabel(basis),
         value: String(elapsed),
       },
     ]
@@ -707,6 +761,7 @@ export function toMtdPace(
       used,
       overPace,
       unit: 'percent',
+      basis,
       remainingPct: Math.max(0, MTD_PERCENT_MAX - used),
       quotaLabel: primary.name,
     })
@@ -719,7 +774,10 @@ export function toMtdPace(
         id: 'mtdRunOut',
         label: 'Runs out',
         value: runOutMetric,
-        hint: 'If this working-day pace continues',
+        hint:
+          basis === 'calendarDays'
+            ? 'If this daily pace continues'
+            : 'If this working-day pace continues',
       })
     }
     return {
@@ -732,7 +790,7 @@ export function toMtdPace(
       verdict: answer.verdict,
       unit: 'percent',
       max: MTD_PERCENT_MAX,
-      chart: toMtdChart(sample, null, now),
+      chart: toMtdChart(sample, null, now, basis),
       forecast: toMtdDays(frames, daily),
       series,
     }
@@ -762,9 +820,16 @@ export function toMtdPace(
     budget === null || elapsed <= 0
       ? {
           verdict: 'ok' as const,
-          body: mtdBody(elapsed, budget, historyLimit, forecastEom),
+          body: mtdBody(
+            elapsed,
+            budget,
+            historyLimit,
+            forecastEom,
+            basis,
+            historyFromDate,
+          ),
         }
-      : usdVerdict(overPace, forecastEom, monthCap, series, frames)
+      : usdVerdict(overPace, forecastEom, monthCap, series, frames, basis)
   const today = todayIndex(frames)
   const bars: PeriodBar[] =
     budget === null || elapsed <= 0
@@ -782,7 +847,7 @@ export function toMtdPace(
   const metrics: PeriodMetric[] = [
     {
       id: 'mtdDays',
-      label: 'Working days so far',
+      label: daysSoFarLabel(basis),
       value: String(elapsed),
     },
   ]
@@ -795,6 +860,7 @@ export function toMtdPace(
     used,
     overPace,
     unit: 'usd',
+    basis,
   })
   const runOutMetric = series
     .filter((line) => line.runOutDate !== null)
@@ -805,7 +871,10 @@ export function toMtdPace(
       id: 'mtdRunOut',
       label: 'Runs out',
       value: runOutMetric,
-      hint: 'If this working-day pace continues',
+      hint:
+        basis === 'calendarDays'
+          ? 'If this daily pace continues'
+          : 'If this working-day pace continues',
     })
   }
 
@@ -819,7 +888,7 @@ export function toMtdPace(
     verdict: answer.verdict,
     unit: 'usd',
     max: null,
-    chart: toMtdChart(sample, budget, now),
+    chart: toMtdChart(sample, budget, now, basis),
     forecast: toMtdDays(frames, budget),
     series,
   }

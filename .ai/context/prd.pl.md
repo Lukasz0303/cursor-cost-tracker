@@ -2,8 +2,8 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.14  
-**Data:** 2026-09-03  
+**Wersja dokumentu:** 2.15  
+**Data:** 2026-09-07  
 **Status:** decyzja produktowa (MVP)  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
 
@@ -70,14 +70,14 @@ Prawa strona belki (`StatusBarAlignment.Right`).
 … │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  ↻  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │
 ```
 
-**Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to procenty włączonego limitu (`7%` albo `7% · 0%` dla Cursor Models · Other Models), jak na dashboardzie Cursora — nie cap on-demand w dolarach.
+**Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to **średnia** procentów included vs 100% (`32% / 100%` przy 33% i 31%). Today to **średnia** dzisiejszego % vs dzienny pace, z sumą `$` w nawiasie (`3.5% / 4.5% (17.12 $)`).
 
 Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cursorCost.recentQueryCount` określa liczbę chipów zapytań (**1–10**, domyślnie **3**). Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Refresh siedzi zaraz za tym chipem, żeby nie znikał gdy belka się przepełnia. Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today otwiera Last N na zakładce **Statistics**. Chip zapytania otwiera **listę zapytań**. Refresh pobiera dane z cursor.com na żądanie. Export CSV jest na pasku Last N, nie na belce.
 
 | Element | Tekst | Tooltip | Klik |
 |---------|--------|---------|------|
-| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 7%` albo `7% · 0%` | Karta hover: plan, miarki included/on-demand, reset, top modele, Open Dashboard / Refresh | **otwórz Statistics** |
-| Today | `$(calendar) 3.79 $ / 11.19 $` | ten sam hover co Current (jeden chip) | **otwórz Statistics** |
+| Current | Firmowy: `$(credit-card) 3.79 $ / 250.00 $`. Pro: `$(credit-card) 32% / 100%` (średnia included) | Karta hover: plan, miarki included/on-demand, reset, top modele, Open Dashboard / Refresh | **otwórz Statistics** |
+| Today | Firmowy: `$(calendar) 3.79 $ / 11.19 $`. Pro: `$(calendar) 3.5% / 4.5% (17.12 $)` (średnia dziś / pace, suma $) | ten sam hover co Current (jeden chip) | **otwórz Statistics** |
 | Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | tylko odśwież, bez panelu |
 | 1–10 ostatnich (domyślnie 3) | `0.03 $ - 64.8k` albo `! 1.20 $ - 1.2M` | model · czas · tokeny · kind | **otwórz listę zapytań** |
 
@@ -97,7 +97,7 @@ Główna ścieżka: **nie** Quick Pick. Od razu panel. Current / Today lądują 
 
 Najnowsze na górze, font monospace, CSS `--vscode-*`. Paleta poleceń: `Cursor Cost: Show Usage History`.
 
-Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Settings**. Na zakładce zapytań: **Refresh** (pobierz z cursor.com), **Over limit only** (filtruje tabelę do wierszy ze spike `!`; lokalnie w panelu, wyłączone gdy Show warnings jest off) i **Export CSV**. Statistics to słownik Current/Today, miarka **Month to date** (zużycie w tym miesiącu vs dni robocze dotąd × dzienny budżet, albo vs prognoza z tempa dni roboczych gdy nie ma dziennego limitu) z wykresem zużycia i prognozy — na Pro para linii dla każdej included quota na osi 0–100% i miarka dzisiejszego zużycia vs dzienny budżet — plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie plus kumulacja, ta sama kontrolka **Monthly cost forecast** co na Statistics (miarki, zakres, used/forecast/ideal), potem karty Today / This month / All time z tej próbki. Settings: Warn at, Show last, Show warnings, kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
+Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Na zakładce zapytań: **Over Warn at** (przełącznik — tylko zapytania ≥ próg ostrzeżenia), **Refresh** (pobierz z cursor.com) i **Export CSV**. Show last / From date pozostają w Settings. Statistics to słownik Current/Today, miarka **Month to date** (zużycie w tym miesiącu vs dni robocze dotąd × dzienny budżet, albo vs prognoza z tempa dni roboczych gdy nie ma dziennego limitu) z wykresem zużycia i prognozy — na Pro para linii dla każdej included quota na osi 0–100% i miarka dzisiejszego zużycia vs dzienny budżet — plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie jako skumulowane słupki + linia na jednej skali, ta sama kontrolka **Monthly cost forecast** co na Statistics (miarki, zakres, used/forecast/ideal), potem karty Today / This month / All time z tej próbki. **Optimize:** trzy kolorowe zwijane karty głębokości (Quick / Balanced / Deep) z własnym Run i podglądem; badge Default wg `cursorCost.optimizeDepth` (domyślnie Balanced). Toolbar **Run Optimize** wkleja prompt domyślnej głębokości do ostatniego Composera. Findings skupione na ostatnim drogim / czerwonym zapytaniu. Projekcja pokazuje `0 / 0.00 $` do zapisu `.ai/optimize-savings.md` (`cct-savings` z `project`, mid tokenów/USD, `run`); każdy prompt wymaga końcowego raportu tokeny/USD/projekt. Jedna zwinięta karta to **prognozowany koszt zaoszczędzony na podobnym requeście**; rozwinięcie: wyjaśnienie plus zaksięgowane sumy per projekt z `globalState`. To nie jest audyt całego workspace. Rozszerzenie nie czyta treści czatu. **Support:** Buy Me a Coffee (URL w `src/supportLinks.ts`). Tiery GitHub Sponsors zostają w kodzie, ale są ukryte, dopóki nie ustawi się URL sponsora. Settings: Warn at, Show last, **From date**, Show warnings, Optimize depth, kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
 
 **Spike tokenów (v1.1, obowiązkowe po MVP):** kolumna albo `!` na początku wiersza, gdy `tokens >=` próg użytkownika. Akcje w wierszu:
 
@@ -169,11 +169,11 @@ v1.2: sidebar; opcjonalny Quick Pick.
 
 **Today:** `POST …/dashboard/get-filtered-usage-events` — `dailyBudget = remaining / dni robocze do końca`; `todayUsed` = suma dzisiejszych centów (lokalna strefa czasowa).
 
-**Month to date / Monthly cost forecast:** ta sama próbka eventów. **Jednostka zależy od planu:** Team / Business / Enterprise → **dolary** (`unit: 'usd'`); osobisty Pro / Pro+ → **procent included** (`unit: 'percent'`). Team: zużycie w tym miesiącu / (dni robocze od 1. × dzienny budżet), jedna seria Spend z run-out / dziś vs dzienny budżet. Pro: procent included vs równe tempo (100% ÷ dni robocze w tym miesiącu). Dni robocze to pon–pt, lokalna strefa, wliczając dziś gdy dziś jest dniem roboczym. Ten sam wykres prognozy jest na Statistics i Charts (dni od 1. do końca miesiąca: słupki dnia, kumulacja, przerywana prognoza, kropkowany leftover). Brak dziennego budżetu dolarowego na Team → zużycie / prognoza dolarowa. Brak dnia roboczego → zużycie / — bez miarki.
+**Month to date / Monthly cost forecast:** ta sama próbka eventów. **Jednostka zależy od planu:** Team / Business / Enterprise → **dolary** (`unit: 'usd'`); osobisty Pro / Pro+ → **procent included** (`unit: 'percent'`). Team: zużycie w tym miesiącu / (dni robocze od 1. × dzienny budżet), jedna seria Spend z run-out / dziś vs dzienny budżet. Pro: procent included vs równe tempo (100% ÷ dni robocze w tym miesiącu). Dni robocze to pon–pt, lokalna strefa, wliczając dziś gdy dziś jest dniem roboczym. Ten sam wykres prognozy jest na Statistics i Charts (dni od 1. do końca miesiąca: skumulowane słupki + used na jednej skali, przerywana prognoza, kropkowany leftover). Brak dziennego budżetu dolarowego na Team → zużycie / prognoza dolarowa. Brak dnia roboczego → zużycie / — bez miarki.
 
 Na Pro blok nazywa się **Monthly cost forecast**. Każda miarka pokazuje zużycie cyklu vs 100% oraz datę wyczerpania (albo „lasts the month”), a wykres 0–100% oznacza miejsce, w którym prognoza uderza w sufit. API podaje procent tylko per cykl, więc udział dnia jest ważony jego kosztem dolarowym.
 
-**Last 100:** ta sama API eventów, `pageSize=100`.
+**Last N:** ta sama API eventów, `pageSize=100`, kolejne strony aż do `cursorCost.historyLimit` (domyślnie **1000**, min 100, max 10_000). Gdy `cursorCost.historyFromDate` to lokalny dzień (`YYYY-MM-DD`, np. `2026-09-01` na początek września), pobierz od 00:00 tego dnia do dziś zamiast Last N (nadal cap 10_000).
 
 **Fingerprint spike (v1.1):** id z API jeśli jest, inaczej `${timestamp}|${tokens}|${costUsd}|${model}`. Zignorowane id w `context.globalState` pod `cursorCost.ignoredSpikes`.
 
@@ -220,7 +220,8 @@ media/history.{html,css,js}
 | `cursorCost.showCriticalAlert` | true | blokujący dialog, gdy najnowsze zapytanie trafi w próg tokenów lub dolarów |
 | `cursorCost.criticalTokenThreshold` | 10000000 | min 1000; Settings w **k** (10000 = 10M); wystarczy jeden próg |
 | `cursorCost.criticalCostUsdThreshold` | 5 | min 0,01 USD; wystarczy jeden próg |
-| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last** |
+| `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignorowane gdy From date jest ustawione |
+| `cursorCost.historyFromDate` | (puste) | lokalne `YYYY-MM-DD`; Settings **From date** (Start of month / Today); puste = Last N |
 | `cursorCost.okColor` | `#89D185` | kolor dobrego stanu (ciemniejszy `#18794E` na jasnym motywie) |
 | `cursorCost.warnColor` | `#F14C4C` | kolor ostrzeżenia (ciemniejszy `#C50F1F` na jasnym motywie) |
 

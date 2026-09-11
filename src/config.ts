@@ -1,4 +1,15 @@
 import {
+  DEFAULT_BUDGET_DAY_BASIS,
+  parseBudgetDayBasis,
+  type BudgetDayBasis,
+} from './budgetDayBasis'
+import {
+  DEFAULT_OPTIMIZE_DEPTH,
+  parseOptimizeDepth,
+  type OptimizeDepth,
+} from './optimizeDepth'
+import { parseHistoryFromDate } from './historyFromDate'
+import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
 } from './historyLimit'
@@ -13,6 +24,10 @@ import {
   clampSpikeTokenThreshold,
   DEFAULT_SPIKE_TOKEN_THRESHOLD,
 } from './spikes/threshold'
+
+export type { BudgetDayBasis, OptimizeDepth }
+export { DEFAULT_BUDGET_DAY_BASIS, parseBudgetDayBasis }
+export { DEFAULT_OPTIMIZE_DEPTH, parseOptimizeDepth }
 
 const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i
 
@@ -107,6 +122,10 @@ export type CursorCostConfig = {
   criticalTokenThreshold: number
   criticalCostUsdThreshold: number
   historyLimit: number
+  /** Local `YYYY-MM-DD`; `null` uses Last N (`historyLimit`). */
+  historyFromDate: string | null
+  budgetDayBasis: BudgetDayBasis
+  optimizeDepth: OptimizeDepth
   okColor: string
   warnColor: string
 }
@@ -123,6 +142,9 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   criticalTokenThreshold: DEFAULT_CRITICAL_TOKEN_THRESHOLD,
   criticalCostUsdThreshold: DEFAULT_CRITICAL_COST_USD_THRESHOLD,
   historyLimit: DEFAULT_HISTORY_LIMIT,
+  historyFromDate: null,
+  budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
+  optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
   okColor: DEFAULT_OK_COLOR,
   warnColor: DEFAULT_WARN_COLOR,
 }
@@ -191,6 +213,13 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     ),
     historyLimit: clampHistoryLimit(
       section.get('historyLimit', DEFAULT_CURSOR_COST_CONFIG.historyLimit),
+    ),
+    historyFromDate: parseHistoryFromDate(section.get('historyFromDate', '')),
+    budgetDayBasis: parseBudgetDayBasis(
+      section.get('budgetDayBasis', DEFAULT_BUDGET_DAY_BASIS),
+    ),
+    optimizeDepth: parseOptimizeDepth(
+      section.get('optimizeDepth', DEFAULT_OPTIMIZE_DEPTH),
     ),
     okColor: parseHexColor(
       section.get('okColor', DEFAULT_OK_COLOR),

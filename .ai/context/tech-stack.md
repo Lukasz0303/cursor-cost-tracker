@@ -63,7 +63,7 @@ After Open VSX: if Cursor search hides the extension, lower `engines.vscode` to 
 ## 6. Tests — what to cover
 
 - `parse`: cents, pools, unlimited, input/output tokens
-- `dailyBudget`: working days, month end
+- `dailyBudget`: Mon–Fri by default (`cursorCost.budgetDayBasis`), or all calendar days; month end
 - `formatDollars` / `formatTokens`
 - Status bar: unlimited, over, warn, N/A (mock service)
 

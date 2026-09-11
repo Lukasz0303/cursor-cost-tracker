@@ -4,7 +4,6 @@ import {
   historyDataPayload,
   payloadForSnapshot,
   toHistoryRows,
-  visibleHistoryRows,
 } from '../src/ui/historyRows'
 import type { UsageQuery } from '../src/usage/types'
 
@@ -46,7 +45,30 @@ describe('toHistoryRows', () => {
     expect(toHistoryRows(many, { historyLimit: 100 })[0]?.tokens).toBe('119')
     expect(toHistoryRows(many)).toHaveLength(120)
   })
+})
 
+describe('historyDataPayload from date', () => {
+  it('keeps the full from-date sample instead of Show last', () => {
+    const many = Array.from({ length: 120 }, (_, i) =>
+      query({ timestamp: 1_000 + i, tokens: i }),
+    )
+    expect(
+      historyDataPayload(many, undefined, { historyLimit: 100 }).events,
+    ).toHaveLength(100)
+    const fromDate = historyDataPayload(many, undefined, {
+      historyLimit: 100,
+      historyFromDate: '2026-09-01',
+    })
+    expect(fromDate.events).toHaveLength(120)
+    expect(fromDate.historyLimit).toBe(100)
+    expect(fromDate.historyFromDate).toBe('2026-09-01')
+    expect(fromDate.stats.sampleNote).toBe(
+      'From 1.09.2026 is recent queries, not Current.',
+    )
+  })
+})
+
+describe('toHistoryRows extras', () => {
   it('prefixes ! on TOKENS when the query is a spike', () => {
     const rows = toHistoryRows(
       [query({ timestamp: 1, tokens: 1_000_000 })],
@@ -72,45 +94,16 @@ describe('toHistoryRows', () => {
   })
 })
 
-describe('visibleHistoryRows', () => {
-  it('keeps every row when the over-limit filter is off', () => {
-    const rows = toHistoryRows(
-      [
-        query({ timestamp: 2, tokens: 1_000_000 }),
-        query({ timestamp: 1, tokens: 10 }),
-      ],
-      { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
-    )
-    expect(visibleHistoryRows(rows, false)).toHaveLength(2)
-  })
-
-  it('keeps only spike rows when the over-limit filter is on', () => {
-    const rows = toHistoryRows(
-      [
-        query({ timestamp: 2, tokens: 1_000_000 }),
-        query({ timestamp: 1, tokens: 10 }),
-      ],
-      { spikeTokenThreshold: 1_000_000, showSpikeWarning: true },
-    )
-    const visible = visibleHistoryRows(rows, true)
-    expect(visible).toHaveLength(1)
-    expect(visible[0]?.tokens).toBe('! 1,000,000')
-  })
-
-  it('finds no spike rows when warnings are off', () => {
-    const rows = toHistoryRows(
-      [query({ timestamp: 1, tokens: 1_000_000 })],
-      { spikeTokenThreshold: 1_000_000, showSpikeWarning: false },
-    )
-    expect(rows[0]?.spike).toBe(false)
-    expect(visibleHistoryRows(rows, true)).toEqual([])
-  })
-})
-
 describe('historyDataPayload', () => {
   it('only serializes table fields — never cookie or token names', () => {
     const payload = historyDataPayload(
-      [query({ timestamp: new Date(2026, 8, 1, 10, 5, 12).getTime() })],
+      [
+        query({
+          timestamp: new Date(2026, 8, 1, 10, 5, 12).getTime(),
+          tokens: 1_200_000,
+          costUsd: 1.5,
+        }),
+      ],
       undefined,
       { spikeTokenThreshold: 1_000_000, showSpikeWarning: true, extensionVersion: '0.7.4' },
     )
@@ -120,15 +113,19 @@ describe('historyDataPayload', () => {
     expect(json.includes('WorkosCursorSessionToken')).toBe(false)
     expect(json.includes('Authorization')).toBe(false)
     expect(Object.keys(payload).sort()).toEqual([
+      'budgetDayBasis',
       'charts',
       'criticalCostUsdThreshold',
       'criticalTokenThreshold',
       'events',
       'extensionVersion',
+      'historyFromDate',
       'historyLimit',
       'minimalMode',
       'mtd',
       'okColor',
+      'optimize',
+      'optimizeDepth',
       'periods',
       'pollIntervalMinutes',
       'recentQueryCount',
@@ -140,9 +137,26 @@ describe('historyDataPayload', () => {
       'spikeTokenThreshold',
       'stats',
       'statusBarPreview',
+      'support',
       'type',
       'warnColor',
     ])
+    expect(payload.optimizeDepth).toBe('balanced')
+    expect(payload.support).toEqual({
+      buyMeACoffee: true,
+      githubSponsors: false,
+    })
+    expect(payload.optimize.empty).toBe(false)
+    expect(payload.optimize.prompt).toContain('Projected savings')
+    expect(payload.optimize.prompt).toContain('Last red query')
+    expect(payload.optimize.hasProjection).toBe(false)
+    expect(payload.optimize.estTokensSaved).toBe(0)
+    expect(payload.optimize.estUsdSaved).toBe(0)
+    expect(payload.optimize.summary).toBe(
+      'Projected save per similar request: 0 / 0.00 $',
+    )
+    expect(payload.optimize.lifetime.empty).toBe(true)
+    expect(payload.optimize.lifetime.summary).toContain('Saved so far:')
     expect(payload.refreshing).toBe(false)
     expect(payload.pollIntervalMinutes).toBe(1)
     expect(payload.showCriticalAlert).toBe(true)
@@ -161,6 +175,7 @@ describe('historyDataPayload', () => {
       historyDataPayload([], undefined, { refreshing: true }).refreshing,
     ).toBe(true)
     expect(payload.historyLimit).toBe(1000)
+    expect(payload.historyFromDate).toBeNull()
     expect(payload.charts).toHaveLength(1)
     expect(payload.periods).toHaveLength(3)
     expect(payload.periods[2]?.id).toBe('all')
@@ -168,8 +183,8 @@ describe('historyDataPayload', () => {
     expect(payload.mtd.verdict).toBeTruthy()
     expect(Array.isArray(payload.mtd.chart)).toBe(true)
     expect(Array.isArray(payload.mtd.forecast)).toBe(true)
-    expect(payload.charts[0]?.tokens).toBe(64_755)
-    expect(payload.charts[0]?.costUsd).toBe(0.03)
+    expect(payload.charts[0]?.tokens).toBe(1_200_000)
+    expect(payload.charts[0]?.costUsd).toBe(1.5)
     expect(payload.extensionVersion).toBe('0.7.4')
     expect(payload.spikeTokenThreshold).toBe(1_000_000)
     const row = payload.events[0]

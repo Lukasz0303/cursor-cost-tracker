@@ -1,5 +1,5 @@
 import { formatDateTime, formatKind } from '../format'
-import { clampHistoryLimit, DEFAULT_HISTORY_LIMIT } from '../historyLimit'
+import { DEFAULT_HISTORY_LIMIT, sampleSizeLimit } from '../historyLimit'
 import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery } from '../usage/types'
 
@@ -21,6 +21,7 @@ function modelLabel(model: string | null): string {
 export function buildQueriesCsv(
   queries: UsageQuery[],
   limit: number = DEFAULT_HISTORY_LIMIT,
+  fromDate?: string | null,
 ): string {
   const header = [
     'TIME',
@@ -32,7 +33,7 @@ export function buildQueriesCsv(
     'KIND',
   ]
   const sorted = [...queries].sort((left, right) => right.timestamp - left.timestamp)
-  const cap = clampHistoryLimit(limit)
+  const cap = sampleSizeLimit(limit, fromDate)
   const rows = sorted.slice(0, cap).map((query) =>
     [
       formatDateTime(query.timestamp),

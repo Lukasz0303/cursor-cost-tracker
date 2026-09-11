@@ -1,0 +1,14 @@
+---
+description: Cap Agent turn volume — prefer Ask, short goals, minimal tools
+alwaysApply: true
+---
+# Agent turn cost guardrail
+
+For this repo, multi-million-token turns usually come from **volume** (long Agent loops), not from cold cache.
+
+- Prefer **Ask** (or a cheaper model) when the user only needs an explanation, review, or a small single-file edit.
+- Use **Agent** only for a **single focused goal** that needs multi-file edits or tool use.
+- Keep the next user message short: goal + paths; do not ask the agent to “scan the whole project.”
+- Cap tool churn: avoid exploratory ripgrep/read loops; open only files named in the ask (or clearly required).
+- After a red Warn-at spike (`!`), the next turn in that chat should be narrower than the spike turn — not another full audit.
+- For `npm run package` / `vsce`: one Shell with `all` permissions first — do not diagnose sandbox (`cpus=0`) with extra reads/help loops.

@@ -18,26 +18,43 @@
         </button>
         <button type="button" id="tabStats" class="tab">Statistics</button>
         <button type="button" id="tabCharts" class="tab">Charts</button>
+        <button type="button" id="tabOptimize" class="tab">Optimize</button>
+        <button type="button" id="tabSupport" class="tab">Support</button>
         <button type="button" id="tabSettings" class="tab">Settings</button>
       </nav>
       <div class="toolbar-end">
         <span class="toolbar-version" title="Installed extension version">v__EXTENSION_VERSION__</span>
+        <button
+          type="button"
+          id="runOptimizeToolbar"
+          class="action-btn action-btn-accent"
+          title="Paste the default Balanced prompt into the last chat"
+        >
+          Run Optimize (Balanced)
+        </button>
         <button type="button" id="refreshQueries" class="action-btn">Refresh</button>
         <button type="button" id="close">Close</button>
       </div>
     </header>
     <section id="queriesView">
       <div class="view-actions">
-        <div class="toolbar-group">
-          <label class="history-limit-inline" for="historyLimitBar">
-            Show last
-            <input type="number" id="historyLimitBar" step="1" />
-          </label>
-          <button type="button" id="applyHistoryLimitBar">Apply</button>
-        </div>
-        <label class="spikes-filter" for="spikesOnly" title="Show only queries at or over the token warning">
-          <input type="checkbox" id="spikesOnly" role="switch" />
-          Over limit only
+        <label
+          class="spike-switch"
+          for="filterSpikesOnly"
+          title="Show only queries at or over Warn at"
+        >
+          <span class="spike-switch-text">Over Warn at</span>
+          <span class="spike-switch-control">
+            <input
+              type="checkbox"
+              id="filterSpikesOnly"
+              role="switch"
+              aria-checked="false"
+            />
+            <span class="spike-switch-track" aria-hidden="true">
+              <span class="spike-switch-thumb"></span>
+            </span>
+          </span>
         </label>
         <a class="action-btn" href="{{exportCsvHref}}">Export CSV</a>
       </div>
@@ -72,12 +89,12 @@
       <article class="chart-card">
         <h2>Tokens over time</h2>
         <p class="chart-hint">
-          Each query on the axis (oldest → newest). Bars are tokens for that
-          request. The line is cumulative tokens burned.
+          Each query on the axis (oldest → newest). Bars and the line share one
+          scale: cumulative tokens burned.
         </p>
         <div class="chart-legend">
-          <span class="chart-legend-item is-bar">Per query</span>
-          <span class="chart-legend-item is-line">Cumulative</span>
+          <span class="chart-legend-item is-bar">Bars</span>
+          <span class="chart-legend-item is-line">Line</span>
         </div>
         <div class="chart-frame">
           <svg
@@ -86,19 +103,18 @@
             viewBox="0 0 800 280"
             preserveAspectRatio="none"
             role="img"
-            aria-label="Tokens per query and cumulative tokens"
+            aria-label="Cumulative tokens over time"
           ></svg>
         </div>
       </article>
       <article class="chart-card">
         <h2>Cost over time</h2>
         <p class="chart-hint">
-          Same requests. Bars are cost for that request. The line is cumulative
-          spend.
+          Same requests. Bars and the line share one scale: cumulative spend.
         </p>
         <div class="chart-legend">
-          <span class="chart-legend-item is-bar">Per query</span>
-          <span class="chart-legend-item is-line">Cumulative</span>
+          <span class="chart-legend-item is-bar">Bars</span>
+          <span class="chart-legend-item is-line">Line</span>
         </div>
         <div class="chart-frame">
           <svg
@@ -107,7 +123,7 @@
             viewBox="0 0 800 280"
             preserveAspectRatio="none"
             role="img"
-            aria-label="Cost per query and cumulative spend"
+            aria-label="Cumulative cost over time"
           ></svg>
         </div>
       </article>
@@ -117,6 +133,239 @@
         not the full Cursor dashboard.
       </p>
       <div id="periodCards" class="period-cards"></div>
+    </section>
+    <section id="optimizeView" hidden>
+      <p id="optimizeEmpty" hidden>No queries yet</p>
+      <div id="optimizeContent">
+        <details class="optimize-savings" id="optimizeSavings">
+          <summary id="optimizeSummary" class="optimize-savings-summary">
+            Projected save per similar request: 0 / 0.00 $
+          </summary>
+          <p id="optimizeNote" class="optimize-savings-note">
+            Projected cost saved on a similar request. Stays 0 / 0.00 $ until
+            you Run Optimize and press Start.
+          </p>
+          <p
+            id="optimizeLifetimeHeading"
+            class="optimize-savings-projects-title"
+            hidden
+          >
+            Credited by project
+          </p>
+          <p id="optimizeLifetimeEmpty" class="optimize-savings-empty" hidden>
+            No credited Optimize runs yet.
+          </p>
+          <ul id="optimizeLifetimeProjects" class="optimize-savings-projects"></ul>
+        </details>
+        <p class="chart-hint">
+          Typical flow: a query lights up red (Warn at) → <strong>Run Optimize</strong> in
+          the toolbar (default depth) pastes into that last chat — or open this
+          tab, expand a colored card, preview, and Run that depth. After Start,
+          savings land in <code>.ai/optimize-savings.md</code>. Expand the card
+          above for the projected cost on a similar request and credited totals
+          per project.
+        </p>
+        <h2 class="optimize-section-title">Findings</h2>
+        <ul id="optimizeFindings" class="optimize-findings"></ul>
+        <h2 class="optimize-section-title">Depths</h2>
+        <div id="optimizeDepthCards" class="optimize-depth-cards">
+          <article
+            class="optimize-depth-card is-quick"
+            data-optimize-card="quick"
+          >
+            <header class="optimize-depth-card-head">
+              <div class="optimize-depth-card-titles">
+                <h3 class="optimize-depth-card-title">Quick</h3>
+                <span
+                  class="optimize-default-badge"
+                  data-default-badge="quick"
+                  hidden
+                  >Default</span
+                >
+              </div>
+              <div class="optimize-depth-card-actions">
+                <button
+                  type="button"
+                  class="action-btn optimize-card-default-btn"
+                  data-set-default="quick"
+                >
+                  Set default
+                </button>
+                <button
+                  type="button"
+                  class="action-btn action-btn-accent optimize-card-run"
+                  data-run-depth="quick"
+                >
+                  Run
+                </button>
+              </div>
+            </header>
+            <p class="optimize-depth-card-blurb">
+              Short prompt — why the last turn burned, three next-message tips.
+            </p>
+            <details class="optimize-prompt-details">
+              <summary
+                class="optimize-prompt-summary"
+                data-prompt-summary="quick"
+              >
+                Preview prompt
+              </summary>
+              <pre class="optimize-prompt" data-prompt-body="quick"></pre>
+            </details>
+          </article>
+          <article
+            class="optimize-depth-card is-balanced"
+            data-optimize-card="balanced"
+          >
+            <header class="optimize-depth-card-head">
+              <div class="optimize-depth-card-titles">
+                <h3 class="optimize-depth-card-title">Balanced</h3>
+                <span
+                  class="optimize-default-badge"
+                  data-default-badge="balanced"
+                  >Default</span
+                >
+              </div>
+              <div class="optimize-depth-card-actions">
+                <button
+                  type="button"
+                  class="action-btn optimize-card-default-btn"
+                  data-set-default="balanced"
+                  hidden
+                >
+                  Set default
+                </button>
+                <button
+                  type="button"
+                  class="action-btn action-btn-accent optimize-card-run"
+                  data-run-depth="balanced"
+                >
+                  Run
+                </button>
+              </div>
+            </header>
+            <p class="optimize-depth-card-blurb">
+              Medium prompt — pattern, plan, small rules snippet for this chat.
+            </p>
+            <details class="optimize-prompt-details">
+              <summary
+                class="optimize-prompt-summary"
+                data-prompt-summary="balanced"
+              >
+                Preview prompt
+              </summary>
+              <pre class="optimize-prompt" data-prompt-body="balanced"></pre>
+            </details>
+          </article>
+          <article class="optimize-depth-card is-deep" data-optimize-card="deep">
+            <header class="optimize-depth-card-head">
+              <div class="optimize-depth-card-titles">
+                <h3 class="optimize-depth-card-title">Deep</h3>
+                <span
+                  class="optimize-default-badge"
+                  data-default-badge="deep"
+                  hidden
+                  >Default</span
+                >
+              </div>
+              <div class="optimize-depth-card-actions">
+                <button
+                  type="button"
+                  class="action-btn optimize-card-default-btn"
+                  data-set-default="deep"
+                >
+                  Set default
+                </button>
+                <button
+                  type="button"
+                  class="action-btn action-btn-accent optimize-card-run"
+                  data-run-depth="deep"
+                >
+                  Run
+                </button>
+              </div>
+            </header>
+            <p class="optimize-depth-card-blurb">
+              Full playbook — diagnosis, before/after, rules, savings clusters.
+            </p>
+            <details class="optimize-prompt-details">
+              <summary
+                class="optimize-prompt-summary"
+                data-prompt-summary="deep"
+              >
+                Preview prompt
+              </summary>
+              <pre class="optimize-prompt" data-prompt-body="deep"></pre>
+            </details>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section id="supportView" hidden>
+      <article class="support-hero">
+        <div class="support-hero-icons" aria-hidden="true">
+          <svg class="support-icon" viewBox="0 0 24 24" focusable="false">
+            <path
+              fill="currentColor"
+              d="M12.1 21.35 10 19.28C5.4 14.36 2 11.28 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.78-3.4 6.86-8 11.78l-1.9 2.07Z"
+            />
+          </svg>
+          <svg class="support-icon is-soft" viewBox="0 0 24 24" focusable="false">
+            <path
+              fill="currentColor"
+              d="M12.1 21.35 10 19.28C5.4 14.36 2 11.28 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.78-3.4 6.86-8 11.78l-1.9 2.07Z"
+            />
+          </svg>
+          <svg class="support-icon" viewBox="0 0 24 24" focusable="false">
+            <path
+              fill="currentColor"
+              d="M12.1 21.35 10 19.28C5.4 14.36 2 11.28 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.78-3.4 6.86-8 11.78l-1.9 2.07Z"
+            />
+          </svg>
+        </div>
+        <h2 class="support-title">Fuel the tracker</h2>
+        <p class="support-lead">
+          If Cursor Cost Tracker helps you catch expensive queries and save
+          tokens, a coffee for the author goes a long way — it keeps late-night
+          status-bar fixes and monthly forecasts brewing.
+        </p>
+      </article>
+
+      <h3 class="support-section-title">
+        <svg class="support-section-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M18 5H4a1 1 0 0 0-1 1v6a5 5 0 0 0 5 5h4a5 5 0 0 0 5-5v-1h1.5A2.5 2.5 0 0 0 21 8.5V7.5A2.5 2.5 0 0 0 18.5 5H18Zm-2 7a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7h11v5Zm4-3.5a.5.5 0 0 1-.5.5H18V7h.5a.5.5 0 0 1 .5.5v1.5Z"
+          />
+        </svg>
+        Buy me a coffee
+      </h3>
+      <p class="chart-hint">
+        One-time tip. Perfect when Optimize or the forecast just paid for itself.
+      </p>
+      <div class="support-coffee-card">
+        <div class="support-coffee-copy">
+          <p class="support-coffee-title">Say thanks with a coffee</p>
+          <p class="support-coffee-blurb">
+            A warm cup keeps late-night status-bar fixes and monthly forecasts
+            brewing.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="action-btn action-btn-accent support-link-btn"
+          data-support-link="buyMeACoffee"
+          id="supportBuyMeACoffee"
+          disabled
+          title="Link coming soon"
+        >
+          Buy me a coffee
+        </button>
+        <span class="support-soon-badge" id="supportCoffeeSoon">Coming soon</span>
+      </div>
+      <p class="chart-hint support-footer-note">
+        Checkout opens in your browser.
+      </p>
     </section>
     <section id="settingsView" hidden>
       <form class="settings-form" id="settingsForm">
@@ -331,6 +580,38 @@
           <button type="button" id="applyCriticalAlert">Apply</button>
         </fieldset>
         <fieldset>
+          <h3 class="settings-card-title">Monthly budget</h3>
+          <label class="settings-row" for="budgetDayBasis">
+            Pace by
+            <select id="budgetDayBasis">
+              <option value="workingDays">Working days (Mon–Fri)</option>
+              <option value="calendarDays">All calendar days</option>
+            </select>
+          </label>
+          <p class="settings-hint">
+            How daily budget, Today, and the monthly forecast spread the
+            remaining cycle. Working days is the default (~22 in September).
+            Calendar days uses every day in the month (30 in September).
+          </p>
+        </fieldset>
+        <fieldset>
+          <h3 class="settings-card-title">Optimize</h3>
+          <label class="settings-row" for="optimizeDepthSetting">
+            Prompt depth
+            <select id="optimizeDepthSetting">
+              <option value="quick">Quick</option>
+              <option value="balanced">Balanced (default)</option>
+              <option value="deep">Deep</option>
+            </select>
+          </label>
+          <p class="settings-hint">
+            Default Optimize depth for the toolbar <strong>Run Optimize</strong>
+            button. Each colored card on the Optimize tab can still Run its own
+            depth. After Start, savings go to
+            <code>.ai/optimize-savings.md</code>.
+          </p>
+        </fieldset>
+        <fieldset>
           <h3 class="settings-card-title">Recent queries</h3>
           <label class="settings-row" for="historyLimit">
             Show last
@@ -338,9 +619,24 @@
           </label>
           <p class="settings-hint">
             Newest queries to load (100–10,000). Default is 1,000. Type the
-            full number, then Apply or press Enter.
+            full number, then Apply or press Enter. Ignored when From date is
+            set.
           </p>
           <button type="button" id="applyHistoryLimit">Apply</button>
+          <label class="settings-row" for="historyFromDate">
+            From date
+            <input type="date" id="historyFromDate" />
+          </label>
+          <div class="settings-inline-actions">
+            <button type="button" id="fromMonthSetting">Start of month</button>
+            <button type="button" id="fromTodaySetting">Today</button>
+            <button type="button" id="clearFromDateSetting">Use Show last</button>
+          </div>
+          <p class="settings-hint">
+            Load every query from this local day (for example 1.09.2026 or
+            the start of the month) through today. Empty uses Show last. Caps
+            at 10,000.
+          </p>
         </fieldset>
         <fieldset>
           <h3 class="settings-card-title">Refresh</h3>

@@ -1,8 +1,8 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar for Cursor spend: Current, Today, and recent queries. Predict monthly cost (used / forecast / ideal) before the bill surprises you.",
-  "version": "1.0.2",
+  "description": "Status bar for Cursor spend, monthly cost forecast (when budget runs out), and local Optimize prompts to cut repeating expensive queries — savings stay in your project only.",
+  "version": "1.0.3",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",
@@ -18,6 +18,7 @@
     "status bar",
     "forecast",
     "budget",
+    "optimize",
     "charts",
     "statistics"
   ],
@@ -148,7 +149,43 @@
           "minimum": 100,
           "maximum": 10000,
           "scope": "window",
-          "markdownDescription": "How many newest queries to load (100–10,000). Default is 1,000. Also on the Settings tab as **Show last**."
+          "markdownDescription": "How many newest queries to load (100–10,000). Default is 1,000. Also on the Settings tab as **Show last**. Ignored when **From date** is set."
+        },
+        "cursorCost.historyFromDate": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "markdownDescription": "Load every query from this local calendar day (`YYYY-MM-DD`) through today, instead of **Show last**. Empty uses Last N. Example: `2026-09-01` for the start of September. Caps at 10,000."
+        },
+        "cursorCost.budgetDayBasis": {
+          "type": "string",
+          "enum": [
+            "workingDays",
+            "calendarDays"
+          ],
+          "default": "workingDays",
+          "scope": "window",
+          "markdownDescription": "How to spread the remaining cycle into a daily budget and month forecast. **Working days** (default) uses Mon–Fri only. **Calendar days** uses every day in the month (e.g. 30 in September instead of ~22 weekdays).",
+          "enumDescriptions": [
+            "Mon–Fri only, including today when today is a weekday (default).",
+            "Every calendar day in the month, including weekends."
+          ]
+        },
+        "cursorCost.optimizeDepth": {
+          "type": "string",
+          "enum": [
+            "quick",
+            "balanced",
+            "deep"
+          ],
+          "default": "balanced",
+          "scope": "window",
+          "markdownDescription": "How thorough the **Optimize** tab prompt is. **Balanced** (default) proposes rules and a savings estimate. **Quick** is shorter. **Deep** asks for a full playbook and projected token/$ savings file.",
+          "enumDescriptions": [
+            "Short findings and three process tips.",
+            "Rules plan plus projected savings (default).",
+            "Full playbook, rule drafts, and per-cluster savings."
+          ]
         },
         "cursorCost.okColor": {
           "type": "string",
