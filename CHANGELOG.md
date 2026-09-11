@@ -2,23 +2,25 @@
 
 User-facing notes for Cursor Cost Tracker. Open VSX and Cursor Extensions show this file on the **Changelog** tab.
 
+Only published versions: **1.0.0**, **1.0.1**, **1.0.2**, **1.0.3**. There is no 1.1.x line.
+
 ## 1.0.3 — 2026-09-11
 
 ### Added
 
-- **Optimize tab** — Quick / Balanced (default) / Deep prompts from usage metadata for the last red query (≥ Warn at). **Run Optimize** pastes into the last Agent chat (`composer.focusComposer`); after Start the agent writes projected savings to `.ai/optimize-savings.md` (`0 / 0.00 $` until that file exists). One collapsed card shows the projected save on a similar request; expand for the explanation and credited totals per project.
+- **Optimize tab** — Quick / Balanced (default) / Deep prompts from usage metadata for the **last red query** (≥ Warn at), not merely the newest query. Three colored collapsible depth cards with per-card Run and expand-to-preview; Default badge; toolbar **Run Optimize** pastes the default depth into the **last Agent chat** (`composer.focusComposer`). After Start the agent writes projected savings to `.ai/optimize-savings.md`. The panel shows **Projected save per similar request** as `0 / 0.00 $` until that file exists; expand for the explanation and credited totals per project. No chat transcript is read by the extension.
 - **Support tab** — Buy Me a Coffee (`https://buymeacoffee.com/lzzzielinsn`). GitHub Sponsors is omitted from the tab until the account is live.
-- **Budget day basis** — pace Today / MTD / forecast by working days (default) or all calendar days (`cursorCost.budgetDayBasis`).
+- **Budget day basis** — pace Today / MTD / forecast by working days (Mon–Fri, default) or all calendar days (`cursorCost.budgetDayBasis`).
 - **From date** — load queries from a local calendar day (e.g. start of month) through today instead of Show last (`cursorCost.historyFromDate`). Lives under Settings → Recent queries.
 - **`cursorCost.optimizeDepth`** — Quick / Balanced / Deep, also on Settings.
 
 ### Changed
 
-- **Pro status bar** — Current as mean included `% / 100%`; Today as mean today `% / daily pace` plus today’s `$`; Today turns red when attributed % is at or over pace.
+- **Pro status bar** — Current as mean included `% / 100%` (e.g. `32% / 100%`); Today as mean today `% / daily pace` plus today’s `$` (e.g. `3.5% / 4.5% (17.12 $)`). Today turns **red** when attributed % is at or over daily pace.
 - **Queries toolbar** — **Over Warn at** pill switch filters the table to queries at or over the token warning; Show last / From date stay under Settings.
-- **Charts** — Y-axis follows the data so tokens / cost / forecast fill the plot instead of jumping to 500$ or 1000M.
-- **Monthly cost forecast** — hover shows used vs that day’s calculated budget (Enterprise / Team denominator stays put on refresh). Amounts are green when under budget, red when over. Spend fill matches the blue series.
-- **README / marketplace** — three product goals: status bar, monthly cost forecast, and local Optimize; Buy Me a Coffee.
+- **Charts** — Y-axis follows the data so tokens / cost / forecast fill the plot instead of jumping to 500$ or 1000M. Cumulative bars + line stay on one scale.
+- **Monthly cost forecast** — hover shows used vs that day’s calculated budget (Enterprise / Team denominator stays put on refresh). Amounts are green when under budget, red when over.
+- **README / marketplace** — three product goals: status bar, monthly cost forecast, and local Optimize; Optimize screenshot; Buy Me a Coffee.
 
 ## 1.0.2 — 2026-09-03
 
