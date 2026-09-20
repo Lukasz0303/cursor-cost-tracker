@@ -4,6 +4,7 @@ import { pickDefaultBranch } from './defaultBranch'
 import { parseDiffNumstatInsertions } from './effectiveness'
 import {
   gitAuthorLogArgsForEmails,
+  mergeAuthorChoices,
   parseGitAuthorPorcelain,
   resolveAuthorChoice,
   selectedAuthorEmails,
@@ -12,6 +13,12 @@ import {
 } from './authorChoice'
 import { parseGitConfigValue, type GitAuthorIdentity } from './gitAuthor'
 import { parseGitNumstatLog } from './gitMerged'
+import {
+  listNestedIndependentGitRepos,
+  mapPool,
+  mergeGitNumstatDays,
+  MIN_NESTED_GIT_REPOS,
+} from './nestedRepos'
 import type { GitNumstatDay } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -25,6 +32,7 @@ export type RunGitMergedOptions = {
   /** Cursor account email — default git identity to count. */
   cursorEmail?: string | null
   savedAuthors?: StoredAuthorChoice | null
+  listNestedGitRepos?: (cwd: string) => Promise<string[]>
   execGit?: (
     args: string[],
     cwd: string,
@@ -211,19 +219,23 @@ export async function collectPendingInsertions(
   return ahead + dirty
 }
 
-export async function collectMergedLineDays(
-  options: RunGitMergedOptions,
-): Promise<{
+export type GitMergedResult = {
   branch: string | null
   days: GitNumstatDay[]
   pendingInsertions: number
   authorFiltered: boolean
   authors: CodeLinesAuthorChoice
-}> {
-  const emptyAuthors: CodeLinesAuthorChoice = {
-    accounts: [],
-    sumMultiple: false,
-  }
+  bundleRoot: string | null
+}
+
+const emptyAuthors = (): CodeLinesAuthorChoice => ({
+  accounts: [],
+  sumMultiple: false,
+})
+
+async function collectOneGitRepo(
+  options: RunGitMergedOptions,
+): Promise<GitMergedResult> {
   const execGit = options.execGit ?? defaultExecGit
   const branch = await resolveDefaultBranch(options.cwd, execGit)
   if (branch === null) {
@@ -232,7 +244,8 @@ export async function collectMergedLineDays(
       days: [],
       pendingInsertions: 0,
       authorFiltered: false,
-      authors: emptyAuthors,
+      authors: emptyAuthors(),
+      bundleRoot: null,
     }
   }
   const { sinceMs, untilMs } = resolveBounds(options)
@@ -265,6 +278,7 @@ export async function collectMergedLineDays(
       pendingInsertions,
       authorFiltered: false,
       authors,
+      bundleRoot: null,
     }
   }
   try {
@@ -287,6 +301,7 @@ export async function collectMergedLineDays(
       pendingInsertions,
       authorFiltered: true,
       authors,
+      bundleRoot: null,
     }
   } catch {
     return {
@@ -295,6 +310,46 @@ export async function collectMergedLineDays(
       pendingInsertions,
       authorFiltered: true,
       authors,
+      bundleRoot: null,
     }
+  }
+}
+
+export async function collectMergedLineDays(
+  options: RunGitMergedOptions,
+): Promise<GitMergedResult> {
+  const listNested =
+    options.listNestedGitRepos ?? listNestedIndependentGitRepos
+  const nested = await listNested(options.cwd)
+  if (nested.length < MIN_NESTED_GIT_REPOS) {
+    return collectOneGitRepo(options)
+  }
+  const execGit = options.execGit ?? defaultExecGit
+  const parentBranch = await resolveDefaultBranch(options.cwd, execGit)
+  const roots =
+    parentBranch === null ? nested : [options.cwd, ...nested]
+  const parts = await mapPool(roots, 4, (cwd) =>
+    collectOneGitRepo({
+      ...options,
+      cwd,
+    }),
+  )
+  const withDays = parts.filter(
+    (part) =>
+      part.days.length > 0 ||
+      part.pendingInsertions > 0 ||
+      part.authors.accounts.length > 0,
+  )
+  const source = withDays.length > 0 ? withDays : parts
+  return {
+    branch: source.find((part) => part.branch !== null)?.branch ?? null,
+    days: mergeGitNumstatDays(source.map((part) => part.days)),
+    pendingInsertions: source.reduce(
+      (sum, part) => sum + part.pendingInsertions,
+      0,
+    ),
+    authorFiltered: source.some((part) => part.authorFiltered),
+    authors: mergeAuthorChoices(source.map((part) => part.authors)),
+    bundleRoot: options.cwd,
   }
 }

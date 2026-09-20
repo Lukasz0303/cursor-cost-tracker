@@ -97,6 +97,46 @@ describe('weightsByRepo', () => {
     )
     expect(weights).toEqual([{ id: 'one', label: 'one', weight: 15 }])
   })
+
+  it('folds microservice folders into the open stack when bundleRoot is set', () => {
+    const weights = weightsByRepo(
+      [
+        {
+          composerId: '1',
+          workspacePath: '/work/rhino-rage',
+          linesAdded: 100,
+          linesRemoved: 0,
+          filesChanged: 1,
+          lastUpdatedAt: 1,
+          createdAt: 1,
+        },
+        {
+          composerId: '2',
+          workspacePath: '/work/rhino-rage/payments',
+          linesAdded: 40,
+          linesRemoved: 0,
+          filesChanged: 1,
+          lastUpdatedAt: 1,
+          createdAt: 1,
+        },
+        {
+          composerId: '3',
+          workspacePath: '/work/pc-toolsets',
+          linesAdded: 10,
+          linesRemoved: 0,
+          filesChanged: 1,
+          lastUpdatedAt: 1,
+          createdAt: 1,
+        },
+      ],
+      'Other',
+      '/work/rhino-rage',
+    )
+    expect(
+      weights.find((row) => row.id === 'rhino-rage')?.weight,
+    ).toBe(140)
+    expect(weights.find((row) => row.id === 'pc-toolsets')?.weight).toBe(10)
+  })
 })
 
 describe('applyRepoSplit clones', () => {
@@ -202,5 +242,48 @@ describe('applyRepoSplit clones', () => {
     expect(next.summary.ai).toBe(16_013 + 8_309)
     expect(next.summary.effectiveness).toBeCloseTo(22_376 / (16_013 + 8_309))
     expect(Math.round((next.summary.effectiveness ?? 0) * 100)).toBe(92)
+  })
+
+  it('keeps a stack of microservices as one current project when bundleRoot is set', () => {
+    const ts = Date.UTC(2026, 8, 10)
+    const composers: ComposerLineTotals[] = [
+      {
+        composerId: '1',
+        workspacePath: '/work/rhino-rage/payments',
+        linesAdded: 40,
+        linesRemoved: 0,
+        filesChanged: 1,
+        lastUpdatedAt: ts,
+        createdAt: ts,
+      },
+      {
+        composerId: '2',
+        workspacePath: '/work/rhino-rage/gateway',
+        linesAdded: 100,
+        linesRemoved: 0,
+        filesChanged: 1,
+        lastUpdatedAt: ts,
+        createdAt: ts,
+      },
+    ]
+    const snap = toCodeLinesSnapshot({
+      source: 'headers',
+      composers,
+      mergedDays: [{ date: '2026-09-10', insertions: 80, deletions: 0 }],
+      pendingInsertions: 0,
+    })
+    const next = applyRepoSplit({
+      snapshot: snap,
+      composers,
+      dashboardDays: [],
+      activeWorkspacePath: '/work/rhino-rage',
+      otherLabel: 'Other projects',
+      bundleRoot: '/work/rhino-rage',
+    })
+    expect(next.repos).toHaveLength(1)
+    expect(next.repos[0]?.label).toBe('rhino-rage')
+    expect(next.repos[0]?.current).toBe(true)
+    expect(next.summary.ai).toBe(140)
+    expect(next.summary.onMaster).toBe(80)
   })
 })

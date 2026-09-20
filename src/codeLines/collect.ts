@@ -143,6 +143,7 @@ export async function collectCodeLinesPayload(
     dashboardDays,
     activeWorkspacePath: workspacePath,
     otherLabel: catalogFor(locale).codeLines.otherRepos,
+    bundleRoot: merged.bundleRoot,
     sinceMs: options.sinceMs,
     untilMs: options.untilMs,
   })

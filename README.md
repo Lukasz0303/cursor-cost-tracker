@@ -159,7 +159,7 @@ Live window of billed spend ending now (default 10 minutes) on Statistics (see s
 
 ### 12. Coding stats
 
-For the **active workspace**, in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed**, and **All on Cursor** (dashboard Lines Edited, split under **Projects**). Charts uses the same formulas. Toggle: `cursorCost.codeLinesInsight`.
+For the **active workspace**, in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed**, and **All on Cursor** (dashboard Lines Edited, split under **Projects**). Git lines default to the Cursor account email (pick extra identities with **`?`**). The same folder name in two clone paths counts as one project. Opening a parent stack with git submodules (e.g. `servers/<service>`) sums those repos into the stack. Charts uses the same formulas. Toggle: `cursorCost.codeLinesInsight`.
 
 ### 13. Language
 
@@ -273,9 +273,9 @@ A **non-blocking** warning toast at **$2** in the window (default) and a **non-b
 
 How many lines Cursor applied in this workspace vs what already landed on **`main`/`master`**, in the same window as Last N / From date.
 
-- **Your effectiveness** — `landed / AI = %` (your git insertions on the default branch ÷ AI composer lines for this repo).
+- **Your effectiveness** — `landed / AI = %` (your git insertions on the default branch ÷ AI composer lines for this repo). Defaults to the Cursor account email; **`?`** on the card picks which git identities to sum.
 - **If this branch landed** — `(landed + this branch) / AI`.
-- **All on Cursor** — Cursor dashboard Lines Edited for the account; **Projects** splits that total by local composer mix. Git counts stay this repo.
+- **All on Cursor** — Cursor dashboard Lines Edited for the account; **Projects** splits that total by local composer mix. Clones that share a folder name are one project. A parent folder with two or more nested git checkouts or submodules (`.gitmodules`, including `servers/<service>`) is one stack.
 
 AI totals come from local composer headers, not the usage API. Not line-level blame, and not `AI − pending`. Settings: **Generated lines**. Toggle: `cursorCost.codeLinesInsight`.
 

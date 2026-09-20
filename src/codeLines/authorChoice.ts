@@ -187,3 +187,29 @@ export function gitAuthorLogArgsForEmails(
   }
   return args
 }
+
+export function mergeAuthorChoices(
+  parts: readonly CodeLinesAuthorChoice[],
+): CodeLinesAuthorChoice {
+  const byEmail = new Map<string, CodeLinesAuthorAccount>()
+  let sumMultiple = false
+  for (const part of parts) {
+    if (part.sumMultiple) {
+      sumMultiple = true
+    }
+    for (const row of part.accounts) {
+      const key = normalizeEmail(row.email)
+      const prev = byEmail.get(key)
+      if (prev === undefined) {
+        byEmail.set(key, { ...row })
+        continue
+      }
+      prev.selected = prev.selected || row.selected
+      prev.cursorAccount = prev.cursorAccount || row.cursorAccount
+    }
+  }
+  return {
+    sumMultiple,
+    accounts: [...byEmail.values()],
+  }
+}

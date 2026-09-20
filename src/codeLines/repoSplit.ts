@@ -10,6 +10,7 @@ import {
   type DashboardDayEdited,
 } from './analyticsParse'
 import { localDayKey } from './gitMerged'
+import { pathInsideBundle } from './nestedRepos'
 
 export type RepoWeight = {
   id: string
@@ -52,7 +53,11 @@ export function repoLabelFromPath(
 export function repoGroupKeyFromPath(
   path: string | null,
   otherLabel: string,
+  bundleRoot: string | null = null,
 ): string {
+  if (pathInsideBundle(path, bundleRoot)) {
+    return repoLabelFromPath(bundleRoot, otherLabel).trim().toLowerCase()
+  }
   if (repoIdFromPath(path) === '') {
     return ''
   }
@@ -62,19 +67,26 @@ export function repoGroupKeyFromPath(
 export function weightsByRepo(
   composers: readonly ComposerLineTotals[],
   otherLabel: string,
+  bundleRoot: string | null = null,
 ): RepoWeight[] {
   const byId = new Map<string, RepoWeight>()
   for (const row of composers) {
-    const id = repoGroupKeyFromPath(row.workspacePath, otherLabel)
+    const id = repoGroupKeyFromPath(row.workspacePath, otherLabel, bundleRoot)
     const weight = row.linesAdded + row.linesRemoved
     const prev = byId.get(id)
     if (prev) {
       prev.weight += weight
       continue
     }
+    const label =
+      id === ''
+        ? otherLabel
+        : pathInsideBundle(row.workspacePath, bundleRoot)
+          ? repoLabelFromPath(bundleRoot, otherLabel)
+          : repoLabelFromPath(row.workspacePath, otherLabel)
     byId.set(id, {
       id,
-      label: id === '' ? otherLabel : repoLabelFromPath(row.workspacePath, otherLabel),
+      label,
       weight,
     })
   }
@@ -134,6 +146,7 @@ function isCurrentRepo(
   id: string,
   activeWorkspacePath: string | null,
   otherLabel: string,
+  bundleRoot: string | null,
 ): boolean {
   if (activeWorkspacePath === null || activeWorkspacePath.trim() === '') {
     return false
@@ -141,7 +154,13 @@ function isCurrentRepo(
   if (id === '') {
     return false
   }
-  return repoGroupKeyFromPath(activeWorkspacePath, otherLabel) === id
+  return (
+    repoGroupKeyFromPath(
+      activeWorkspacePath,
+      otherLabel,
+      bundleRoot,
+    ) === id
+  )
 }
 
 function dashboardDaysInWindow(
@@ -174,6 +193,7 @@ export function applyRepoSplit(input: {
   dashboardDays: readonly DashboardDayEdited[]
   activeWorkspacePath: string | null
   otherLabel: string
+  bundleRoot?: string | null
   sinceMs?: number
   untilMs?: number
 }): CodeLinesSnapshot {
@@ -195,12 +215,14 @@ export function applyRepoSplit(input: {
       ? Math.max(0, Math.trunc(input.snapshot.summary.ai))
       : 0
   const total = useDashboard ? dashboardTotal : localEdited
-  const weights = weightsByRepo(windowed, input.otherLabel)
+  const bundleRoot = input.bundleRoot ?? null
+  const weights = weightsByRepo(windowed, input.otherLabel, bundleRoot)
   const allocated = allocateByWeight(total, weights).map((row) => {
     const current = isCurrentRepo(
       row.id,
       input.activeWorkspacePath,
       input.otherLabel,
+      bundleRoot,
     )
     const label =
       row.label === '' || (row.id === '' && row.label === '')
