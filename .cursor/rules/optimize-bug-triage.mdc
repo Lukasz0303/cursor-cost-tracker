@@ -1,0 +1,29 @@
+---
+description: Cheap bug triage — Ask first, named hot-path files, no feature crawl
+alwaysApply: true
+---
+# Bug triage / “alarm didn’t fire” turns
+
+When the user asks whether a **shipped** guard works (Burn Rate, Critical alert, Warn-at `!`) or why there was **no modal/toast**:
+
+## Prefer Ask first
+
+- Screenshot + “should update every 1 min” / “is this broken?” → **Ask** (explain window vs poll, thresholds, minQueries). No Agent until a **code defect** is clear.
+- Agent only after: expected behavior vs actual, and ≤5 named paths.
+
+## Hot-path file budget (alarm / spike)
+
+Open **only** the owning modules — do not re-read the whole feature or PRD:
+
+| Symptom | Start here |
+|---------|------------|
+| No **blocking** critical modal | `src/ui/criticalAlert.ts`, `src/spikes/criticalAlert.ts`, `test/criticalAlert.test.ts` |
+| No **burn** toast / wrong burn $ | `src/ui/burnRateAlert.ts`, `src/burnRate/detect.ts`, `src/burnRate/window.ts` |
+| `!` on bar/table only | Spike path already works — Ask; do not “fix” burn |
+
+Stop after the minimal fix + Vitest for that module. Do **not** implement deferred plans (e.g. runaway detector) in the same triage turn.
+
+## After a red `!` in this chat
+
+- Next message: goal + ≤5 paths, or **new chat**.
+- Do not paste Optimize Deep into a triage thread that already crossed Warn-at.

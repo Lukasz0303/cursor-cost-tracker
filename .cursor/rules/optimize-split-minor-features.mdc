@@ -1,0 +1,35 @@
+---
+description: Split MINOR feature work — core first, docs last, new chat after Warn-at
+alwaysApply: true
+---
+# Split MINOR / multi-file feature turns
+
+When the ask is “implement the plan” for a MINOR (e.g. Burn Rate Guard), **do not** ship core + webview + Settings + PRD/README/CHANGELOG + rules in one Agent turn.
+
+## Phases (separate user messages / chats)
+
+1. **Core + Vitest** — `src/<feature>/`, clamps, detect, copy; `test/*` for those modules only. Paths named in the ask.
+2. **Wire UI** — `package.json` keys, `config.ts`, host (`extension.ts`, panel, status bar), `media/history.*` only when the ask lists them.
+3. **Docs / rules** — PRD, README, CHANGELOG, architecture, snapshot: prefer **Ask** or a second short Agent turn that names those files. Skip unless the user asks to update docs.
+
+## After a red Warn-at (`!`) in this chat
+
+- Next message must be **narrower** than the spike turn (goal + ≤5 paths).
+- Prefer a **new chat** for Optimize Deep / another full feature — do not re-paste Optimize into a chat that already crossed Warn-at and is still growing.
+- Do not start another full “implement everything” pass in the same thread.
+
+## Tool budget
+
+- Open only paths the user named (or files the plan lists as “add”).
+- No exploratory ripgrep across `.ai/context`, README, or rules before the first edit of named sources.
+- `npm test` / `typecheck` once near the end of a phase — not after every small edit unless the user asks.
+
+## i18n / many locales
+
+- Do **not** ship N full UI catalogs + Settings wire + full `npm test` in one Agent turn after a research Ask.
+- Phase: `locale.ts` + enum/options → catalogs (script or one locale per turn) → tests once at the end.
+
+## Still allowed
+
+- Multi-file Agent when the user explicitly needs core + host + webview together **and** names the paths.
+- Reading the single implementation-plan file named in the ask (e.g. `.ai/implementation-plans/burn-rate-guard.md`).

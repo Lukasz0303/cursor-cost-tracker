@@ -1,8 +1,8 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar for Cursor spend, monthly cost forecast (when budget runs out), and local Optimize prompts to cut repeating expensive queries — savings stay in your project only.",
-  "version": "1.0.3",
+  "description": "Status bar spend + Today. Statistics: burn rate, Pro meters, Coding stats (AI vs git). Blocking critical alert on huge queries. Monthly forecast, Optimize locally, 10 UI languages.",
+  "version": "1.0.4",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",
@@ -18,6 +18,9 @@
     "status bar",
     "forecast",
     "budget",
+    "burn rate",
+    "critical alert",
+    "generated lines",
     "optimize",
     "charts",
     "statistics"
@@ -76,6 +79,36 @@
     "configuration": {
       "title": "Cursor Cost Tracker",
       "properties": {
+        "cursorCost.language": {
+          "type": "string",
+          "enum": [
+            "en",
+            "pl",
+            "zh-cn",
+            "ja",
+            "es",
+            "pt-br",
+            "ru",
+            "ko",
+            "fr",
+            "de"
+          ],
+          "default": "en",
+          "scope": "window",
+          "markdownDescription": "Interface language for the Last N panel, status bar, and toasts. **English** is the default. Independent of the VS Code / Cursor display language.",
+          "enumDescriptions": [
+            "English (default)",
+            "Polish",
+            "Chinese (Simplified)",
+            "Japanese",
+            "Spanish",
+            "Portuguese (Brazil)",
+            "Russian",
+            "Korean",
+            "French",
+            "German"
+          ]
+        },
         "cursorCost.pollIntervalMinutes": {
           "type": "number",
           "default": 1,
@@ -142,6 +175,62 @@
           "minimum": 0.01,
           "scope": "window",
           "markdownDescription": "Blocking alert when the newest query costs at least this many US dollars (default **5**). Either this or the token threshold is enough."
+        },
+        "cursorCost.burnRateGuard": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Track spend in a short live window (default 10 minutes) on Statistics. When on, a fast burst can tint Today and show a non-blocking toast. Dollar toasts need billed `costUsd` — included Pro events at $0 still show token throughput on the card."
+        },
+        "cursorCost.burnRateWindowMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 2,
+          "maximum": 60,
+          "scope": "window",
+          "markdownDescription": "How many minutes of recent queries to sum for Burn Rate Guard (2–60). Default is **10**. The right edge is now, so the rate falls as rows age out."
+        },
+        "cursorCost.burnRateWarningUsd": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0.01,
+          "maximum": 10000,
+          "scope": "window",
+          "markdownDescription": "Non-blocking warning toast when window spend reaches this many US dollars (default **2**). Needs at least `burnRateMinQueries` requests in the window."
+        },
+        "cursorCost.burnRateCriticalUsd": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0.01,
+          "maximum": 10000,
+          "scope": "window",
+          "markdownDescription": "Non-blocking critical toast when window spend reaches this many US dollars (default **5**). Never below the warning amount. Does **not** stop Cursor."
+        },
+        "cursorCost.burnRateMinQueries": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 50,
+          "scope": "window",
+          "markdownDescription": "Minimum requests in the live window before Burn Rate Guard can warn (default **2**). A single expensive query stays the last-query critical alert."
+        },
+        "cursorCost.burnRateWarningToast": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Show a non-blocking warning toast when window spend reaches the warning dollar threshold."
+        },
+        "cursorCost.burnRateCriticalToast": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Show a non-blocking error toast when window spend reaches the critical dollar threshold. Still not a blocking modal."
+        },
+        "cursorCost.codeLinesInsight": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Show **Coding stats** on Statistics and Charts: git insertions on `main`/`master` vs AI composer lines for this repo (`landed / AI = %`), plus Cursor dashboard Lines Edited (**All on Cursor**). Not which AI lines survived review."
         },
         "cursorCost.historyLimit": {
           "type": "number",

@@ -3,6 +3,8 @@ import {
   parseOptimizeDepth,
   type OptimizeDepth,
 } from '../optimizeDepth'
+import { catalogFor } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { clampHistoryLimit, DEFAULT_HISTORY_LIMIT } from '../historyLimit'
 import { DEFAULT_SPIKE_TOKEN_THRESHOLD } from '../spikes/threshold'
 import type { UsageQuery } from '../usage/types'
@@ -54,6 +56,7 @@ export type OptimizePayloadOptions = {
   projectLabel?: string
   /** Credited lifetime savings from extension globalState. */
   lifetimeSavings?: LifetimeSavings | null
+  locale?: Locale
 }
 
 export function toOptimizePayload(
@@ -71,6 +74,7 @@ export function toOptimizePayload(
   const insights = toOptimizeInsights(queries, {
     historyLimit,
     spikeTokenThreshold,
+    locale: options?.locale ?? DEFAULT_LOCALE,
   })
   const priorMarkdown = options?.savingsMarkdown ?? null
   const savings =
@@ -108,12 +112,12 @@ export function toOptimizePayload(
         ),
       }
 
+  const locale = options?.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).optimize
   return {
     depth,
-    summary: empty ? 'No queries yet' : savings.summary,
-    note: empty
-      ? 'Refresh usage, then Run Optimize (toolbar) or a depth card.'
-      : savings.note,
+    summary: empty ? copy.emptySummary : savings.summary,
+    note: empty ? copy.emptyNote : savings.note,
     findings: insights.findings,
     prompt: prompts[depth],
     prompts,

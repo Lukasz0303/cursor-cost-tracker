@@ -7,60 +7,84 @@
 </div>
 
 <p align="center">
-  <strong>See spend · forecast when budget runs out · Optimize expensive queries locally.</strong>
+  <strong>See spend · catch spikes · forecast the month · Optimize locally · see what landed.</strong>
 </p>
 
 <p align="center">
-  Always-on <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong> (default 3)
-  on the IDE status bar. <strong>Monthly cost forecast</strong> shows used · forecast · ideal and when
-  Team dollars or Pro included quota run out. <strong>Optimize</strong> builds Quick / Balanced / Deep
-  prompts for the last red query — projected savings stay in <code>.ai/optimize-savings.md</code> inside
-  your project only. No extra app. No pasted token.
+  Always-on <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong> on the
+  status bar. <strong>Statistics</strong> shows live <strong>burn rate</strong>, Pro meters, and
+  <strong>Coding stats</strong> (AI vs what landed). A <strong>blocking critical alert</strong> fires when one
+  query blows past your token or dollar ceiling. <strong>Monthly cost forecast</strong> and
+  <strong>Optimize</strong> stay in the editor — savings in <code>.ai/optimize-savings.md</code> only.
+  No extra app. No pasted token.
 </p>
 
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.3-blue.svg" alt="Version 1.0.3">
+  <img src="https://img.shields.io/badge/version-1.0.4-blue.svg" alt="Version 1.0.4">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
   <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
 
 ---
 
-**Cursor Cost Tracker** is a VS Code / Cursor extension with three core goals:
+**Cursor Cost Tracker** is a VS Code / Cursor extension with five jobs:
 
-1. **Status bar** — see cycle spend, daily pace, and the newest queries while you code (green = ok, red = over budget or token spike).
-2. **Monthly cost forecast** — a clear prediction chart so you know **when** Team / Business money or Pro included limits run out (used / forecast / ideal / run-out date).
-3. **Optimize** — cut repeating expensive queries in the project: ready prompts for the last red (Warn at) query, paste into the last Agent chat, and grow projected token/$ savings in **local** `.ai/optimize-savings.md` only — nothing leaves the project.
+1. **Status bar** — Current, Today, and the newest queries stay on the bar while you code. Green is on pace; red is over budget or a token spike (`!`).
+2. **Guards** — **Burn Rate Guard** shows live `$ / window` on Statistics, a banner when that window is hot, and non-blocking toasts. A **blocking critical alert** fires when the newest query hits your token or dollar ceiling (**Open History** / **Ignore**). Neither stops Cursor.
+3. **Monthly cost forecast** — used, forecast, and ideal on one chart, plus **when** Team dollars or Pro included limits run out.
+4. **Optimize** — ready prompts for the last red (**Warn at**) query. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
+5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 
-- Click **Current** or **Today** → **Statistics** (monthly cost forecast).
-- Click a **recent-query chip** → **Last N** query list.
-- **Refresh** on the bar only syncs. **Export CSV** is on the Last N toolbar, not the status bar.
-- **Run Optimize** pastes into the last active chat; savings appear after you press Start and the agent writes the local file.
+Click **Current** or **Today** for Statistics (burn rate, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the last chat — savings appear after you press Start.
 
 The panel has six tabs:
 
 - **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From date** (e.g. start of month). **Export CSV**.
-- **Statistics** — Current/Today glossary, **Monthly cost forecast** (Team dollars or Pro included percent; used / forecast / ideal; run-out date), Last N totals, average/median, cache hit, token mix, spend by model and by kind.
-- **Charts** — tokens and cost over time (cumulative bars + line on one scale), the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards (from the loaded sample, not the full Cursor dashboard).
-- **Optimize** — Quick / Balanced / Deep prompts for the last red query; one collapsed card for projected cost saved on a similar request (`0 / 0.00 $` until the first run); expand for the explanation and credited totals per project.
+- **Statistics** — **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast**, Last N totals, spend by model and by kind.
+- **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
+- **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
 - **Support** — Buy Me a Coffee if the tracker paid for itself.
-- **Settings** — every `cursorCost.*` key. Status-bar preview, content, warnings, and colors; **Critical alert**; Optimize depth; Show last / From date; Auto-refresh interval.
+- **Settings** — **Language** (10 locales); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); Optimize depth; Show last / From date; Auto-refresh.
 
 If you are already signed in to Cursor, there is nothing to configure.
 
-| Status bar | Forecast | Optimize |
-|------------|----------|----------|
-| Pro percents or team `$ / $` · Today · 1–10 recent (`cost - tokens`, `!` on a spike) | Used · forecast · ideal · run-out / “lasts the month” | Last red query · local savings file · Quick / Balanced / Deep |
+| Status bar | Guards | Forecast | Optimize | Coding stats |
+|------------|--------|----------|----------|--------------|
+| Pro `%` or team `$ / $` · Today · 1–10 recent (`!` on a spike) | Burn `$ / 10 min` · critical modal on huge queries | Used · forecast · ideal · run-out | Last red · local savings file | Landed / AI · All on Cursor |
 
 ---
 
 ## Screenshots
 
-Captures from **1.0.3**. The three product goals first: **status bar**, **Monthly cost forecast**, then **Optimize**.
+Captures from **1.0.4**.
 
-### 1. Status bar — always on while you code
+### 1. Statistics — high burn rate
+
+When the live window is over your warning or critical dollar floor, Statistics shows a **High burn rate** banner plus the Status bar row: **Current burn rate** (`$ / 10 min`, optional `×` vs your pace), **Current** / **Today** Pro meters, and **Coding stats**. Does not stop Cursor.
+
+<img src="screenshots/statistics_5.png" alt="Statistics: High burn rate banner 2.78 $ in 8 minutes, Current burn rate 2.78 $ / 10 min in red, Current 69% · 52%, Today 3.1% / 4.5%, Coding stats 25,361 / 61,161 = 41%" width="100%">
+
+### 2. Statistics — Status bar row (normal)
+
+The same four cards when burn is under the warning floor: **Current burn rate**, **Current**, **Today**, and **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor).
+
+<img src="screenshots/statistics_4.png" alt="Statistics Status bar: Current burn rate 0.95 $ / 10 min, Current 68% · 52%, Today 1.9% / 4.5% · 1.4% / 4.5%, Coding stats 25,361 / 57,331 = 44%" width="100%">
+
+### 3. Coding stats
+
+Hero is **landed / AI = %** (your effectiveness) for this repo in the Last N / From date window, plus the same **if this branch landed** on main. **All on Cursor** is the dashboard Lines Edited total; **Projects** splits that total by local composer mix. Help `?` explains the formulas.
+
+<img src="screenshots/statistics_3.png" alt="Coding stats card: 25,361 / 57,331 = 44% your effectiveness, 61% if this branch landed on main, All on Cursor 90,618, Projects (2)" width="100%">
+
+### 4. Critical alert — blocking dialog on a huge query
+
+When the newest query hits your critical token or dollar threshold, a modal shows tokens, cost, model, and time — **Open History** or **Cancel**. Independent of the status-bar `!`.
+
+<img src="screenshots/critiacal_alert_2.png" alt="Critical alert: last query used 21.6M tokens and $12.57, exceeds 20.0M or $7.00, grok-4.6-high, Cancel and Open History" width="100%">
+
+### 5. Status bar — always on while you code
 
 **Team / Business (light)** — Current as used vs dollar pool, Today vs daily budget (red when over pace), Refresh, then recent queries as `cost - tokens`.
 
@@ -70,9 +94,9 @@ Captures from **1.0.3**. The three product goals first: **status bar**, **Monthl
 
 <img src="screenshots/status_bar_dark.png" alt="Dark status bar: Pro included percents, Today spend, token-spike warning on a 1.5M query" width="100%">
 
-### 2. Monthly cost forecast — when money / limits run out
+### 6. Monthly cost forecast — when money / limits run out
 
-The headline analytics surface. Bars and solid lines are cumulative used on one scale; dashed lines are the forecast if today’s working-day pace continues; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**.
+Bars and solid lines are cumulative used on one scale; dashed lines are the forecast; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**.
 
 **Team dollars (light)** — “Lasts the month”, daily pace, and month-end forecast if the working-day pace continues.
 
@@ -86,7 +110,7 @@ The headline analytics surface. Bars and solid lines are cumulative used on one 
 
 <img src="screenshots/statistics_2.png" alt="Monthly cost forecast zoomed to 7 days with working days, daily pace, and month forecast cards" width="100%">
 
-### 3. Optimize — cut repeating expensive queries (local only)
+### 7. Optimize — cut repeating expensive queries (local only)
 
 When a query lights up red (**Warn at**, default 1M tokens), **Optimize** builds a ready prompt for that **last red query** — not a whole-repo audit, and the extension never reads the chat transcript.
 
@@ -101,7 +125,7 @@ Three depths: **Quick** (why the last turn burned + next-message tips), **Balanc
 
 <img src="screenshots/optimize.png" alt="Optimize tab: projected save ~1.6M · ~0.97 $, findings for the last red query, Quick Balanced Deep depth cards with Run" width="100%">
 
-### 4. Last N Cursor queries
+### 8. Last N Cursor queries
 
 Full table inside the editor: Show last / From date, **Export CSV**. Spike rows show `!` on **TOKENS**.
 
@@ -109,7 +133,7 @@ Full table inside the editor: Show last / From date, **Export CSV**. Spike rows 
 
 <img src="screenshots/list.png" alt="Last N Cursor queries table" width="100%">
 
-### 5. Statistics — Current / Today, sample totals, spend by model
+### 9. More Statistics cards
 
 **Current / Today meters** (Pro included bars + today’s dollar sum):
 
@@ -125,15 +149,25 @@ Full table inside the editor: Show last / From date, **Export CSV**. Spike rows 
 
 <img src="screenshots/statistics_dark_3.png" alt="Spend breakdown by model and by kind with share bars" width="100%">
 
-### 6. Critical alert
-
-Blocking dialog when the **newest** query hits your critical token or dollar threshold (default 10M tokens or $5). Independent of the status-bar `!`.
-
-<img src="screenshots/critiacal_alert_2.png" alt="Critical alert dialog for a last query over the token threshold" width="100%">
+### 10. Critical alert settings
 
 <img src="screenshots/critiacal_alert_1_dark.png" alt="Settings: Critical alert thresholds for tokens and dollars" width="100%">
 
-### 7. Settings — status bar preview and content
+### 11. Burn Rate Guard
+
+Live window of billed spend ending now (default 10 minutes) on Statistics (see screenshot 1 for the warning banner). Non-blocking toasts at **$2** / **$5**. Today chip turns warning-color when the window is high. Does not stop Cursor.
+
+### 12. Coding stats
+
+For the **active workspace**, in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed**, and **All on Cursor** (dashboard Lines Edited, split under **Projects**). Charts uses the same formulas. Toggle: `cursorCost.codeLinesInsight`.
+
+### 13. Language
+
+Settings → **Language** switches the panel, status bar, and toasts immediately (English default; nine more locales including Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German, and Polish).
+
+<img src="screenshots/language.png" alt="Settings Language dropdown with ten interface languages, English selected" width="100%">
+
+### 14. Settings — status bar preview and content
 
 Live sample of the bar (example spend, not your totals), Show status bar, Show Today, Minimal mode, and **1–10** recent requests on the bar.
 
@@ -163,9 +197,12 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Today / This month / All time mix cards | Website | Yes |
 | 1–10 recent queries on the status bar | — | Yes |
 | Token-spike warning (`!`, default 1M) | — | Yes |
+| Burn Rate Guard (live $/window, banner, non-blocking toasts) | — | Yes |
+| Coding stats (landed / AI · All on Cursor) | — | Yes |
 | Blocking alert on last query (default 10M tokens or $5) | — | Yes |
 | Export recent queries as CSV | — | Yes |
 | Ignore a spike and keep it dismissed | — | Planned |
+| UI language (10 locales, Settings → Language) | — | Yes |
 | Zero setup (local Cursor session) | — | Yes |
 | No token pasted into Settings | — | Yes |
 
@@ -209,11 +246,12 @@ Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Suppor
 
 ### Statistics
 
-Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars.
+Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars.
 
 ### Charts
 
-- **Tokens over time** and **Cost over time** — each loaded query on the axis (oldest → newest). Bars and the line share one scale: cumulative total.
+- **Tokens over time** and **Cost over time** — one cumulative bar per local calendar day from the Last N sample (oldest → newest). Height is the running total up to that day. Hover shows that day’s amount plus the total so far.
+- **AI vs git** — same formulas as Coding stats (`landed / AI = %` and if this branch landed), plus bars for this branch and All on Cursor on one scale.
 - **Monthly cost forecast** — same control as Statistics: cycle meters, Today / 7 days / Month range, cumulative bars + used line on one scale, dashed forecast, and dotted leftover-budget lines.
 - **Today / This month / All time** cards — API-equivalent cost, messages, cache hit, input / output / cache write / cache read, and a mix bar. Figures come from the Last N loaded queries, not the full Cursor website dashboard.
 
@@ -223,7 +261,27 @@ A `!` on that recent-query chip and on the matching **TOKENS** cell when a query
 
 ### Critical last-query alert
 
-A **blocking dialog** when the newest query reaches **10,000,000 tokens** or **$5** (either is enough). Each query is shown once. A last query older than five minutes is not shown on first load after a restart. Independent of the status-bar `!`. Settings tab: **Critical alert**. Turn off with `cursorCost.showCriticalAlert`.
+A **blocking dialog** when the newest query reaches **10,000,000 tokens** or **$5** (either is enough). Each query is shown once. **Ignore** next to Open History dismisses that query explicitly. A last query older than five minutes is not shown on first load after a restart. Independent of the status-bar `!`. Settings tab: **Critical alert**. Turn off with `cursorCost.showCriticalAlert`.
+
+### Burn Rate Guard
+
+How fast you are spending, not only how much. The extension sums billed cost in a **live window ending now** (default **10 minutes**) and shows **Current burn rate** on Statistics (`3.42 $ / 10 min`, optional `×` vs your recent pace, Today total, meter vs critical $). A **banner** appears when the window is warning or critical.
+
+A **non-blocking** warning toast at **$2** in the window (default) and a **non-blocking** error toast at **$5**. Once per burst, Snooze 30 minutes, first-load grace of five minutes. This does **not** stop Cursor; the critical toast can offer **Focus Composer** so you can hit Stop in Cursor. A single expensive query still uses the last-query critical alert (`minQueries` default 2). Included Pro events at $0 still show token throughput on the card. Today on the status bar uses the warning color when the window is high and Show warnings is on. Settings tab: **Burn Rate Guard**. Turn off with `cursorCost.burnRateGuard`.
+
+### Coding stats
+
+How many lines Cursor applied in this workspace vs what already landed on **`main`/`master`**, in the same window as Last N / From date.
+
+- **Your effectiveness** — `landed / AI = %` (your git insertions on the default branch ÷ AI composer lines for this repo).
+- **If this branch landed** — `(landed + this branch) / AI`.
+- **All on Cursor** — Cursor dashboard Lines Edited for the account; **Projects** splits that total by local composer mix. Git counts stay this repo.
+
+AI totals come from local composer headers, not the usage API. Not line-level blame, and not `AI − pending`. Settings: **Generated lines**. Toggle: `cursorCost.codeLinesInsight`.
+
+### Language
+
+Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German. Independent of the VS Code / Cursor display language.
 
 ### Zero setup
 
@@ -269,7 +327,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.3.vsix
+cursor --install-extension cursor-cost-tracker-1.0.4.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -338,8 +396,19 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.showCriticalAlert` | `true` | Blocking dialog when the newest query hits the critical token or dollar threshold |
 | `cursorCost.criticalTokenThreshold` | `10000000` | Minimum `1000`. Settings tab in **k** (10000 = 10M tokens) |
 | `cursorCost.criticalCostUsdThreshold` | `5` | Minimum `$0.01`. Either this or the token threshold is enough |
+| `cursorCost.burnRateGuard` | `true` | Live window on Statistics; non-blocking toasts; Today tint when high |
+| `cursorCost.burnRateWindowMinutes` | `10` | 2–60 minutes. Right edge is now |
+| `cursorCost.burnRateWarningUsd` | `2` | Non-blocking warning toast |
+| `cursorCost.burnRateCriticalUsd` | `5` | Non-blocking error toast; never below warning; does not stop Cursor |
+| `cursorCost.burnRateMinQueries` | `2` | 1–50. A single query stays the last-query critical alert |
+| `cursorCost.burnRateWarningToast` | `true` | Off = remember the episode without a toast |
+| `cursorCost.burnRateCriticalToast` | `true` | Off = remember the episode without a toast |
+| `cursorCost.codeLinesInsight` | `true` | Coding stats on Statistics and Charts (AI vs git · All on Cursor) |
+| `cursorCost.language` | `en` | Panel, status bar, and toasts. Independent of the VS Code / Cursor display language |
 | `cursorCost.historyLimit` | `1000` | Newest queries to load (100–10,000). Settings tab: **Show last**. Ignored when From date is set |
 | `cursorCost.historyFromDate` | (empty) | Local `YYYY-MM-DD`; load from that day through today. Empty uses Show last |
+| `cursorCost.budgetDayBasis` | `workingDays` | Pace Today / MTD / forecast by working days (Mon–Fri) or all calendar days |
+| `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | Good-state color (darker green on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | Warning color (darker red on light themes) |
 
@@ -363,7 +432,7 @@ Yes, as long as you are signed in to Cursor on this machine. Unlimited plans hid
 A `!` on that recent-query chip (and on the table **TOKENS** cell) when a single query is at or above your threshold (default 1 million tokens). It is a notice, not advice on how to cut the conversation.
 
 **What is the critical alert?**  
-A blocking dialog when the **newest** query reaches 10 million tokens or $5 (configurable). It is shown once per query. A last query older than five minutes is not shown on first load after a restart.
+A blocking dialog when the **newest** query reaches 10 million tokens or $5 (configurable). It is shown once per query. **Ignore** dismisses that query; Open History opens Last N. A last query older than five minutes is not shown on first load after a restart.
 
 **Is my token safe?**  
 The access token never leaves the extension host. It is not sent to the webview, not written to logs, and not stored in Settings. No data is sent to third-party servers.
@@ -419,7 +488,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.3.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.4.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).

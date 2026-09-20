@@ -8,10 +8,12 @@ import {
   USAGE_LOAD_ERROR,
   USAGE_SIGN_IN,
   USAGE_SUMMARY_URL,
+  USER_ANALYTICS_URL,
   assertCursorHost,
   fetchRecentEvents,
   fetchTodayEvents,
   fetchUsageSummary,
+  fetchUserAnalytics,
 } from '../src/usage/api'
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
@@ -114,7 +116,24 @@ describe('fetchUsageSummary', () => {
 })
 
 describe('fetchRecentEvents', () => {
-  it('POSTs page 1 and pageSize 100 and maps fixture events', async () => {
+  function pageOf(count: number, page: number): unknown {
+    return {
+      usageEventsDisplay: Array.from({ length: count }, (_, i) => ({
+        timestamp: String(1_000_000 - page * 10_000 - i),
+        model: 'default',
+        chargedCents: 1,
+        tokenUsage: { inputTokens: 1, outputTokens: 1 },
+      })),
+    }
+  }
+
+  function postedBody(call: number): { page: number; pageSize: number } {
+    return JSON.parse(
+      String((fetchMock().mock.calls[call] as [string, RequestInit])[1].body),
+    ) as { page: number; pageSize: number }
+  }
+
+  it('POSTs page 1 and pageSize 1000 and maps fixture events', async () => {
     fetchMock().mockResolvedValueOnce(
       new Response(JSON.stringify(eventsFixture), { status: 200 }),
     )
@@ -134,42 +153,116 @@ describe('fetchRecentEvents', () => {
     expect(header(init, 'Cookie')).toBe(cookie)
     expect(header(init, 'Authorization')).toBeNull()
     expect(header(init, 'Origin')).toBe('https://cursor.com')
-    expect(JSON.parse(String(init.body))).toEqual({ page: 1, pageSize: 100 })
+    expect(JSON.parse(String(init.body))).toEqual({ page: 1, pageSize: 1000 })
   })
 
   it('pages until the history limit when each page is full', async () => {
-    function pageOf(count: number, page: number): unknown {
-      return {
-        usageEventsDisplay: Array.from({ length: count }, (_, i) => ({
-          timestamp: String(1_000_000 - page * 1000 - i),
-          model: 'default',
-          chargedCents: 1,
-          tokenUsage: { inputTokens: 1, outputTokens: 1 },
-        })),
-      }
-    }
     fetchMock()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(pageOf(100, 1)), { status: 200 }),
+        new Response(JSON.stringify(pageOf(1000, 1)), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(pageOf(50, 2)), { status: 200 }),
+        new Response(JSON.stringify(pageOf(200, 2)), { status: 200 }),
       )
 
     const result = await fetchRecentEvents(
       cookie,
       new AbortController().signal,
-      { limit: 150 },
+      { limit: 1200 },
     )
     expect(result.ok).toBe(true)
     if (!result.ok) {
       return
     }
-    expect(result.queries).toHaveLength(150)
+    expect(result.queries).toHaveLength(1200)
     expect(fetchMock()).toHaveBeenCalledTimes(2)
-    expect(
-      JSON.parse(String((fetchMock().mock.calls[1] as [string, RequestInit])[1].body)),
-    ).toEqual({ page: 2, pageSize: 100 })
+    expect(postedBody(0)).toEqual({ page: 1, pageSize: 1000 })
+    expect(postedBody(1)).toEqual({ page: 2, pageSize: 1000 })
+  })
+
+  it('retries with pageSize 100 when a 1000-row page fails', async () => {
+    fetchMock()
+      .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(eventsFixture), { status: 200 }),
+      )
+
+    const result = await fetchRecentEvents(
+      cookie,
+      new AbortController().signal,
+      { limit: 1000 },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+    expect(result.queries).toHaveLength(3)
+    expect(fetchMock()).toHaveBeenCalledTimes(2)
+    expect(postedBody(0).pageSize).toBe(1000)
+    expect(postedBody(1)).toEqual({ page: 1, pageSize: 100 })
+  })
+
+  it('keeps earlier pages when a later page times out', async () => {
+    fetchMock()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pageOf(1000, 1)), { status: 200 }),
+      )
+      .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+
+    const result = await fetchRecentEvents(
+      cookie,
+      new AbortController().signal,
+      { limit: 10_000 },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+    expect(result.queries).toHaveLength(1000)
+    expect(fetchMock()).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries once after HTTP 429', async () => {
+    fetchMock()
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(eventsFixture), { status: 200 }),
+      )
+
+    const result = await fetchRecentEvents(cookie, new AbortController().signal)
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+    expect(result.queries).toHaveLength(3)
+    expect(fetchMock()).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps paging when the API caps below the requested page size', async () => {
+    fetchMock()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pageOf(100, 1)), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pageOf(100, 2)), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pageOf(50, 3)), { status: 200 }),
+      )
+
+    const result = await fetchRecentEvents(
+      cookie,
+      new AbortController().signal,
+      { limit: 250 },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) {
+      return
+    }
+    expect(result.queries).toHaveLength(250)
+    expect(postedBody(0).pageSize).toBe(250)
+    expect(postedBody(1)).toEqual({ page: 2, pageSize: 100 })
+    expect(postedBody(2)).toEqual({ page: 3, pageSize: 100 })
   })
 
   it('POSTs local day bounds when fromDate is set and drops older rows', async () => {
@@ -213,7 +306,7 @@ describe('fetchRecentEvents', () => {
       JSON.parse(String((fetchMock().mock.calls[0] as [string, RequestInit])[1].body)),
     ).toEqual({
       page: 1,
-      pageSize: 100,
+      pageSize: 1000,
       startDate: String(start),
       endDate: String(end),
     })
@@ -276,6 +369,40 @@ describe('fetchTodayEvents', () => {
       String((fetchMock().mock.calls[1] as [string, RequestInit])[1].body),
     ) as { startDate?: string; pageSize: number }
     expect(secondBody.startDate).toBeUndefined()
-    expect(secondBody.pageSize).toBe(100)
+    expect(secondBody.pageSize).toBe(1000)
+  })
+})
+
+describe('fetchUserAnalytics', () => {
+  it('GETs get-user-analytics with the cookie and date range', async () => {
+    fetchMock().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          dailyMetrics: [
+            {
+              day: '2026-09-01',
+              acceptedLinesAdded: 1,
+              acceptedLinesDeleted: 2,
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+    const startMs = Date.UTC(2026, 8, 1)
+    const endMs = Date.UTC(2026, 8, 20)
+    const result = await fetchUserAnalytics(
+      cookie,
+      new AbortController().signal,
+      { startMs, endMs },
+    )
+    expect(result.ok).toBe(true)
+    expect(fetchMock()).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock().mock.calls[0] as [string, RequestInit]
+    expect(String(url).startsWith(USER_ANALYTICS_URL)).toBe(true)
+    expect(String(url)).toContain(String(startMs))
+    expect(init.method).toBe('GET')
+    expect(header(init, 'Cookie')).toBe(cookie)
+    expect(header(init, 'Authorization')).toBeNull()
   })
 })

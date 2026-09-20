@@ -194,6 +194,29 @@ describe('UsageService', () => {
     service.dispose()
   })
 
+  it('keeps cached queries when a later events fetch fails', async () => {
+    const fetchEvents = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, queries: queries() })
+      .mockResolvedValueOnce({ ok: false, message: USAGE_LOAD_ERROR })
+    const service = new UsageService({
+      readSession: okSession(),
+      fetchSummary: async () => ({ ok: true, raw: summary }),
+      fetchEvents,
+      now: () => now,
+    })
+    service.start()
+    await waitFor(service, 'ready')
+    await service.refresh()
+    const snapshot = service.getSnapshot()
+    expect(snapshot.status).toBe('ready')
+    if (snapshot.status !== 'ready') {
+      return
+    }
+    expect(snapshot.data.recentQueries).toEqual(queries())
+    service.dispose()
+  })
+
   it('aborts the first in-flight refresh when a second starts', async () => {
     const signals: AbortSignal[] = []
     const service = new UsageService({

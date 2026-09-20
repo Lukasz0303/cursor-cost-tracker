@@ -121,6 +121,43 @@ describe('toStatusBarView', () => {
     expect(view.today.tone).toBe('red')
   })
 
+  it('uses red on Today when the live burn window is over the warning floor', () => {
+    const nowMs = FIXTURE_NOW.getTime()
+    const view = viewOf(
+      ready({
+        todayUsedUsd: 3.79,
+        dailyBudgetUsd: 11.19,
+        remainingUsd: 246.21,
+        recentQueries: [
+          {
+            timestamp: nowMs - 30_000,
+            model: 'gpt-5',
+            kind: null,
+            costUsd: 1.5,
+            tokens: 1000,
+            inputTokens: 500,
+            outputTokens: 500,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+          {
+            timestamp: nowMs - 90_000,
+            model: 'gpt-5',
+            kind: null,
+            costUsd: 1.5,
+            tokens: 1000,
+            inputTokens: 500,
+            outputTokens: 500,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
+      }),
+      shown,
+    )
+    expect(view.today.tone).toBe('red')
+  })
+
   it('renders Current tooltip with email, plan, and cycle end', () => {
     const view = viewOf(ready(), shown)
     expect(view.current.tooltip).toBe(

@@ -198,10 +198,13 @@ export class UsageService implements Disposable {
         return
       }
 
+      const queries = events.ok
+        ? events.queries
+        : (this.cachedReady?.recentQueries ?? [])
       const data = buildUsageReady({
         summary: summary.raw,
-        queries: events.ok ? events.queries : [],
-        eventsAvailable: events.ok,
+        queries,
+        eventsAvailable: events.ok || this.cachedReady !== undefined,
         now: this.now(),
         email: session.email,
         budgetDayBasis: this.deps.budgetDayBasis?.(),

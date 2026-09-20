@@ -9,6 +9,8 @@ import {
   type BudgetDayBasis,
   type OptimizeDepth,
 } from '../config'
+import { catalogFor } from '../i18n'
+import { DEFAULT_LOCALE, parseLocale, type Locale } from '../locale'
 import { parseHistoryFromDate } from '../historyFromDate'
 import {
   clampHistoryLimit,
@@ -21,6 +23,15 @@ import {
   DEFAULT_CRITICAL_TOKEN_THRESHOLD,
 } from '../spikes/criticalAlert'
 import { DEFAULT_SPIKE_TOKEN_THRESHOLD, isSpike } from '../spikes/threshold'
+import {
+  DEFAULT_BURN_RATE_CRITICAL_USD,
+  DEFAULT_BURN_RATE_MIN_QUERIES,
+  DEFAULT_BURN_RATE_WARNING_USD,
+  DEFAULT_BURN_RATE_WINDOW_MINUTES,
+  evaluateBurnRate,
+} from '../burnRate/detect'
+import { toBurnRatePayload, type BurnRatePayload } from '../burnRate/copy'
+import { queryInLiveWindow } from '../burnRate/window'
 import { applyBudgetDayBasis, stripModelPrefix } from '../usage/parse'
 import type { UsageQuery, UsageSnapshot } from '../usage/types'
 import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
@@ -40,6 +51,7 @@ import {
   toStatusBarPreviewChips,
   type StatusBarPreviewChip,
 } from './statusBarView'
+import type { CodeLinesPayload } from '../codeLines/collect'
 
 export const HISTORY_ROW_KEYS = [
   'time',
@@ -49,6 +61,7 @@ export const HISTORY_ROW_KEYS = [
   'inputOutput',
   'kind',
   'spike',
+  'inBurnWindow',
 ] as const
 
 export type HistoryRow = {
@@ -59,6 +72,7 @@ export type HistoryRow = {
   inputOutput: string
   kind: string
   spike: boolean
+  inBurnWindow: boolean
 }
 
 export type HistoryRowOptions = {
@@ -86,6 +100,17 @@ export type HistoryRowOptions = {
   optimizeProjectLabel?: string
   /** Credited lifetime savings from extension globalState. */
   optimizeLifetimeSavings?: LifetimeSavings | null
+  burnRateGuard?: boolean
+  burnRateWindowMinutes?: number
+  burnRateWarningUsd?: number
+  burnRateCriticalUsd?: number
+  burnRateMinQueries?: number
+  burnRateWarningToast?: boolean
+  burnRateCriticalToast?: boolean
+  codeLinesInsight?: boolean
+  codeLines?: CodeLinesPayload | null
+  nowMs?: number
+  language?: Locale
 }
 
 export function toHistoryRows(
@@ -95,6 +120,7 @@ export function toHistoryRows(
   const limit = clampHistoryLimit(
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
+  const burn = burnWindowForRows(queries, options)
   const sorted = [...queries].sort((a, b) => b.timestamp - a.timestamp)
   return sorted.slice(0, limit).map((query) => {
     const model = stripModelPrefix(query.model)
@@ -111,8 +137,28 @@ export function toHistoryRows(
       inputOutput: `${formatTokens(query.inputTokens)} / ${formatTokens(query.outputTokens)}`,
       kind: formatKind(query.kind),
       spike,
+      inBurnWindow: burn !== null && queryInLiveWindow(query.timestamp, burn),
     }
   })
+}
+
+function burnWindowForRows(
+  queries: UsageQuery[],
+  options?: HistoryRowOptions,
+) {
+  if (options?.burnRateGuard === false) {
+    return null
+  }
+  return evaluateBurnRate({
+    queries,
+    enabled: true,
+    windowMinutes:
+      options?.burnRateWindowMinutes ?? DEFAULT_BURN_RATE_WINDOW_MINUTES,
+    warningUsd: options?.burnRateWarningUsd ?? DEFAULT_BURN_RATE_WARNING_USD,
+    criticalUsd: options?.burnRateCriticalUsd ?? DEFAULT_BURN_RATE_CRITICAL_USD,
+    minQueries: options?.burnRateMinQueries ?? DEFAULT_BURN_RATE_MIN_QUERIES,
+    nowMs: options?.nowMs ?? Date.now(),
+  }).window
 }
 
 export type HistoryDataPayload = {
@@ -136,6 +182,16 @@ export type HistoryDataPayload = {
   recentQueryCount: number
   budgetDayBasis: BudgetDayBasis
   optimizeDepth: OptimizeDepth
+  burnRateGuard: boolean
+  burnRateWindowMinutes: number
+  burnRateWarningUsd: number
+  burnRateCriticalUsd: number
+  burnRateMinQueries: number
+  burnRateWarningToast: boolean
+  burnRateCriticalToast: boolean
+  burnRate: BurnRatePayload | null
+  codeLinesInsight: boolean
+  codeLines: CodeLinesPayload | null
   statusBarPreview: StatusBarPreviewChip[]
   stats: PeriodStatsPayload
   charts: ChartPoint[]
@@ -144,6 +200,8 @@ export type HistoryDataPayload = {
   optimize: OptimizePayload
   support: Record<SupportLinkId, boolean>
   refreshing: boolean
+  language: Locale
+  i18n: ReturnType<typeof catalogFor>
 }
 
 export function historyDataPayload(
@@ -176,6 +234,22 @@ export function historyDataPayload(
   )
   const budgetDayBasis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
   const optimizeDepth = options?.optimizeDepth ?? DEFAULT_OPTIMIZE_DEPTH
+  const burnRateGuard = options?.burnRateGuard !== false
+  const burnRateWindowMinutes =
+    options?.burnRateWindowMinutes ?? DEFAULT_BURN_RATE_WINDOW_MINUTES
+  const burnRateWarningUsd =
+    options?.burnRateWarningUsd ?? DEFAULT_BURN_RATE_WARNING_USD
+  const burnRateCriticalUsd =
+    options?.burnRateCriticalUsd ?? DEFAULT_BURN_RATE_CRITICAL_USD
+  const burnRateMinQueries =
+    options?.burnRateMinQueries ?? DEFAULT_BURN_RATE_MIN_QUERIES
+  const burnRateWarningToast = options?.burnRateWarningToast !== false
+  const burnRateCriticalToast = options?.burnRateCriticalToast !== false
+  const codeLinesInsight = options?.codeLinesInsight !== false
+  const codeLines = options?.codeLines ?? null
+  const nowMs = options?.nowMs ?? Date.now()
+  const language = parseLocale(options?.language ?? DEFAULT_LOCALE)
+  const i18n = catalogFor(language)
   const pacedSnapshot: UsageSnapshot =
     snapshot.status === 'ready'
       ? {
@@ -183,6 +257,19 @@ export function historyDataPayload(
           data: applyBudgetDayBasis(snapshot.data, budgetDayBasis),
         }
       : snapshot
+  const todayUsd =
+    pacedSnapshot.status === 'ready' ? pacedSnapshot.data.todayUsedUsd : null
+  const burnRate = toBurnRatePayload({
+    queries,
+    enabled: burnRateGuard,
+    windowMinutes: burnRateWindowMinutes,
+    warningUsd: burnRateWarningUsd,
+    criticalUsd: burnRateCriticalUsd,
+    minQueries: burnRateMinQueries,
+    nowMs,
+    todayUsd,
+    locale: language,
+  })
   const rowOptions: HistoryRowOptions = {
     spikeTokenThreshold,
     showSpikeWarning,
@@ -201,6 +288,12 @@ export function historyDataPayload(
     recentQueryCount,
     budgetDayBasis,
     optimizeDepth,
+    burnRateGuard,
+    burnRateWindowMinutes,
+    burnRateWarningUsd,
+    burnRateCriticalUsd,
+    burnRateMinQueries,
+    nowMs,
   }
   const payload: HistoryDataPayload = {
     type: 'data',
@@ -222,6 +315,16 @@ export function historyDataPayload(
     recentQueryCount,
     budgetDayBasis,
     optimizeDepth,
+    burnRateGuard,
+    burnRateWindowMinutes,
+    burnRateWarningUsd,
+    burnRateCriticalUsd,
+    burnRateMinQueries,
+    burnRateWarningToast,
+    burnRateCriticalToast,
+    burnRate,
+    codeLinesInsight,
+    codeLines: codeLinesInsight ? codeLines : null,
     statusBarPreview: toStatusBarPreviewChips({
       ...DEFAULT_CURSOR_COST_CONFIG,
       spikeTokenThreshold,
@@ -232,19 +335,22 @@ export function historyDataPayload(
       recentQueryCount,
       budgetDayBasis,
       optimizeDepth,
+      language,
     }),
     stats: toPeriodStats(pacedSnapshot, queries, {
       spikeTokenThreshold,
       historyLimit,
       historyFromDate,
       budgetDayBasis,
+      locale: language,
     }),
     charts: toChartSeries(queries, sampleLimit),
-    periods: toPeriodCards(queries, { historyLimit: sampleLimit }),
+    periods: toPeriodCards(queries, { historyLimit: sampleLimit, locale: language }),
     mtd: toMtdPace(pacedSnapshot, queries, {
       historyLimit,
       historyFromDate,
       budgetDayBasis,
+      locale: language,
     }),
     optimize: toOptimizePayload(queries, {
       depth: optimizeDepth,
@@ -253,12 +359,15 @@ export function historyDataPayload(
       savingsMarkdown: options?.optimizeSavingsMarkdown ?? null,
       projectLabel: options?.optimizeProjectLabel ?? '',
       lifetimeSavings: options?.optimizeLifetimeSavings ?? null,
+      locale: language,
     }),
     support: {
       buyMeACoffee: supportLinkReady('buyMeACoffee'),
       githubSponsors: supportLinkReady('githubSponsors'),
     },
     refreshing: options?.refreshing === true,
+    language,
+    i18n,
   }
   if (message !== undefined && message !== '') {
     payload.message = message
@@ -278,7 +387,12 @@ export function payloadForSnapshot(
     return historyDataPayload(queries, snapshot.message, options, snapshot)
   }
   if (snapshot.status === 'loading') {
-    return historyDataPayload(queries, 'Loading usage…', options, snapshot)
+    return historyDataPayload(
+      queries,
+      catalogFor(parseLocale(options?.language ?? DEFAULT_LOCALE)).statusBar.loading,
+      options,
+      snapshot,
+    )
   }
   return historyDataPayload(queries, undefined, options, snapshot)
 }

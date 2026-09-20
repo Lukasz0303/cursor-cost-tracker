@@ -1,5 +1,7 @@
 import { CURSOR_DASHBOARD_URL } from '../constants'
 import { cycleResetLabel, formatPercentUsed } from '../format'
+import { catalogFor } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import type { UsageReady } from '../usage/types'
 import { formatModelUsageTable, topModelsByCost } from './modelBreakdown'
 
@@ -27,7 +29,10 @@ export function usageBar(ratio: number, width = BAR_WIDTH): string {
 export function buildBudgetTooltipMarkdown(
   data: UsageReady,
   now: Date = new Date(),
+  burnLine: string | null = null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
+  const copy = catalogFor(locale)
   const lines: string[] = ['$(credit-card) **Cursor Cost**', '']
 
   const identity = identityLine(data)
@@ -36,15 +41,20 @@ export function buildBudgetTooltipMarkdown(
     lines.push('')
   }
 
-  const meters = metersFrom(data)
+  const meters = metersFrom(data, locale)
   if (meters.length > 0) {
     lines.push(metersTable(meters))
     lines.push('')
   }
 
-  const reset = cycleResetLabel(data.billingCycleEnd, now)
+  const reset = cycleResetLabel(data.billingCycleEnd, now, locale)
   if (reset) {
     lines.push(`*${reset}*`)
+    lines.push('')
+  }
+
+  if (burnLine) {
+    lines.push(`**${copy.statusBar.burn}** ${escapeHtml(burnLine)}`)
     lines.push('')
   }
 
@@ -55,7 +65,7 @@ export function buildBudgetTooltipMarkdown(
   }
 
   lines.push(
-    `[Open Dashboard](${CURSOR_DASHBOARD_URL}) | [Refresh](${REFRESH_COMMAND_URI})`,
+    `[${copy.statusBar.openDashboard}](${CURSOR_DASHBOARD_URL}) | [${copy.statusBar.refresh}](${REFRESH_COMMAND_URI})`,
   )
 
   return lines.join('\n').trim()
@@ -75,7 +85,8 @@ function identityLine(data: UsageReady): string | null {
   return `<p>${parts.join(' · ')}</p>`
 }
 
-function metersFrom(data: UsageReady): Meter[] {
+function metersFrom(data: UsageReady, locale: Locale = DEFAULT_LOCALE): Meter[] {
+  const copy = catalogFor(locale).statusBar
   const meters: Meter[] = []
 
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
@@ -88,21 +99,21 @@ function metersFrom(data: UsageReady): Meter[] {
     }
   } else if (data.includedLine) {
     meters.push({
-      label: 'Included',
+      label: copy.included,
       value: data.includedLine,
       ratio: ratioFromPoolLine(data.includedLine) ?? 0,
     })
   } else if (data.isUnlimited) {
     meters.push({
-      label: 'Current',
-      value: 'Unlimited',
+      label: copy.current,
+      value: copy.unlimited,
       ratio: 0,
     })
   }
 
   if (data.onDemandLine) {
     meters.push({
-      label: 'On-demand',
+      label: copy.onDemand,
       value: data.onDemandLine,
       ratio: ratioFromPoolLine(data.onDemandLine) ?? 0,
     })

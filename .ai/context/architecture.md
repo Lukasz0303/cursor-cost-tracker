@@ -39,6 +39,14 @@ The token **never** goes to the webview.
 | `src/ui/optimizePayload.ts` | Optimize tab payload (projection + lifetime) |
 | `src/ui/openOptimizeChat.ts` | Prefill last/open Composer chat (fallback new / VS Code Chat); user presses Start |
 | `src/ui/criticalAlert.ts` | Blocking dialog when the newest query hits 10M tokens or $5 |
+| `src/ui/burnRateAlert.ts` | Non-modal warning/error toasts for live-window spend (View details, Snooze, Focus Composer) |
+| `src/burnRate/window.ts` | Live `[now − W, now]` query window |
+| `src/burnRate/pace.ts` | Historic bucket median vs live window (`×` display only) |
+| `src/burnRate/detect.ts` | Clamps, level, once-per-episode + snooze + grace |
+| `src/burnRate/copy.ts` | English card / toast strings + Statistics payload |
+| `src/codeLines/` | Coding stats: composer headers, git landed / this branch, dashboard Lines Edited split, effectiveness |
+| `src/i18n.ts` / `src/i18n/catalogs/` | UI catalogs (10 locales) |
+| `src/locale.ts` | `cursorCost.language` clamp |
 | `src/spikes/threshold.ts` | token spike vs setting |
 | `src/spikes/criticalAlert.ts` | last-query critical threshold + once-per-query decision |
 | `src/spikes/ignoreStore.ts` | v1.1 persisted Ignore keys |
@@ -61,7 +69,7 @@ If you change the directory layout, update this file and `shared.mdc`.
 
 1. `activate` → `UsageService.start()` (fetch in the background).
 2. Snapshot: `loading` | `ready` | `error`.
-3. Status bar and the critical-alert controller subscribe to the snapshot.
+3. Status bar, the critical-alert controller, and the burn-rate controller subscribe to the snapshot.
 4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', events, stats }` (no token). Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value.
 5. Refresh (status bar, Last N toolbar, or command) → `service.refresh()`; if the panel is open it receives a new `data` message. Export CSV on the Last N toolbar saves the Last N or From-date sample.
 

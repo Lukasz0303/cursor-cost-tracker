@@ -8,6 +8,7 @@ import {
 import { readCursorCostConfig } from './config'
 import { loadPersistedSettingOverrides } from './settingsStore'
 import { CriticalAlertController } from './ui/criticalAlert'
+import { BurnRateAlertController } from './ui/burnRateAlert'
 import { HistoryPanel, parseHistoryTab, saveQueriesCsv } from './ui/historyPanel'
 import { StatusBarController } from './ui/statusBar'
 import { fetchRecentEvents, fetchUsageSummary } from './usage/api'
@@ -44,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
   service.start()
   StatusBarController.register(context, service)
   CriticalAlertController.register(context, service)
+  BurnRateAlertController.register(context, service)
 
   context.subscriptions.push(
     service,

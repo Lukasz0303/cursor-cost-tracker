@@ -92,6 +92,75 @@ describe('cursorCostConfigFrom', () => {
     expect(config.historyFromDate).toBeNull()
   })
 
+  it('reads Burn Rate Guard settings and raises critical to warning', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'burnRateGuard') {
+          return false
+        }
+        if (key === 'burnRateWindowMinutes') {
+          return 90
+        }
+        if (key === 'burnRateWarningUsd') {
+          return 4
+        }
+        if (key === 'burnRateCriticalUsd') {
+          return 1
+        }
+        if (key === 'burnRateMinQueries') {
+          return 3
+        }
+        if (key === 'burnRateWarningToast') {
+          return false
+        }
+        return defaultValue
+      },
+    })
+    expect(config.burnRateGuard).toBe(false)
+    expect(config.burnRateWindowMinutes).toBe(60)
+    expect(config.burnRateWarningUsd).toBe(4)
+    expect(config.burnRateCriticalUsd).toBe(4)
+    expect(config.burnRateMinQueries).toBe(3)
+    expect(config.burnRateWarningToast).toBe(false)
+    expect(config.burnRateCriticalToast).toBe(true)
+  })
+
+  it('reads language from settings', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'language') {
+          return 'pl'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.language).toBe('pl')
+  })
+
+  it('falls back to English for invalid language', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'language') {
+          return 'hi'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.language).toBe('en')
+  })
+
+  it('reads Chinese Simplified language from settings', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'language') {
+          return 'zh-cn'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.language).toBe('zh-cn')
+  })
+
   it('reads historyFromDate from settings', () => {
     const config = cursorCostConfigFrom({
       get(key, defaultValue) {

@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
 import { readCursorCostConfig } from '../config'
+import { catalogFor } from '../i18n'
 import {
+  CRITICAL_ALERT_ALERTED_TS_KEY,
   CRITICAL_ALERT_SEEN_KEY,
   CRITICAL_ALERT_STATE_KEY,
   decideCriticalAlert,
@@ -10,8 +12,6 @@ import {
 } from '../spikes/criticalAlert'
 import type { UsageService } from '../usage/service'
 import { SHOW_HISTORY_COMMAND } from './statusBarView'
-
-const OPEN_HISTORY = 'Open History'
 
 export class CriticalAlertController implements vscode.Disposable {
   static register(
@@ -24,6 +24,7 @@ export class CriticalAlertController implements vscode.Disposable {
   }
 
   private lastSeenKey: string | undefined
+  private lastAlertedTimestamp: number | undefined
   private showing = false
   private readonly disposables: vscode.Disposable[] = []
 
@@ -34,6 +35,9 @@ export class CriticalAlertController implements vscode.Disposable {
     this.lastSeenKey =
       readStoredKey(this.context.globalState.get(CRITICAL_ALERT_SEEN_KEY)) ??
       readStoredKey(this.context.globalState.get(CRITICAL_ALERT_STATE_KEY))
+    this.lastAlertedTimestamp = readStoredTimestamp(
+      this.context.globalState.get(CRITICAL_ALERT_ALERTED_TS_KEY),
+    )
     this.disposables.push(
       this.service.onDidChange(() => {
         this.evaluate()
@@ -73,6 +77,7 @@ export class CriticalAlertController implements vscode.Disposable {
       thresholds,
       enabled: config.showCriticalAlert,
       lastSeenKey: this.lastSeenKey,
+      lastAlertedTimestamp: this.lastAlertedTimestamp,
     })
     if (decision.kind === 'skip') {
       return
@@ -89,6 +94,14 @@ export class CriticalAlertController implements vscode.Disposable {
     await this.context.globalState.update(CRITICAL_ALERT_SEEN_KEY, key)
   }
 
+  private async rememberAlerted(timestamp: number): Promise<void> {
+    this.lastAlertedTimestamp = timestamp
+    await this.context.globalState.update(
+      CRITICAL_ALERT_ALERTED_TS_KEY,
+      timestamp,
+    )
+  }
+
   private async present(
     decision: Extract<CriticalAlertDecision, { kind: 'alert' }>,
     thresholds: CriticalAlertThresholds,
@@ -98,19 +111,28 @@ export class CriticalAlertController implements vscode.Disposable {
     }
     this.showing = true
     try {
-      // Persist first so a poll while the dialog is open cannot show the same query twice.
-      await this.remember(decision.key)
+      const config = readCursorCostConfig(
+        vscode.workspace.getConfiguration('cursorCost'),
+      )
       const copy = formatCriticalAlertCopy(
         decision.query,
         thresholds,
         decision.breach,
+        config.language,
       )
+      const alerts = catalogFor(config.language).alerts
+      const ignore = alerts.ignore
+      const openHistory = alerts.openHistory
+      // Persist before the modal so Cancel / Ignore / revised API totals do not re-fire.
+      await this.remember(decision.key)
+      await this.rememberAlerted(decision.query.timestamp)
       const choice = await vscode.window.showErrorMessage(
         copy.message,
         { modal: true, detail: copy.detail },
-        OPEN_HISTORY,
+        ignore,
+        openHistory,
       )
-      if (choice === OPEN_HISTORY) {
+      if (choice === openHistory) {
         await vscode.commands.executeCommand(SHOW_HISTORY_COMMAND)
       }
     } finally {
@@ -122,6 +144,13 @@ export class CriticalAlertController implements vscode.Disposable {
 
 function readStoredKey(value: unknown): string | undefined {
   if (typeof value !== 'string' || value === '') {
+    return undefined
+  }
+  return value
+}
+
+function readStoredTimestamp(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return undefined
   }
   return value

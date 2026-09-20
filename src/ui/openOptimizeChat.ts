@@ -1,4 +1,6 @@
 import * as vscode from 'vscode'
+import { catalogFor } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 
 /** Focus the last/selected Agent chat input — prefer over opening a new chat. */
 const COMPOSER_FOCUS = 'composer.focusComposer'
@@ -87,6 +89,7 @@ async function pasteIntoComposer(
 export async function openOptimizeChat(
   prompt: string,
   deps: OpenOptimizeChatDeps = defaultDeps(),
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<OpenOptimizeChatResult> {
   const waitMs = deps.delayMs ?? PASTE_DELAY_MS
   const getCommands = deps.getCommands
@@ -121,8 +124,6 @@ export async function openOptimizeChat(
   }
 
   await deps.writeClipboard(prompt)
-  deps.showInformationMessage(
-    'Optimize prompt copied — paste into the last Chat and press Start.',
-  )
+  deps.showInformationMessage(catalogFor(locale).optimize.clipboard)
   return 'clipboard'
 }

@@ -1,4 +1,7 @@
 /** Depth of the Optimize prompt (Quick / Balanced / Deep). */
+import { catalogFor } from './i18n'
+import { DEFAULT_LOCALE, type Locale } from './locale'
+
 export type OptimizeDepth = 'quick' | 'balanced' | 'deep'
 
 export const DEFAULT_OPTIMIZE_DEPTH: OptimizeDepth = 'balanced'
@@ -12,12 +15,16 @@ export function parseOptimizeDepth(value: unknown): OptimizeDepth {
   return DEFAULT_OPTIMIZE_DEPTH
 }
 
-export function optimizeDepthLabel(depth: OptimizeDepth): string {
+export function optimizeDepthLabel(
+  depth: OptimizeDepth,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const copy = catalogFor(locale).depth
   if (depth === 'quick') {
-    return 'Quick'
+    return copy.quick
   }
   if (depth === 'deep') {
-    return 'Deep'
+    return copy.deep
   }
-  return 'Balanced'
+  return copy.balanced
 }

@@ -3,9 +3,11 @@ import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
 } from '../historyLimit'
+import { catalogFor, interpolate } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import type { UsageQuery } from '../usage/types'
 
-export const PERIOD_COST_HINT = '≈ API equivalent'
+export const PERIOD_COST_HINT = catalogFor('en').periods.costHint
 
 export type PeriodShareKey = 'input' | 'output' | 'cacheWrite' | 'cacheRead'
 
@@ -34,14 +36,18 @@ export type PeriodCard = {
 export type PeriodCardsOptions = {
   historyLimit?: number
   now?: Date
+  locale?: Locale
 }
 
-const SHARE_META: Array<{ key: PeriodShareKey; label: string }> = [
-  { key: 'input', label: 'Input' },
-  { key: 'output', label: 'Output' },
-  { key: 'cacheWrite', label: 'Cache write' },
-  { key: 'cacheRead', label: 'Cache read' },
-]
+function shareMeta(locale: Locale): Array<{ key: PeriodShareKey; label: string }> {
+  const copy = catalogFor(locale).stats
+  return [
+    { key: 'input', label: copy.input },
+    { key: 'output', label: copy.output },
+    { key: 'cacheWrite', label: copy.cacheWrite },
+    { key: 'cacheRead', label: copy.cacheRead },
+  ]
+}
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
@@ -94,16 +100,22 @@ export function sharePercents(values: number[]): number[] {
   return out
 }
 
-function messageLine(count: number, hitPercent: number): string {
-  const noun = count === 1 ? 'message' : 'messages'
-  return `${count} ${noun} · ${formatPercentUsed(hitPercent)} cache hit`
+function messageLine(count: number, hitPercent: number, locale: Locale): string {
+  const copy = catalogFor(locale).periods
+  const hit = formatPercentUsed(hitPercent)
+  if (count === 1) {
+    return interpolate(copy.messageOne, { hit })
+  }
+  return interpolate(copy.messageMany, { n: count, hit })
 }
 
 function toCard(
   id: PeriodCard['id'],
   title: string,
   queries: UsageQuery[],
+  locale: Locale,
 ): PeriodCard {
+  const copy = catalogFor(locale)
   let cost = 0
   let input = 0
   let output = 0
@@ -118,7 +130,7 @@ function toCard(
   }
   const total = input + output + cacheWrite + cacheRead
   const percents = sharePercents([input, output, cacheWrite, cacheRead])
-  const shares: PeriodShare[] = SHARE_META.map((meta, index) => ({
+  const shares: PeriodShare[] = shareMeta(locale).map((meta, index) => ({
     key: meta.key,
     label: meta.label,
     percent: percents[index] ?? 0,
@@ -128,14 +140,14 @@ function toCard(
     id,
     title,
     cost: formatDollarSign(cost),
-    costHint: PERIOD_COST_HINT,
-    summary: messageLine(queries.length, cacheHitPercent(input, cacheRead)),
+    costHint: copy.periods.costHint,
+    summary: messageLine(queries.length, cacheHitPercent(input, cacheRead), locale),
     rows: [
-      { label: 'Input', value: formatTokens(input) },
-      { label: 'Output', value: formatTokens(output) },
-      { label: 'Cache write', value: formatTokens(cacheWrite) },
-      { label: 'Cache read', value: formatTokens(cacheRead) },
-      { label: 'Total tokens', value: formatTokens(total), total: true },
+      { label: copy.stats.input, value: formatTokens(input) },
+      { label: copy.stats.output, value: formatTokens(output) },
+      { label: copy.stats.cacheWrite, value: formatTokens(cacheWrite) },
+      { label: copy.stats.cacheRead, value: formatTokens(cacheRead) },
+      { label: copy.periods.totalTokens, value: formatTokens(total), total: true },
     ],
     shares,
   }
@@ -149,6 +161,8 @@ export function toPeriodCards(
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
   const now = options?.now ?? new Date()
+  const locale = options?.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).periods
   const sample = newestQueries(queries, historyLimit)
   const todayKey = localDayKey(now.getTime())
   const monthKey = localMonthKey(now.getTime())
@@ -157,8 +171,8 @@ export function toPeriodCards(
     (query) => localMonthKey(query.timestamp) === monthKey,
   )
   return [
-    toCard('today', 'Today', today),
-    toCard('month', 'This month', month),
-    toCard('all', 'All time', sample),
+    toCard('today', copy.today, today, locale),
+    toCard('month', copy.thisMonth, month, locale),
+    toCard('all', copy.allTime, sample, locale),
   ]
 }

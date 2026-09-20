@@ -9,6 +9,8 @@ import {
   lastQueriesHeading,
   sampleSizeLimit,
 } from '../historyLimit'
+import { catalogFor, interpolate, EN } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import {
   budgetDaysAfterToday,
   budgetDaysElapsedInMonth,
@@ -18,20 +20,15 @@ import {
 import type { IncludedQuota, UsageQuery, UsageSnapshot } from '../usage/types'
 import type { PeriodBar, PeriodMetric } from './periodStats'
 
-export const MTD_TITLE = 'Monthly cost forecast'
-export const MTD_NO_BUDGET_BODY =
-  'This calendar month from Last N. No daily dollar budget to pace against.'
-export const MTD_NO_DAYS_BODY =
-  'No working day so far this month — weekend before the first weekday.'
-export const MTD_NO_DAYS_BODY_CALENDAR =
-  'No day so far this month.'
-export const MTD_FORECAST_BODY_WORKING =
-  'This calendar month from Last N. Forecast keeps the current working-day pace through month end.'
-export const MTD_FORECAST_BODY_CALENDAR =
-  'This calendar month from Last N. Forecast keeps the current daily pace through month end.'
+export const MTD_TITLE = EN.mtd.title
+export const MTD_NO_BUDGET_BODY = EN.mtd.noBudget
+export const MTD_NO_DAYS_BODY = EN.mtd.noDays
+export const MTD_NO_DAYS_BODY_CALENDAR = EN.mtd.noDaysCalendar
+export const MTD_FORECAST_BODY_WORKING = EN.mtd.forecastWorking
+export const MTD_FORECAST_BODY_CALENDAR = EN.mtd.forecastCalendar
 /** @deprecated Prefer MTD_FORECAST_BODY_WORKING; kept for existing imports. */
 export const MTD_FORECAST_BODY = MTD_FORECAST_BODY_WORKING
-export const MTD_SPEND_SERIES_LABEL = 'Spend'
+export const MTD_SPEND_SERIES_LABEL = EN.mtd.spend
 /** Included quota tops out at 100%; on-demand spend has no ceiling. */
 export const MTD_PERCENT_MAX = 100
 
@@ -97,6 +94,7 @@ export type MtdPaceOptions = {
   historyFromDate?: string | null
   now?: Date
   budgetDayBasis?: BudgetDayBasis
+  locale?: Locale
 }
 
 export type DayFrame = {
@@ -152,41 +150,56 @@ function dailyBudget(snapshot: UsageSnapshot): number | null {
   return value
 }
 
-function remainingDaysHint(remaining: number, basis: BudgetDayBasis): string {
+function remainingDaysHint(
+  remaining: number,
+  basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const copy = catalogFor(locale).mtd
   if (basis === 'calendarDays') {
     if (remaining === 0) {
-      return 'No days left this month'
+      return copy.noDaysLeft
     }
     if (remaining === 1) {
-      return '1 day left this month'
+      return copy.oneDayLeft
     }
-    return `${remaining} days left this month`
+    return interpolate(copy.daysLeft, { n: remaining })
   }
   if (remaining === 0) {
-    return 'No working days left this month'
+    return copy.noWorkingDaysLeft
   }
   if (remaining === 1) {
-    return '1 working day left this month'
+    return copy.oneWorkingDayLeft
   }
-  return `${remaining} working days left this month`
+  return interpolate(copy.workingDaysLeft, { n: remaining })
 }
 
-function paceLabel(basis: BudgetDayBasis): string {
-  return basis === 'calendarDays' ? 'daily pace' : 'working-day pace'
+function paceLabel(basis: BudgetDayBasis, locale: Locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).mtd
+  return basis === 'calendarDays' ? copy.dailyPaceWord : copy.workingPaceWord
 }
 
-function noDaysBody(basis: BudgetDayBasis): string {
-  return basis === 'calendarDays' ? MTD_NO_DAYS_BODY_CALENDAR : MTD_NO_DAYS_BODY
+function noDaysBody(basis: BudgetDayBasis, locale: Locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).mtd
+  return basis === 'calendarDays' ? copy.noDaysCalendar : copy.noDays
 }
 
-function forecastBody(basis: BudgetDayBasis): string {
-  return basis === 'calendarDays'
-    ? MTD_FORECAST_BODY_CALENDAR
-    : MTD_FORECAST_BODY_WORKING
+function forecastBody(basis: BudgetDayBasis, locale: Locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).mtd
+  return basis === 'calendarDays' ? copy.forecastCalendar : copy.forecastWorking
 }
 
-function daysSoFarLabel(basis: BudgetDayBasis): string {
-  return basis === 'calendarDays' ? 'Days so far' : 'Working days so far'
+function daysSoFarLabel(basis: BudgetDayBasis, locale: Locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).mtd
+  return basis === 'calendarDays' ? copy.daysSoFar : copy.workingDaysSoFar
+}
+
+function daysLeftCardLabel(
+  basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const copy = catalogFor(locale).stats
+  return basis === 'calendarDays' ? copy.calendarDaysLeft : copy.workingDaysLeft
 }
 
 /** Cursor Models first, then Other Models — dashboard order. */
@@ -218,38 +231,49 @@ function mtdBody(
   forecastEom: number | null,
   basis: BudgetDayBasis,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
+  const copy = catalogFor(locale).mtd
   if (budget === null) {
     if (forecastEom !== null) {
-      return forecastBody(basis)
+      return forecastBody(basis, locale)
     }
-    return MTD_NO_BUDGET_BODY
+    return copy.noBudget
   }
   if (elapsed <= 0) {
-    return noDaysBody(basis)
+    return noDaysBody(basis, locale)
   }
   const days =
     basis === 'calendarDays'
       ? elapsed === 1
-        ? '1 day'
-        : `${elapsed} days`
+        ? copy.oneDayUnit
+        : interpolate(copy.nDaysUnit, { n: elapsed })
       : elapsed === 1
-        ? '1 working day'
-        : `${elapsed} working days`
-  return `This month vs ${days} × daily budget (${lastQueriesHeading(historyLimit, fromDate)} sample).`
+        ? copy.oneWorkingDayUnit
+        : interpolate(copy.nWorkingDaysUnit, { n: elapsed })
+  return interpolate(copy.vsDailyBudget, {
+    days,
+    sample: lastQueriesHeading(historyLimit, fromDate, locale),
+  })
 }
 
-function paceHint(used: number, allowance: number, unit: MtdUnit): string {
+function paceHint(
+  used: number,
+  allowance: number,
+  unit: MtdUnit,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const copy = catalogFor(locale).mtd
   const delta = used - allowance
   const abs = Math.abs(delta)
-  const formatted = unit === 'percent' ? formatPercentPoint(abs) : formatDollars(abs)
+  const amount = unit === 'percent' ? formatPercentPoint(abs) : formatDollars(abs)
   if (delta > 0.005) {
-    return `${formatted} over the MTD budget`
+    return interpolate(copy.overMtd, { amount })
   }
   if (delta < -0.005) {
-    return `${formatted} under the MTD budget`
+    return interpolate(copy.underMtd, { amount })
   }
-  return 'On pace with the MTD budget'
+  return copy.onPaceMtd
 }
 
 function poolPercent(used: number, cap: number | null): number {
@@ -365,6 +389,7 @@ export function toMtdSeries(
   elapsed: number,
   ceiling: number | null = null,
   weekdayTotal = 0,
+  locale: Locale = DEFAULT_LOCALE,
 ): MtdSeries {
   let spent = 0
   for (const frame of frames) {
@@ -429,7 +454,7 @@ export function toMtdSeries(
     forecast,
     ideal,
     runOutDate,
-    runOutLabel: runOutLabelFor(total, ceiling, runOutDate),
+    runOutLabel: runOutLabelFor(total, ceiling, runOutDate, locale),
   }
 }
 
@@ -452,17 +477,19 @@ function runOutLabelFor(
   used: number,
   ceiling: number | null,
   runOutDate: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
+  const copy = catalogFor(locale).mtd
   if (ceiling !== null && used >= ceiling - 0.005) {
-    return 'Already at the limit'
+    return copy.alreadyAtLimit
   }
   if (runOutDate !== null) {
-    return `Runs out ~${runOutDate}`
+    return interpolate(copy.runsOut, { date: runOutDate })
   }
   if (ceiling === null) {
-    return 'No hard ceiling'
+    return copy.noCeiling
   }
-  return 'Lasts the month'
+  return copy.lastsMonth
 }
 
 function lastPaceDate(frames: DayFrame[]): string | null {
@@ -480,6 +507,7 @@ function percentVerdict(
   overPace: boolean,
   frames: DayFrame[],
   basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
 ): { verdict: MtdVerdict; body: string } {
   const lastWorking = lastPaceDate(frames)
   const early = series.filter(
@@ -488,27 +516,28 @@ function percentVerdict(
       lastWorking !== null &&
       line.runOutDate !== lastWorking,
   )
-  if (series.some((line) => line.runOutLabel === 'Already at the limit')) {
+  const atLimit = catalogFor(locale).mtd.alreadyAtLimit
+  if (series.some((line) => line.runOutLabel === atLimit)) {
     return {
       verdict: 'over',
-      body: percentBody(series, early, true, basis),
+      body: percentBody(series, early, true, basis, locale),
     }
   }
   if (early.length > 0) {
     return {
       verdict: 'over',
-      body: percentBody(series, early, false, basis),
+      body: percentBody(series, early, false, basis, locale),
     }
   }
   if (overPace) {
     return {
       verdict: 'tight',
-      body: percentBody(series, early, false, basis),
+      body: percentBody(series, early, false, basis, locale),
     }
   }
   return {
     verdict: 'ok',
-    body: percentBody(series, early, false, basis),
+    body: percentBody(series, early, false, basis, locale),
   }
 }
 
@@ -517,16 +546,21 @@ function percentBody(
   early: MtdSeries[],
   spent: boolean,
   basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
+  const copy = catalogFor(locale).mtd
   if (spent) {
-    return 'At least one included quota is already at 100%. On-demand usage may apply after that.'
+    return copy.percentSpent
   }
   if (early.length > 0) {
     const bits = early.map((line) => `${line.label} ${line.runOutLabel.toLowerCase()}`)
-    return `At this ${paceLabel(basis)}: ${bits.join('; ')}. Dotted ideal lines show leftover budget spread evenly to month end.`
+    return interpolate(copy.percentEarly, {
+      pace: paceLabel(basis, locale),
+      bits: bits.join('; '),
+    })
   }
   const bits = series.map((line) => `${line.label}: ${line.runOutLabel.toLowerCase()}`)
-  return `${bits.join('. ')}. Bars show cycle used vs 100%. Dotted ideal lines show leftover budget to month end.`
+  return interpolate(copy.percentOk, { bits: bits.join('. ') })
 }
 
 function usdVerdict(
@@ -536,6 +570,7 @@ function usdVerdict(
   series: MtdSeries[],
   frames: DayFrame[],
   basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
 ): { verdict: MtdVerdict; body: string } {
   const lastWorking = lastPaceDate(frames)
   const early = series.filter(
@@ -544,10 +579,11 @@ function usdVerdict(
       lastWorking !== null &&
       line.runOutDate !== lastWorking,
   )
-  if (series.some((line) => line.runOutLabel === 'Already at the limit')) {
+  const atLimit = catalogFor(locale).mtd.alreadyAtLimit
+  if (series.some((line) => line.runOutLabel === atLimit)) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, true, basis),
+      body: usdBody(series, early, true, basis, locale),
     }
   }
   if (
@@ -557,24 +593,24 @@ function usdVerdict(
   ) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, false, basis),
+      body: usdBody(series, early, false, basis, locale),
     }
   }
   if (early.length > 0) {
     return {
       verdict: 'over',
-      body: usdBody(series, early, false, basis),
+      body: usdBody(series, early, false, basis, locale),
     }
   }
   if (overPace) {
     return {
       verdict: 'tight',
-      body: usdBody(series, early, false, basis),
+      body: usdBody(series, early, false, basis, locale),
     }
   }
   return {
     verdict: 'ok',
-    body: usdBody(series, early, false, basis),
+    body: usdBody(series, early, false, basis, locale),
   }
 }
 
@@ -583,73 +619,111 @@ function usdBody(
   early: MtdSeries[],
   spent: boolean,
   basis: BudgetDayBasis,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
+  const copy = catalogFor(locale).mtd
   if (spent) {
-    return basis === 'calendarDays'
-      ? 'Month spend is already at the daily budget ceiling for this month.'
-      : 'Month spend is already at the working-day budget ceiling for this month.'
+    return basis === 'calendarDays' ? copy.usdSpentCalendar : copy.usdSpentWorking
   }
   if (early.length > 0) {
     const bits = early.map((line) => `${line.label} ${line.runOutLabel.toLowerCase()}`)
-    return `At this ${paceLabel(basis)}: ${bits.join('; ')}. Bars are cumulative dollars. Dotted ideal lines show leftover budget spread evenly to month end.`
+    return interpolate(copy.usdEarly, {
+      pace: paceLabel(basis, locale),
+      bits: bits.join('; '),
+    })
   }
   const bits = series.map((line) => `${line.label}: ${line.runOutLabel.toLowerCase()}`)
-  return `${bits.join('. ')}. Bars are cumulative dollars. Dotted ideal lines show leftover budget to month end.`
+  return interpolate(copy.usdOk, { bits: bits.join('. ') })
 }
 
-function appendPaceMetrics(
-  metrics: PeriodMetric[],
-  args: {
-    remaining: number
-    avg: number | null
-    forecastEom: number | null
-    daily: number | null
-    allowance: number | null
-    used: number
-    overPace: boolean
-    unit: MtdUnit
-    basis: BudgetDayBasis
-    remainingPct?: number | null
-    quotaLabel?: string
-  },
-): void {
-  if (args.remainingPct !== null && args.remainingPct !== undefined) {
-    metrics.push({
-      id: 'mtdLeft',
-      label: 'Quota left',
-      value: formatPercentPoint(args.remainingPct),
-      hint: `${args.quotaLabel ?? 'Included usage'} remaining this cycle`,
-    })
+function toRunOutMetric(
+  series: MtdSeries[],
+  basis: BudgetDayBasis,
+  locale: Locale,
+): PeriodMetric {
+  const copy = catalogFor(locale).mtd
+  const hint =
+    basis === 'calendarDays' ? copy.ifDailyPace : copy.ifWorkingPace
+  const early = series.filter((line) => line.runOutDate !== null)
+  if (early.length > 0) {
+    return {
+      id: 'mtdRunOut',
+      label: copy.runsOutLabel,
+      value: early
+        .map((line) => `${line.label} ~${line.runOutDate}`)
+        .join(' · '),
+      hint,
+    }
   }
-  if (args.avg !== null) {
-    metrics.push({
-      id: 'mtdAvg',
-      label: 'Daily pace',
-      value:
-        args.unit === 'percent'
-          ? formatPercentPoint(args.avg)
-          : formatDollars(args.avg),
-      hint: remainingDaysHint(args.remaining, args.basis),
-    })
+  const noCeiling = series.every((line) => line.runOutLabel === copy.noCeiling)
+  return {
+    id: 'mtdRunOut',
+    label: copy.runsOutLabel,
+    value: noCeiling ? copy.noCeiling : copy.lastsMonth,
+    hint,
   }
+}
+
+function buildPaceMetrics(args: {
+  elapsed: number
+  remaining: number
+  avg: number | null
+  forecastEom: number | null
+  daily: number | null
+  allowance: number | null
+  used: number
+  leftover: number | null
+  overPace: boolean
+  unit: MtdUnit
+  basis: BudgetDayBasis
+  remainingPct?: number | null
+  quotaLabel?: string
+  locale?: Locale
+  series: MtdSeries[]
+}): PeriodMetric[] {
+  const locale = args.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).mtd
+  const metrics: PeriodMetric[] = []
   if (args.forecastEom !== null) {
     metrics.push({
       id: 'mtdForecast',
-      label: 'Month forecast',
+      label: copy.monthForecast,
       value:
         args.unit === 'percent'
           ? formatPercentPoint(args.forecastEom)
           : formatDollars(args.forecastEom),
       hint:
-        args.basis === 'calendarDays'
-          ? 'If this daily pace continues'
-          : 'If this working-day pace continues',
+        args.basis === 'calendarDays' ? copy.ifDailyPace : copy.ifWorkingPace,
+    })
+  }
+  if (args.allowance !== null) {
+    metrics.push({
+      id: 'mtdPace',
+      label: copy.pace,
+      value: args.overPace
+        ? copy.over
+        : args.used < args.allowance - 0.005
+          ? copy.under
+          : copy.onPace,
+      hint: paceHint(args.used, args.allowance, args.unit, locale),
+    })
+  }
+  metrics.push(toRunOutMetric(args.series, args.basis, locale))
+  if (args.avg !== null) {
+    metrics.push({
+      id: 'mtdAvg',
+      label: copy.dailyPace,
+      value:
+        args.unit === 'percent'
+          ? formatPercentPoint(args.avg)
+          : formatDollars(args.avg),
+      hint: remainingDaysHint(args.remaining, args.basis, locale),
     })
   }
   if (args.daily !== null) {
     metrics.push({
       id: 'mtdDaily',
-      label: 'Daily budget',
+      label: copy.dailyBudget,
       value:
         args.unit === 'percent'
           ? formatPercentPoint(args.daily)
@@ -657,23 +731,58 @@ function appendPaceMetrics(
       hint:
         args.unit === 'percent'
           ? args.basis === 'calendarDays'
-            ? '100% ÷ days this month'
-            : '100% ÷ working days this month'
+            ? copy.percentHintCalendar
+            : copy.percentHintWorking
           : undefined,
     })
   }
-  if (args.allowance !== null) {
+  if (args.leftover !== null) {
+    const perDay =
+      args.remaining > 0 ? args.leftover / args.remaining : args.leftover
     metrics.push({
-      id: 'mtdPace',
-      label: 'Pace',
-      value: args.overPace
-        ? 'Over'
-        : args.used < args.allowance - 0.005
-          ? 'Under'
-          : 'On pace',
-      hint: paceHint(args.used, args.allowance, args.unit),
+      id: 'mtdToLast',
+      label: copy.toLast,
+      value:
+        args.unit === 'percent'
+          ? formatPercentPoint(perDay)
+          : formatDollars(perDay),
+      hint:
+        args.remaining <= 0
+          ? remainingDaysHint(args.remaining, args.basis, locale)
+          : args.basis === 'calendarDays'
+            ? copy.toLastHintCalendar
+            : copy.toLastHintWorking,
     })
   }
+  metrics.push({
+    id: 'mtdDays',
+    label: daysSoFarLabel(args.basis, locale),
+    value: String(args.elapsed),
+  })
+  metrics.push({
+    id: 'mtdDaysLeft',
+    label: daysLeftCardLabel(args.basis, locale),
+    value: String(args.remaining),
+  })
+  if (args.remainingPct !== null && args.remainingPct !== undefined) {
+    metrics.push({
+      id: 'mtdLeft',
+      label: copy.quotaLeft,
+      value: formatPercentPoint(args.remainingPct),
+      hint: interpolate(copy.quotaLeftHint, {
+        label: args.quotaLabel ?? copy.includedUsage,
+      }),
+    })
+    return metrics
+  }
+  if (args.leftover !== null && args.unit === 'usd') {
+    metrics.push({
+      id: 'mtdLeft',
+      label: copy.budgetLeft,
+      value: formatDollars(args.leftover),
+    })
+  }
+  return metrics
 }
 
 function quotaSeriesId(name: string, index: number): string {
@@ -692,6 +801,8 @@ export function toMtdPace(
   const historyFromDate = options?.historyFromDate ?? null
   const now = options?.now ?? new Date()
   const basis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const locale = options?.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).mtd
   const sample = newestQueries(
     queries,
     sampleSizeLimit(historyLimit, historyFromDate),
@@ -722,6 +833,7 @@ export function toMtdPace(
         elapsed,
         MTD_PERCENT_MAX,
         weekdayTotal,
+        locale,
       ),
     )
     const today = todayIndex(frames)
@@ -729,59 +841,49 @@ export function toMtdPace(
       elapsed <= 0
         ? {
             verdict: 'ok' as const,
-            body: noDaysBody(basis),
+            body: noDaysBody(basis, locale),
           }
-        : percentVerdict(series, overPace, frames, basis)
+        : percentVerdict(series, overPace, frames, basis, locale)
     const bars: PeriodBar[] = series.map((line, index) => {
       const cycleUsed = Math.max(0, quotas[index]?.percent ?? 0)
       const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
       const todayText =
         daily === null
           ? ''
-          : ` · today ${formatPercentPoint(todayUsed)} / ${formatPercentPoint(daily)}`
+          : interpolate(copy.todayChunk, {
+              today: formatPercentPoint(todayUsed),
+              budget: formatPercentPoint(daily),
+            })
       return {
         label: line.label,
-        value: `${line.runOutLabel} · ${formatPercentPoint(cycleUsed)} used${todayText}`,
+        value: interpolate(copy.usedAmount, {
+          runOut: line.runOutLabel,
+          used: formatPercentPoint(cycleUsed),
+          today: todayText,
+        }),
         percent: Math.min(100, Math.round(cycleUsed)),
       }
     })
-    const metrics: PeriodMetric[] = [
-      {
-        id: 'mtdDays',
-        label: daysSoFarLabel(basis),
-        value: String(elapsed),
-      },
-    ]
-    appendPaceMetrics(metrics, {
+    const remainingPct = Math.max(0, MTD_PERCENT_MAX - used)
+    const metrics = buildPaceMetrics({
+      elapsed,
       remaining,
       avg,
       forecastEom,
       daily,
       allowance,
       used,
+      leftover: remainingPct,
       overPace,
       unit: 'percent',
       basis,
-      remainingPct: Math.max(0, MTD_PERCENT_MAX - used),
+      remainingPct,
       quotaLabel: primary.name,
+      locale,
+      series,
     })
-    const runOutMetric = series
-      .filter((line) => line.runOutDate !== null)
-      .map((line) => `${line.label} ~${line.runOutDate}`)
-      .join(' · ')
-    if (runOutMetric !== '') {
-      metrics.push({
-        id: 'mtdRunOut',
-        label: 'Runs out',
-        value: runOutMetric,
-        hint:
-          basis === 'calendarDays'
-            ? 'If this daily pace continues'
-            : 'If this working-day pace continues',
-      })
-    }
     return {
-      title: MTD_TITLE,
+      title: copy.title,
       value: '',
       body: answer.body,
       bars,
@@ -808,12 +910,13 @@ export function toMtdPace(
   const series = [
     toMtdSeries(
       'spend',
-      MTD_SPEND_SERIES_LABEL,
+      copy.spend,
       used,
       frames,
       elapsed,
       monthCap,
       weekdayTotal,
+      locale,
     ),
   ]
   const answer =
@@ -827,59 +930,51 @@ export function toMtdPace(
             forecastEom,
             basis,
             historyFromDate,
+            locale,
           ),
         }
-      : usdVerdict(overPace, forecastEom, monthCap, series, frames, basis)
+      : usdVerdict(overPace, forecastEom, monthCap, series, frames, basis, locale)
   const today = todayIndex(frames)
   const bars: PeriodBar[] =
     budget === null || elapsed <= 0
       ? []
       : series.map((line) => {
           const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
-          const todayText = ` · today ${formatDollars(todayUsed)} / ${formatDollars(budget)}`
+          const todayText = interpolate(copy.todayChunk, {
+            today: formatDollars(todayUsed),
+            budget: formatDollars(budget),
+          })
           return {
             label: line.label,
-            value: `${line.runOutLabel} · ${formatDollars(used)} used${todayText}`,
+            value: interpolate(copy.usedAmount, {
+              runOut: line.runOutLabel,
+              used: formatDollars(used),
+              today: todayText,
+            }),
             percent: poolPercent(used, allowance),
           }
         })
 
-  const metrics: PeriodMetric[] = [
-    {
-      id: 'mtdDays',
-      label: daysSoFarLabel(basis),
-      value: String(elapsed),
-    },
-  ]
-  appendPaceMetrics(metrics, {
+  const leftover =
+    monthCap === null ? null : Math.max(0, monthCap - used)
+  const metrics = buildPaceMetrics({
+    elapsed,
     remaining,
     avg,
     forecastEom,
     daily: budget,
     allowance,
     used,
+    leftover,
     overPace,
     unit: 'usd',
     basis,
+    locale,
+    series,
   })
-  const runOutMetric = series
-    .filter((line) => line.runOutDate !== null)
-    .map((line) => `${line.label} ~${line.runOutDate}`)
-    .join(' · ')
-  if (runOutMetric !== '') {
-    metrics.push({
-      id: 'mtdRunOut',
-      label: 'Runs out',
-      value: runOutMetric,
-      hint:
-        basis === 'calendarDays'
-          ? 'If this daily pace continues'
-          : 'If this working-day pace continues',
-    })
-  }
 
   return {
-    title: MTD_TITLE,
+    title: copy.title,
     value: '',
     body: answer.body,
     bars,
