@@ -1,0 +1,28 @@
+---
+description: After Warn-at — next coding-stats / git / polyrepo slice starts in a new chat
+alwaysApply: true
+---
+# Next feature slice after Warn-at
+
+This chat burned **~3.6M tokens / 2.55 $** (`grok-4.6-high`, cache **88%**) by stacking Generated Lines follow-ups in one Agent thread after `!`: git-author filter, account picker + N catalogs, clone grouping, then polyrepo-in-parent-folder — and pasting **Optimize Deep into the same spiked chat**. Volume was **context**, not cold cache.
+
+## After a red `!` in this chat
+
+- The **next** coding-stats / git-lines / polyrepo / “?” account-picker ask is a **new Composer chat**, not another full slice here.
+- Message: **one goal + ≤5 paths**. Example: polyrepo discovery only (`src/codeLines/nestedRepos.ts`, `runGitMerged.ts`, `test/codeLinesNestedRepos.test.ts`).
+- Do **not** chain: author filter → picker + all locale catalogs → clone grouping → 20-repo stack → Deep Optimize in the same growing thread.
+- “Upewnij się że zadziała” / replay the screenshot after `!` → **Ask** (or a cheaper model) unless they name a **code defect** and ≤5 paths.
+- Do **not** paste Optimize (Deep) here — that is the spike eating itself.
+
+## Still allowed
+
+- User names **only** VSIX / `npm run package` (one Shell `all`, no extra reads).
+- Finish the **already-open** named leftover (≤5 paths, one section).
+- Quality of the current slice if the ask is still that same leftover.
+
+## Checklist (user)
+
+- [ ] New Composer chat after `!` for the next git/coding-stats feature
+- [ ] Goal + ≤5 paths; no “and also polyrepo while we’re here”
+- [ ] Package in its own message if they want VSIX
+- [ ] Optimize Deep in a **new** chat, not this one

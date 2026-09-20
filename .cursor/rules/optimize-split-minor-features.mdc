@@ -17,6 +17,7 @@ When the ask is “implement the plan” for a MINOR (e.g. Burn Rate Guard), **d
 - Next message must be **narrower** than the spike turn (goal + ≤5 paths).
 - Prefer a **new chat** for Optimize Deep / another full feature — do not re-paste Optimize into a chat that already crossed Warn-at and is still growing.
 - Do not start another full “implement everything” pass in the same thread.
+- After `!`, git-author / clone-group / polyrepo / “?” picker is a **new** MINOR — [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc), not phase 2 of the spiked chat.
 
 ## Tool budget
 

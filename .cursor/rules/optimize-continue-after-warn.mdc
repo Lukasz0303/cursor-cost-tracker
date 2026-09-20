@@ -11,6 +11,7 @@ This pattern burned multi-million tokens when the user said “continue” / “
 - Do **not** treat “continue” / “kontynuj prace” as permission to finish the whole leftover feature surface.
 - Prefer a **new Composer chat**. If staying here, the next ask must name **≤5 paths** and one concrete leftover (e.g. one Settings fieldset, not all of Settings).
 - Do **not** paste Optimize (Deep) into this thread again — start Optimize in a new chat.
+- **Another** coding-stats / git-lines / polyrepo / account-picker feature after `!` is not a leftover slice — new chat; see [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc).
 - **Icon / glyph / CSS polish** after `!` is not a leftover slice — new chat, ≤2 `media/history.*` paths; see [optimize-cosmetic-after-warn.mdc](./optimize-cosmetic-after-warn.mdc).
 - Do not bump version or `npm run package` on that polish turn unless the user named VSIX.
 
