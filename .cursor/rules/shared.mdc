@@ -22,8 +22,10 @@ When adding code, follow this layout and update `.ai/context/architecture.md` if
 
 - `src/extension.ts` — activate / deactivate
 - `src/usage/` — session, api, parse, service (polling, cache)
-- `src/ui/` — statusBar, statusBarTooltip, historyPanel, periodStats, periodCards, mtdPace, optimize*, criticalAlert
+- `src/ui/` — statusBar, statusBarTooltip, historyPanel, periodStats, periodCards, mtdPace, optimize*, criticalAlert, burnRateAlert
 - `src/spikes/` — token threshold (`isSpike`), last-query critical alert
+- `src/burnRate/` — live window, pace, level, toast copy
+- `src/codeLines/` — AI composer line totals vs git merged to main/master
 - `src/format.ts`, `src/config.ts`, `src/historyLimit.ts`, `src/historyFromDate.ts`, `src/optimizeDepth.ts`, `src/supportLinks.ts`
 - `media/` — history.html / css / js
 - `icon.png` — extension / marketplace icon (`package.json` `"icon"`)
@@ -49,5 +51,5 @@ When adding code, follow this layout and update `.ai/context/architecture.md` if
 - No auto-fix, workspace LLM scan, or conversation/transcript analysis. **Optimize** tab may build ready prompts from usage metadata for the **last red query** (tokens ≥ Warn at / `spikeTokenThreshold`), paste into the last active Composer chat, and let the user press Start. Projected save numbers come from agent-written `.ai/optimize-savings.md` after Start — not a fixed extension heuristic. Credited lifetime savings (mid deltas per Optimize run, total + per project) are stored in extension `globalState`. Optimize shows one collapsed **Projected save per similar request** card; expand for the explanation and per-project credits.
 - Never send access token / session cookie to the webview or logs.
 - `activate()` must not block on network.
-- A blocking modal only for the last-query critical alert (default 10M tokens or $5). Do not add other modals.
+- A blocking modal only for the last-query critical alert (default 10M tokens or $5). Do not add other modals. Burn Rate Guard uses non-modal toasts only.
 - Do not add Activity Bar, Electron, or native sqlite-only path in MVP.

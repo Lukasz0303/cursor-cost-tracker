@@ -4,6 +4,8 @@ import {
   formatDollarSign,
   formatTokens,
 } from '../format'
+import { catalogFor, interpolate } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery } from '../usage/types'
 
@@ -16,6 +18,8 @@ export const DEFAULT_CRITICAL_ALERT_GRACE_MS = 5 * 60_000
 
 export const CRITICAL_ALERT_SEEN_KEY = 'cursorCost.lastCriticalSeenKey'
 export const CRITICAL_ALERT_STATE_KEY = 'cursorCost.lastCriticalAlertKey'
+/** Timestamp of the last query that already showed (or was Ignored on) the critical modal. */
+export const CRITICAL_ALERT_ALERTED_TS_KEY = 'cursorCost.lastCriticalAlertedTimestamp'
 
 export type CriticalAlertThresholds = {
   tokenThreshold: number
@@ -96,46 +100,97 @@ export function isCriticalQuery(
   return breach.tokens || breach.cost
 }
 
+/** Newest query that breaches critical thresholds (not necessarily the absolute newest). */
+export function newestCriticalQuery(
+  queries: readonly UsageQuery[],
+  thresholds: CriticalAlertThresholds,
+): UsageQuery | undefined {
+  let newest: UsageQuery | undefined
+  for (const query of queries) {
+    if (!isCriticalQuery(query, thresholds)) {
+      continue
+    }
+    if (newest === undefined || query.timestamp > newest.timestamp) {
+      newest = query
+    }
+  }
+  return newest
+}
+
+/** Extreme enough that late API delivery should still block (skip first-load grace). */
+export function isExtremeCriticalBreach(
+  query: UsageQuery,
+  thresholds: CriticalAlertThresholds,
+): boolean {
+  const tokenFloor = thresholds.tokenThreshold * 2
+  const costFloor = thresholds.costUsdThreshold * 2
+  return (
+    (Number.isFinite(query.tokens) && query.tokens >= tokenFloor) ||
+    (Number.isFinite(query.costUsd) && query.costUsd >= costFloor)
+  )
+}
+
 export function decideCriticalAlert(input: {
   queries: readonly UsageQuery[]
   thresholds: CriticalAlertThresholds
   enabled: boolean
   lastSeenKey: string | undefined
+  /** When set, do not re-alert the same query if API later revises tokens/cost. */
+  lastAlertedTimestamp?: number
   nowMs?: number
   graceMs?: number
 }): CriticalAlertDecision {
-  const query = newestQuery(input.queries)
-  if (query === undefined) {
+  const newest = newestQuery(input.queries)
+  if (newest === undefined) {
     return { kind: 'skip' }
   }
-  const key = queryFingerprint(query)
-  if (key === input.lastSeenKey) {
-    return { kind: 'skip' }
+  const newestKey = queryFingerprint(newest)
+  const critical = newestCriticalQuery(input.queries, input.thresholds)
+
+  if (critical === undefined) {
+    if (newestKey === input.lastSeenKey) {
+      return { kind: 'skip' }
+    }
+    return { kind: 'remember', key: newestKey }
   }
+
+  const criticalKey = queryFingerprint(critical)
+  const alreadyAlerted =
+    input.lastAlertedTimestamp !== undefined &&
+    critical.timestamp === input.lastAlertedTimestamp
+  if (alreadyAlerted || criticalKey === input.lastSeenKey) {
+    if (newestKey === input.lastSeenKey) {
+      return { kind: 'skip' }
+    }
+    return { kind: 'remember', key: newestKey }
+  }
+
   if (!input.enabled) {
-    return { kind: 'remember', key }
+    return { kind: 'remember', key: criticalKey }
   }
-  const breach = criticalBreach(query, input.thresholds)
-  if (!breach.tokens && !breach.cost) {
-    return { kind: 'remember', key }
-  }
+
+  const breach = criticalBreach(critical, input.thresholds)
   const nowMs = input.nowMs ?? Date.now()
   const graceMs =
     input.graceMs === undefined
       ? DEFAULT_CRITICAL_ALERT_GRACE_MS
       : input.graceMs
   const isFirstSeen = input.lastSeenKey === undefined
-  const ageMs = nowMs - query.timestamp
-  if (isFirstSeen && ageMs > graceMs) {
-    return { kind: 'remember', key }
+  const ageMs = nowMs - critical.timestamp
+  if (
+    isFirstSeen &&
+    ageMs > graceMs &&
+    !isExtremeCriticalBreach(critical, input.thresholds)
+  ) {
+    return { kind: 'remember', key: criticalKey }
   }
-  return { kind: 'alert', query, key, breach }
+  return { kind: 'alert', query: critical, key: criticalKey, breach }
 }
 
-function modelLabel(model: string | null): string {
+function modelLabel(model: string | null, locale: Locale): string {
   const stripped = stripModelPrefix(model)
   if (stripped === null || stripped.trim() === '') {
-    return 'unknown model'
+    return catalogFor(locale).alerts.unknownModel
   }
   return stripped
 }
@@ -144,27 +199,32 @@ export function formatCriticalAlertCopy(
   query: UsageQuery,
   thresholds: CriticalAlertThresholds,
   breach: CriticalBreach,
+  locale: Locale = DEFAULT_LOCALE,
 ): CriticalAlertCopy {
   const compact = formatCompactTokens(query.tokens)
   const exact = formatTokens(query.tokens)
   const cost = formatDollarSign(query.costUsd)
   const tokenLimit = formatCompactTokens(thresholds.tokenThreshold)
   const costLimit = formatDollarSign(thresholds.costUsdThreshold)
+  const copy = catalogFor(locale).alerts
 
-  let reason = `This exceeds your critical alert of ${tokenLimit} tokens or ${costLimit}.`
+  let reason = interpolate(copy.exceedsBoth, { tokenLimit, costLimit })
   if (breach.tokens && !breach.cost) {
-    reason = `Tokens exceed your critical alert of ${tokenLimit}.`
+    reason = interpolate(copy.exceedsTokens, { tokenLimit })
   } else if (breach.cost && !breach.tokens) {
-    reason = `Cost exceeds your critical alert of ${costLimit}.`
+    reason = interpolate(copy.exceedsCost, { costLimit })
   }
 
   return {
-    message: `Last Cursor query used ${compact} tokens and cost ${cost}.`,
+    message: interpolate(copy.lastQuery, { tokens: compact, cost }),
     detail: [
       reason,
-      `${exact} tokens · ${cost}`,
-      `${modelLabel(query.model)} · ${formatDateTime(query.timestamp)}`,
-      'You will not be asked about this query again.',
+      interpolate(copy.detailLine, { tokens: exact, cost }),
+      interpolate(copy.modelTime, {
+        model: modelLabel(query.model, locale),
+        time: formatDateTime(query.timestamp),
+      }),
+      copy.notAskedAgain,
     ].join('\n'),
   }
 }

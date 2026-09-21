@@ -1,5 +1,35 @@
 (function () {
   const vscode = acquireVsCodeApi()
+  const SUPPORTED_LANGUAGES = {
+    en: true,
+    pl: true,
+    'zh-cn': true,
+    ja: true,
+    es: true,
+    'pt-br': true,
+    ru: true,
+    ko: true,
+    fr: true,
+    de: true,
+  }
+  function isSupportedLanguage(value) {
+    return typeof value === 'string' && SUPPORTED_LANGUAGES[value] === true
+  }
+  const DOCUMENT_LANG = {
+    en: 'en',
+    pl: 'pl',
+    'zh-cn': 'zh-CN',
+    ja: 'ja',
+    es: 'es',
+    'pt-br': 'pt-BR',
+    ru: 'ru',
+    ko: 'ko',
+    fr: 'fr',
+    de: 'de',
+  }
+  function documentLangFor(value) {
+    return DOCUMENT_LANG[value] || 'en'
+  }
   const DEFAULT_OK = '#89D185'
   const DEFAULT_WARN = '#F14C4C'
   const rowsEl = document.getElementById('rows')
@@ -8,9 +38,7 @@
   const closeEl = document.getElementById('close')
   const thresholdEl = document.getElementById('threshold')
   const thresholdPreviewEl = document.getElementById('thresholdPreview')
-  const applyEl = document.getElementById('applyThreshold')
   const historyLimitEl = document.getElementById('historyLimit')
-  const applyHistoryLimitEl = document.getElementById('applyHistoryLimit')
   const historyFromDateEl = document.getElementById('historyFromDate')
   const fromMonthSettingEl = document.getElementById('fromMonthSetting')
   const fromTodaySettingEl = document.getElementById('fromTodaySetting')
@@ -22,15 +50,27 @@
   const criticalTokenEl = document.getElementById('criticalTokenThreshold')
   const criticalTokenPreviewEl = document.getElementById('criticalTokenPreview')
   const criticalCostEl = document.getElementById('criticalCostThreshold')
-  const applyCriticalAlertEl = document.getElementById('applyCriticalAlert')
+  const burnRateGuardEl = document.getElementById('burnRateGuard')
+  const burnRateWindowEl = document.getElementById('burnRateWindowMinutes')
+  const burnRateWarningUsdEl = document.getElementById('burnRateWarningUsd')
+  const burnRateCriticalUsdEl = document.getElementById('burnRateCriticalUsd')
+  const burnRateMinQueriesEl = document.getElementById('burnRateMinQueries')
+  const burnRateWarningToastEl = document.getElementById('burnRateWarningToast')
+  const burnRateCriticalToastEl = document.getElementById('burnRateCriticalToast')
+  const codeLinesInsightEl = document.getElementById('codeLinesInsight')
+  const chartCodeLinesEl = document.getElementById('chartCodeLines')
+  const codeLinesChartCardEl = document.getElementById('codeLinesChartCard')
+  const codeLinesChartRatioEl = document.getElementById('codeLinesChartRatio')
+  const codeLinesLegendPendingEl = document.getElementById('codeLinesLegendPending')
+  const codeLinesLegendAllEl = document.getElementById('codeLinesLegendAll')
   const showStatusBarEl = document.getElementById('showStatusBar')
   const showTodayEl = document.getElementById('showToday')
   const minimalModeEl = document.getElementById('minimalMode')
   const recentQueryCountEl = document.getElementById('recentQueryCount')
   const budgetDayBasisEl = document.getElementById('budgetDayBasis')
   const optimizeDepthSettingEl = document.getElementById('optimizeDepthSetting')
+  const languageSettingEl = document.getElementById('languageSetting')
   const pollIntervalEl = document.getElementById('pollInterval')
-  const applyPollIntervalEl = document.getElementById('applyPollInterval')
   const statusBarPreviewEl = document.getElementById('statusBarPreview')
   const statusBarPreviewEmptyEl = document.getElementById('statusBarPreviewEmpty')
   const okColorEl = document.getElementById('okColor')
@@ -85,10 +125,17 @@
   let thresholdDirty = false
   let criticalTokenDirty = false
   let criticalCostDirty = false
+  let burnWindowDirty = false
+  let burnWarningDirty = false
+  let burnCriticalDirty = false
+  let burnMinQueriesDirty = false
   const historyLimitEls = [historyLimitEl].filter(Boolean)
   const historyFromDateEls = [historyFromDateEl].filter(Boolean)
   let historyFromDate = ''
   let chartPoints = []
+  let codeLinesSeries = []
+  let codeLinesSummary = null
+  let codeLinesDefaultBranch = 'master'
   let mtdForecastPoints = []
   let mtdForecastSeries = []
   let mtdUnit = 'usd'
@@ -97,9 +144,12 @@
   let mtdForecastSvgs = []
   let budgetDayBasis = 'workingDays'
   let optimizeDepth = 'balanced'
+  let uiLanguage = 'en'
+  let ui = null
   let chartResizeTimer = 0
   let tableEvents = []
   let tableWarnOn = true
+  let tableBurnLevel = 'ok'
   let spikesOnly = false
   const MIN_HISTORY = 100
   const MAX_HISTORY = 10000
@@ -110,6 +160,16 @@
   const MIN_RECENT_QUERY_COUNT = 1
   const MAX_RECENT_QUERY_COUNT = 10
   const DEFAULT_RECENT_QUERY_COUNT = 3
+  const MIN_BURN_WINDOW = 2
+  const MAX_BURN_WINDOW = 60
+  const DEFAULT_BURN_WINDOW = 10
+  const MIN_BURN_USD = 0.01
+  const MAX_BURN_USD = 10000
+  const DEFAULT_BURN_WARNING_USD = 2
+  const DEFAULT_BURN_CRITICAL_USD = 5
+  const MIN_BURN_QUERIES = 1
+  const MAX_BURN_QUERIES = 50
+  const DEFAULT_BURN_QUERIES = 2
 
   const BAR_ICON_PATHS = {
     'credit-card':
@@ -162,6 +222,48 @@
     }
     if (n > MAX_RECENT_QUERY_COUNT) {
       return MAX_RECENT_QUERY_COUNT
+    }
+    return n
+  }
+
+  function clampBurnWindow(value) {
+    const n = Math.round(Number(value))
+    if (!Number.isFinite(n)) {
+      return DEFAULT_BURN_WINDOW
+    }
+    if (n < MIN_BURN_WINDOW) {
+      return MIN_BURN_WINDOW
+    }
+    if (n > MAX_BURN_WINDOW) {
+      return MAX_BURN_WINDOW
+    }
+    return n
+  }
+
+  function clampBurnUsd(value, fallback) {
+    const n = Math.round(Number(value) * 100) / 100
+    if (!Number.isFinite(n)) {
+      return fallback
+    }
+    if (n < MIN_BURN_USD) {
+      return MIN_BURN_USD
+    }
+    if (n > MAX_BURN_USD) {
+      return MAX_BURN_USD
+    }
+    return n
+  }
+
+  function clampBurnMinQueries(value) {
+    const n = Math.round(Number(value))
+    if (!Number.isFinite(n)) {
+      return DEFAULT_BURN_QUERIES
+    }
+    if (n < MIN_BURN_QUERIES) {
+      return MIN_BURN_QUERIES
+    }
+    if (n > MAX_BURN_QUERIES) {
+      return MAX_BURN_QUERIES
     }
     return n
   }
@@ -219,13 +321,19 @@
 
   function lastHeading(limit) {
     if (historyFromDate) {
-      return 'From ' + formatFromDateLabel(historyFromDate)
+      return t('queries.fromHeading', {
+        date: formatFromDateLabel(historyFromDate),
+      })
     }
-    return 'Last ' + clampHistoryLimit(limit)
+    return t('queries.lastHeading', { n: clampHistoryLimit(limit) })
   }
 
   function applyHistoryTitle(limit) {
-    const title = lastHeading(limit) + ' Cursor queries'
+    const title = historyFromDate
+      ? t('queries.fromTitle', {
+          date: formatFromDateLabel(historyFromDate),
+        })
+      : t('queries.lastTitle', { n: clampHistoryLimit(limit) })
     if (tabQueriesEl) {
       setText(tabQueriesEl, title)
     }
@@ -268,11 +376,105 @@
     const busy = refreshing === true
     refreshQueriesEl.disabled = busy
     refreshQueriesEl.setAttribute('aria-busy', busy ? 'true' : 'false')
-    setText(refreshQueriesEl, busy ? 'Refreshing…' : 'Refresh')
+    const label = busy ? t('toolbar.refreshing') : t('toolbar.refresh')
+    if (label) {
+      refreshQueriesEl.title = label
+      refreshQueriesEl.setAttribute('aria-label', label)
+    }
+    const icon = refreshQueriesEl.querySelector('.bar-icon')
+    if (icon) {
+      if (busy) {
+        icon.classList.add('is-spin')
+      } else {
+        icon.classList.remove('is-spin')
+      }
+    }
   }
 
   function setText(el, text) {
     el.textContent = text
+  }
+
+  function interpolate(template, vars) {
+    if (typeof template !== 'string') {
+      return ''
+    }
+    const map = vars && typeof vars === 'object' ? vars : {}
+    return template.replace(/\{(\w+)\}/g, function (match, key) {
+      if (!Object.prototype.hasOwnProperty.call(map, key)) {
+        return match
+      }
+      return String(map[key])
+    })
+  }
+
+  function lookupPath(root, path) {
+    if (!root || typeof path !== 'string') {
+      return undefined
+    }
+    const parts = path.split('.')
+    let cur = root
+    for (let i = 0; i < parts.length; i++) {
+      if (cur === null || cur === undefined || typeof cur !== 'object') {
+        return undefined
+      }
+      cur = cur[parts[i]]
+    }
+    return cur
+  }
+
+  function t(path, vars) {
+    const value = lookupPath(ui, path)
+    if (typeof value !== 'string') {
+      return path
+    }
+    return vars ? interpolate(value, vars) : value
+  }
+
+  function depthLabel(depth) {
+    if (depth === 'quick') {
+      return t('depth.quick')
+    }
+    if (depth === 'deep') {
+      return t('depth.deep')
+    }
+    return t('depth.balanced')
+  }
+
+  function applyStaticI18n() {
+    if (!ui) {
+      return
+    }
+    document.documentElement.lang = documentLangFor(uiLanguage)
+    const textNodes = document.querySelectorAll('[data-i18n]')
+    for (let i = 0; i < textNodes.length; i++) {
+      const el = textNodes[i]
+      const key = el.getAttribute('data-i18n')
+      const value = lookupPath(ui, key)
+      if (typeof value === 'string') {
+        if (el.getAttribute('data-i18n-html') === 'true') {
+          el.innerHTML = value
+        } else {
+          setText(el, value)
+        }
+      }
+    }
+    const titleNodes = document.querySelectorAll('[data-i18n-title]')
+    for (let i = 0; i < titleNodes.length; i++) {
+      const el = titleNodes[i]
+      const value = lookupPath(ui, el.getAttribute('data-i18n-title'))
+      if (typeof value === 'string') {
+        el.title = value
+      }
+    }
+    const ariaNodes = document.querySelectorAll('[data-i18n-aria]')
+    for (let i = 0; i < ariaNodes.length; i++) {
+      const el = ariaNodes[i]
+      const value = lookupPath(ui, el.getAttribute('data-i18n-aria'))
+      if (typeof value === 'string') {
+        el.setAttribute('aria-label', value)
+      }
+    }
   }
 
   function addCell(tr, text, className) {
@@ -651,7 +853,7 @@
     if (!host.tip || !host.wrap || !point || !line) {
       return
     }
-    const label = line.label || 'Used'
+    const label = line.label || t('mtd.used')
     const tone = line.tone || 'is-s0'
     const used = line.used ? line.used[index] : null
     const limit = mtdTipLimit(point, line, index)
@@ -667,6 +869,14 @@
     placeTip(host.tip, host.wrap, clientX, clientY)
   }
 
+  function barCenterX(index, count, left, plotW) {
+    if (count <= 0) {
+      return left
+    }
+    const gap = plotW / count
+    return left + gap * (index + 0.5)
+  }
+
   function showChartTip(point, kind, cumulative, clientX, clientY) {
     if (!chartTipEl || !chartsViewEl) {
       return
@@ -677,9 +887,14 @@
       kind === 'tokens' ? compactTokens(cumulative) : compactCost(cumulative)
     chartTipEl.replaceChildren()
     chartTipEl.appendChild(tipTitle(point.time))
-    chartTipEl.appendChild(tipSub(point.model))
-    chartTipEl.appendChild(tipRow(kind === 'tokens' ? 'Tokens' : 'Cost', per))
-    chartTipEl.appendChild(tipRow('Total', total))
+    const queries = Number(point.queryCount)
+    if (Number.isFinite(queries) && queries > 0) {
+      chartTipEl.appendChild(tipSub(t('charts.tipQueries', { n: queries })))
+    }
+    chartTipEl.appendChild(
+      tipRow(kind === 'tokens' ? t('charts.tipTokens') : t('charts.tipCost'), per),
+    )
+    chartTipEl.appendChild(tipRow(t('charts.tipTotal'), total))
     placeChartTip(clientX, clientY)
   }
 
@@ -727,7 +942,7 @@
       running += safe
       cum.push(running)
     }
-    const maxCum = niceMax(running)
+    const maxY = niceMax(running)
     const format = kind === 'tokens' ? compactTokens : compactCost
     const ticks = 4
     for (let t = 0; t <= ticks; t++) {
@@ -748,7 +963,7 @@
         y: String(y + 3),
         'text-anchor': 'end',
       })
-      setText(leftLabel, format(maxCum * frac))
+      setText(leftLabel, format(maxY * frac))
       svg.appendChild(leftLabel)
     }
 
@@ -760,7 +975,7 @@
         continue
       }
       seen[idx] = true
-      const x = pointX(idx, points.length, left, plotW)
+      const x = barCenterX(idx, points.length, left, plotW)
       const label = svgNode('text', {
         class: 'chart-label',
         x: String(x),
@@ -771,56 +986,16 @@
       svg.appendChild(label)
     }
 
-    const showBars = points.length <= 400
-    if (showBars) {
-      const gap = points.length <= 1 ? plotW : plotW / (points.length - 1)
-      const barW = Math.max(1, Math.min(10, gap * 0.55))
-      for (let i = 0; i < points.length; i++) {
-        const x = pointX(i, points.length, left, plotW)
-        const y = yAt(cum[i], maxCum, top, plotH)
-        const h = top + plotH - y
-        if (h <= 0) {
-          continue
-        }
-        svg.appendChild(chartBarRect(x, y, barW, h))
-      }
-    }
-
-    const linePts = []
-    const areaPts = [left + ',' + (top + plotH)]
+    const gap = plotW / points.length
+    const barW = Math.max(2, Math.min(36, gap * 0.72))
     for (let i = 0; i < points.length; i++) {
-      const x = pointX(i, points.length, left, plotW)
-      const y = yAt(cum[i], maxCum, top, plotH)
-      linePts.push(x + ',' + y)
-      areaPts.push(x + ',' + y)
-    }
-    areaPts.push(left + plotW + ',' + (top + plotH))
-    svg.appendChild(
-      svgNode('polygon', {
-        class: 'chart-area',
-        points: areaPts.join(' '),
-      }),
-    )
-    svg.appendChild(
-      svgNode('polyline', {
-        class: 'chart-line',
-        points: linePts.join(' '),
-      }),
-    )
-
-    if (points.length <= 80) {
-      for (let i = 0; i < points.length; i++) {
-        const x = pointX(i, points.length, left, plotW)
-        const y = yAt(cum[i], maxCum, top, plotH)
-        svg.appendChild(
-          svgNode('circle', {
-            class: 'chart-dot',
-            cx: String(x),
-            cy: String(y),
-            r: '2.5',
-          }),
-        )
+      const x = barCenterX(i, points.length, left, plotW)
+      const y = yAt(cum[i], maxY, top, plotH)
+      const h = top + plotH - y
+      if (h <= 0) {
+        continue
       }
+      svg.appendChild(chartBarRect(x, y, barW, h, 'chart-bar is-day'))
     }
 
     const hit = svgNode('rect', {
@@ -837,7 +1012,7 @@
       let best = 0
       let bestDist = Infinity
       for (let i = 0; i < points.length; i++) {
-        const x = pointX(i, points.length, left, plotW)
+        const x = barCenterX(i, points.length, left, plotW)
         const dist = Math.abs(x - xSvg)
         if (dist < bestDist) {
           bestDist = dist
@@ -1029,11 +1204,11 @@
   function mtdRangeToggle() {
     const wrap = el('div', 'mtd-range')
     wrap.setAttribute('role', 'group')
-    wrap.setAttribute('aria-label', 'Chart range')
+    wrap.setAttribute('aria-label', t('mtd.rangeAria'))
     const options = [
-      { id: 'today', label: 'Today' },
-      { id: '7d', label: '7 days' },
-      { id: 'month', label: 'Month' },
+      { id: 'today', label: t('mtd.rangeToday') },
+      { id: '7d', label: t('mtd.range7d') },
+      { id: 'month', label: t('mtd.rangeMonth') },
     ]
     for (let i = 0; i < options.length; i++) {
       const opt = options[i]
@@ -1091,7 +1266,7 @@
     const rawSeries = Array.isArray(series) ? series : []
     for (let i = 0; i < rawSeries.length; i++) {
       lines.push({
-        label: String(rawSeries[i].label || 'Used'),
+        label: String(rawSeries[i].label || t('mtd.used')),
         tone: 'is-s' + (i % 4),
         day: numbersOrNull(rawSeries[i].day),
         used: numbersOrNull(rawSeries[i].used),
@@ -1323,7 +1498,7 @@
             y: String(top + 12 + i * 12),
             'text-anchor': 'start',
           })
-          setText(label, 'Out ' + line.runOutDate)
+          setText(label, t('charts.out', { date: line.runOutDate }))
           svg.appendChild(label)
         }
       } else {
@@ -1391,8 +1566,15 @@
   function drawAllCharts() {
     const emptyQueries = !chartPoints || chartPoints.length === 0
     const emptyMtd = !mtdForecastPoints || mtdForecastPoints.length === 0
+    const hasCodeLinesSummary =
+      !!codeLinesSummary &&
+      (typeof codeLinesSummary.ai === 'number' ||
+        typeof codeLinesSummary.onMaster === 'number' ||
+        typeof codeLinesSummary.allEdited === 'number')
+    const emptyCodeLines =
+      (!codeLinesSeries || codeLinesSeries.length === 0) && !hasCodeLinesSummary
     if (chartsEmptyEl) {
-      chartsEmptyEl.hidden = !(emptyQueries && emptyMtd)
+      chartsEmptyEl.hidden = !(emptyQueries && emptyMtd && emptyCodeLines)
     }
     if (emptyQueries) {
       clearSvg(chartTokensEl)
@@ -1405,6 +1587,23 @@
         drawChart(chartCostEl, chartPoints, 'cost')
       }
     }
+    const hasCodeLines = !emptyCodeLines
+    if (codeLinesChartCardEl) {
+      codeLinesChartCardEl.hidden = !hasCodeLines
+    }
+    if (!hasCodeLines) {
+      clearSvg(chartCodeLinesEl)
+      renderCodeLinesChartRatio(null)
+      syncCodeLinesChartLegend(null)
+    } else if (chartCodeLinesEl) {
+      const headline = drawCodeLinesChart(
+        chartCodeLinesEl,
+        codeLinesSeries,
+        codeLinesSummary,
+      )
+      renderCodeLinesChartRatio(headline)
+      syncCodeLinesChartLegend(headline)
+    }
     if (emptyMtd) {
       for (let i = 0; i < mtdForecastSvgs.length; i++) {
         clearSvg(mtdForecastSvgs[i])
@@ -1412,10 +1611,195 @@
     } else {
       redrawMtdForecastChart()
     }
-    if (emptyQueries && emptyMtd) {
+    if (emptyQueries && emptyMtd && emptyCodeLines) {
       hideChartTips()
     }
   }
+
+  function drawCodeLinesChart(svg, series, summary) {
+    clearSvg(svg)
+    const raw = summary || {}
+    let ai = typeof raw.ai === 'number' ? raw.ai : null
+    let onMaster = typeof raw.onMaster === 'number' ? raw.onMaster : null
+    if ((ai === null || onMaster === null) && series && series.length) {
+      let aiCum = 0
+      let landedCum = 0
+      for (let i = 0; i < series.length; i++) {
+        aiCum += Number(series[i].ai) || 0
+        landedCum += Number(series[i].onMaster) || Number(series[i].merged) || 0
+      }
+      if (ai === null) {
+        ai = aiCum
+      }
+      if (onMaster === null) {
+        onMaster = landedCum
+      }
+    }
+    const headline = codeLinesHeadline({
+      ai: ai,
+      allEdited: raw.allEdited,
+      onMaster: onMaster,
+      pending: raw.pending,
+      merged: raw.merged,
+      rangeLabel: raw.rangeLabel,
+    })
+    const rows = [
+      {
+        value: headline.onMaster,
+        fillClass: 'chart-code-fill is-landed',
+        label: t('codeLines.onBranch', { branch: codeLinesDefaultBranch }),
+      },
+    ]
+    if (headline.pending > 0) {
+      rows.push({
+        value: headline.pending,
+        fillClass: 'chart-code-fill is-pending',
+        label: t('codeLines.stillAhead', { branch: codeLinesDefaultBranch }),
+      })
+    }
+    rows.push({
+      value: headline.ai,
+      fillClass: 'chart-code-fill is-ai-total',
+      label: t('charts.aiGenerated'),
+    })
+    if (headline.allEdited > 0) {
+      rows.push({
+        value: headline.allEdited,
+        fillClass: 'chart-code-fill is-all',
+        label: t('codeLines.allProjects'),
+      })
+    }
+
+    const width = 800
+    const padL = 210
+    const padR = 110
+    const padT = 20
+    const padB = 16
+    const barH = 32
+    const gap = 18
+    const height =
+      padT + rows.length * barH + Math.max(0, rows.length - 1) * gap + padB
+    const innerW = width - padL - padR
+    const maxV = Math.max(
+      headline.ai,
+      headline.onMaster,
+      headline.pending,
+      headline.allEdited,
+      1,
+    )
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
+
+    function bar(y, value, fillClass, label, countLabel) {
+      const w = Math.max(value > 0 ? 2 : 0, (innerW * value) / maxV)
+      svg.appendChild(
+        svgNode('text', {
+          x: padL - 12,
+          y: y + barH / 2 + 5,
+          class: 'chart-code-label',
+          'text-anchor': 'end',
+        }),
+      )
+      svg.lastChild.textContent = label
+      svg.appendChild(
+        svgNode('rect', {
+          x: padL,
+          y: y,
+          width: innerW,
+          height: barH,
+          rx: 6,
+          class: 'chart-code-track',
+        }),
+      )
+      if (w > 0) {
+        svg.appendChild(
+          svgNode('rect', {
+            x: padL,
+            y: y,
+            width: w,
+            height: barH,
+            rx: 6,
+            class: fillClass,
+          }),
+        )
+      }
+      svg.appendChild(
+        svgNode('text', {
+          x: padL + innerW + 10,
+          y: y + barH / 2 + 5,
+          class: 'chart-code-value',
+          'text-anchor': 'start',
+        }),
+      )
+      svg.lastChild.textContent = countLabel
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      bar(
+        padT + i * (barH + gap),
+        row.value,
+        row.fillClass,
+        row.label,
+        formatCodeLinesCount(row.value),
+      )
+    }
+    return headline
+  }
+
+  function renderCodeLinesChartRatio(headline) {
+    if (!codeLinesChartRatioEl) {
+      return
+    }
+    while (codeLinesChartRatioEl.firstChild) {
+      codeLinesChartRatioEl.removeChild(codeLinesChartRatioEl.firstChild)
+    }
+    if (!headline) {
+      return
+    }
+    if (headline.rangeText) {
+      const rangeEl = el('p', 'code-lines-chart-range')
+      setText(rangeEl, headline.rangeText)
+      codeLinesChartRatioEl.appendChild(rangeEl)
+    }
+    const chartFormulas = codeLinesFormulas([
+      {
+        formula: headline.rateFormula,
+        caption: t('codeLines.yourRate'),
+        hero: true,
+      },
+    ])
+    if (chartFormulas) {
+      codeLinesChartRatioEl.appendChild(chartFormulas)
+    }
+    const chartLanded = codeLinesCollapsedFormula(
+      headline.landedFormula,
+      t('codeLines.ifLanded', { branch: codeLinesDefaultBranch }),
+    )
+    if (chartLanded) {
+      codeLinesChartRatioEl.appendChild(chartLanded)
+    }
+  }
+
+  function syncCodeLinesChartLegend(headline) {
+    if (codeLinesLegendPendingEl) {
+      const showPending = !!(headline && headline.pending > 0)
+      codeLinesLegendPendingEl.hidden = !showPending
+      if (showPending) {
+        setText(
+          codeLinesLegendPendingEl,
+          t('codeLines.stillAhead', { branch: codeLinesDefaultBranch }),
+        )
+      }
+    }
+    if (codeLinesLegendAllEl) {
+      const showAll = !!(headline && headline.allEdited > 0)
+      codeLinesLegendAllEl.hidden = !showAll
+      if (showAll) {
+        setText(codeLinesLegendAllEl, t('codeLines.allProjects'))
+      }
+    }
+  }
+
 
   function mixBar(shares) {
     const mix = el('div', 'period-mix')
@@ -1516,6 +1900,8 @@
       fill.classList.add('is-share')
     } else if (neutral) {
       fill.classList.add('is-neutral')
+    } else if (variant === 'warn') {
+      fill.classList.add('is-warn')
     } else if (variant !== 'cycle' && fillPct >= 100) {
       fill.classList.add('is-warn')
     } else if (variant === 'usage' || variant === 'cycle') {
@@ -1525,6 +1911,506 @@
     row.appendChild(head)
     row.appendChild(track)
     return row
+  }
+
+  function formatCodeLinesCount(n) {
+    if (n === null || n === undefined || !isFinite(n)) {
+      return '—'
+    }
+    return Math.trunc(n).toLocaleString('en-US')
+  }
+
+  function formatCodeLinesRange(label) {
+    if (!label) {
+      return ''
+    }
+    function nice(raw) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw).trim())
+      if (!match) {
+        return String(raw).trim()
+      }
+      return Number(match[3]) + '.' + match[2] + '.' + match[1]
+    }
+    const parts = String(label).split(' → ')
+    if (parts.length === 2) {
+      return nice(parts[0]) + ' – ' + nice(parts[1])
+    }
+    return nice(label)
+  }
+
+  function formatEffectiveness(ratio) {
+    if (ratio === null || ratio === undefined || !isFinite(ratio)) {
+      return '—'
+    }
+    return t('codeLines.landed', { n: Math.round(ratio * 100) })
+  }
+
+  function formatShareFormula(parts, denom) {
+    const numer = parts.reduce(function (sum, n) {
+      return sum + n
+    }, 0)
+    const pct = denom > 0 ? Math.round((numer / denom) * 100) : 0
+    const left = parts.map(formatCodeLinesCount).join(' + ')
+    const wrapped = parts.length > 1 ? '(' + left + ')' : left
+    const denomText = formatCodeLinesCount(denom)
+    const pctText = pct + '%'
+    return {
+      left: wrapped,
+      denom: denomText,
+      pct: pctText,
+      text: wrapped + ' / ' + denomText + ' = ' + pctText,
+    }
+  }
+
+  function codeLinesHeadline(summary) {
+    const raw = summary || {}
+    const ai = typeof raw.ai === 'number' ? raw.ai : null
+    const allEdited =
+      typeof raw.allEdited === 'number' && isFinite(raw.allEdited)
+        ? raw.allEdited
+        : ai
+    const onMaster =
+      typeof raw.onMaster === 'number' && isFinite(raw.onMaster)
+        ? raw.onMaster
+        : typeof raw.merged === 'number'
+          ? raw.merged
+          : null
+    const pending =
+      typeof raw.pending === 'number' && isFinite(raw.pending) ? raw.pending : 0
+    const aiN = ai === null ? 0 : ai
+    const onMasterN = onMaster === null ? 0 : onMaster
+    return {
+      ai: aiN,
+      allEdited: allEdited === null ? 0 : allEdited,
+      onMaster: onMasterN,
+      pending: pending,
+      rangeText: formatCodeLinesRange(raw.rangeLabel),
+      rateFormula:
+        aiN > 0 && onMasterN > 0 ? formatShareFormula([onMasterN], aiN) : null,
+      landedFormula:
+        aiN > 0 && pending > 0
+          ? formatShareFormula([onMasterN, pending], aiN)
+          : null,
+    }
+  }
+
+  function shareFormulaText(formula) {
+    if (!formula) {
+      return ''
+    }
+    if (typeof formula === 'string') {
+      return formula
+    }
+    return formula.text || ''
+  }
+
+  function appendCodeLinesFormulaCells(grid, formula, caption, hero) {
+    if (!formula || !formula.left) {
+      return
+    }
+    const heroClass = hero ? ' is-hero' : ''
+    const left = el('span', 'code-lines-formula-left' + heroClass)
+    setText(left, formula.left)
+    grid.appendChild(left)
+    const slash = el('span', 'code-lines-formula-op' + heroClass)
+    setText(slash, '/')
+    grid.appendChild(slash)
+    const den = el('span', 'code-lines-formula-den' + heroClass)
+    setText(den, formula.denom || '')
+    grid.appendChild(den)
+    const eq = el('span', 'code-lines-formula-op' + heroClass)
+    setText(eq, '=')
+    grid.appendChild(eq)
+    const pct = el('span', 'code-lines-formula-pct' + heroClass)
+    setText(pct, formula.pct || '')
+    grid.appendChild(pct)
+    const note = el('span', 'code-lines-formula-caption')
+    if (caption) {
+      setText(note, caption)
+    }
+    grid.appendChild(note)
+  }
+
+  function codeLinesFormulas(rows) {
+    const grid = el('div', 'code-lines-formulas')
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row || !row.formula) {
+        continue
+      }
+      appendCodeLinesFormulaCells(grid, row.formula, row.caption, row.hero)
+    }
+    return grid.childNodes.length > 0 ? grid : null
+  }
+
+  function codeLinesCollapsedFormula(formula, caption) {
+    if (!formula) {
+      return null
+    }
+    const details = el('details', 'code-lines-repos code-lines-landed')
+    const summaryEl = el('summary', 'code-lines-repos-summary')
+    setText(summaryEl, caption)
+    details.appendChild(summaryEl)
+    const formulas = codeLinesFormulas([
+      { formula: formula, caption: '', hero: false },
+    ])
+    if (formulas) {
+      details.appendChild(formulas)
+    }
+    return details
+  }
+
+  function codeLinesFormulaRow(formula, caption, hero) {
+    if (formula && typeof formula === 'object') {
+      return codeLinesFormulas([
+        { formula: formula, caption: caption, hero: hero },
+      ])
+    }
+    const row = el(
+      'p',
+      'code-lines-formula-row' + (hero ? ' is-hero' : ''),
+    )
+    const value = el('span', 'code-lines-formula')
+    setText(value, formula)
+    row.appendChild(value)
+    if (caption) {
+      const note = el('span', 'code-lines-formula-caption')
+      setText(note, caption)
+      row.appendChild(note)
+    }
+    return row
+  }
+
+  function codeLinesInfoBlock(title, formula, body) {
+    const block = el('article', 'code-lines-info-block')
+    const heading = el('h4')
+    setText(heading, title)
+    block.appendChild(heading)
+    if (formula) {
+      const formulaEl = el('p', 'code-lines-info-formula')
+      setText(formulaEl, formula)
+      block.appendChild(formulaEl)
+    }
+    const text = el('p')
+    setText(text, body)
+    block.appendChild(text)
+    return block
+  }
+
+  function codeLinesAuthorsBlock(choice) {
+    const accounts =
+      choice && Array.isArray(choice.accounts) ? choice.accounts : []
+    const block = el('article', 'code-lines-info-block is-authors')
+    const heading = el('h4')
+    setText(heading, t('codeLines.infoAuthorsTitle'))
+    block.appendChild(heading)
+    const text = el('p')
+    setText(text, t('codeLines.infoAuthorsBody'))
+    block.appendChild(text)
+    if (accounts.length === 0) {
+      const empty = el('p', 'code-lines-authors-empty')
+      setText(empty, t('codeLines.noAuthors'))
+      block.appendChild(empty)
+      return block
+    }
+    let sumMultiple = choice.sumMultiple === true
+    const sumRow = el('label', 'code-lines-author-sum')
+    const sumBox = el('input')
+    sumBox.type = 'checkbox'
+    sumBox.checked = sumMultiple
+    const sumCopy = el('span')
+    const sumTitle = el('span', 'code-lines-author-sum-title')
+    setText(sumTitle, t('codeLines.sumAccounts'))
+    const sumHint = el('span', 'code-lines-author-sum-hint')
+    setText(sumHint, t('codeLines.sumAccountsHint'))
+    sumCopy.appendChild(sumTitle)
+    sumCopy.appendChild(sumHint)
+    sumRow.appendChild(sumBox)
+    sumRow.appendChild(sumCopy)
+    block.appendChild(sumRow)
+    const list = el('div', 'code-lines-author-list')
+    const boxes = []
+    for (let i = 0; i < accounts.length; i++) {
+      const account = accounts[i]
+      const row = el('label', 'code-lines-author-row')
+      const box = el('input')
+      box.type = 'checkbox'
+      box.value = account.email
+      box.checked = account.selected === true
+      boxes.push(box)
+      const meta = el('span', 'code-lines-author-meta')
+      const name = el('span', 'code-lines-author-name')
+      setText(name, account.name || account.email)
+      const email = el('span', 'code-lines-author-email')
+      setText(email, account.email)
+      meta.appendChild(name)
+      meta.appendChild(email)
+      row.appendChild(box)
+      row.appendChild(meta)
+      if (account.cursorAccount === true) {
+        const badge = el('span', 'code-lines-author-badge')
+        setText(badge, t('codeLines.cursorAccount'))
+        row.appendChild(badge)
+      }
+      list.appendChild(row)
+    }
+    block.appendChild(list)
+    function selectedEmails() {
+      const emails = []
+      for (let i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) {
+          emails.push(boxes[i].value)
+        }
+      }
+      return emails
+    }
+    function enforceSingle() {
+      if (sumMultiple) {
+        return
+      }
+      let kept = false
+      for (let i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked && !kept) {
+          kept = true
+          continue
+        }
+        boxes[i].checked = false
+      }
+      if (!kept && boxes[0]) {
+        boxes[0].checked = true
+      }
+    }
+    sumBox.addEventListener('change', function () {
+      sumMultiple = sumBox.checked === true
+      enforceSingle()
+    })
+    for (let i = 0; i < boxes.length; i++) {
+      boxes[i].addEventListener('change', function (event) {
+        if (sumMultiple) {
+          return
+        }
+        const target = event.target
+        for (let j = 0; j < boxes.length; j++) {
+          boxes[j].checked = boxes[j] === target
+        }
+        target.checked = true
+      })
+    }
+    const apply = el('button', 'code-lines-authors-apply')
+    apply.type = 'button'
+    setText(apply, t('codeLines.applyAuthors'))
+    apply.addEventListener('click', function () {
+      const emails = selectedEmails()
+      if (emails.length === 0) {
+        return
+      }
+      vscode.postMessage({
+        type: 'setCodeLinesAuthors',
+        emails: emails,
+        sumMultiple: sumMultiple,
+      })
+    })
+    block.appendChild(apply)
+    return block
+  }
+
+  function openCodeLinesInfoDialog(dialog) {
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) {
+        dialog.showModal()
+      }
+      return
+    }
+    dialog.setAttribute('open', '')
+  }
+
+  function closeCodeLinesInfoDialog(dialog) {
+    if (typeof dialog.close === 'function' && dialog.open) {
+      dialog.close()
+      return
+    }
+    dialog.removeAttribute('open')
+  }
+
+  function codeLinesInfoDialog(input) {
+    const dialog = el('dialog', 'code-lines-info-dialog')
+    const panel = el('div', 'code-lines-info-panel')
+    const head = el('div', 'code-lines-info-head')
+    const heading = el('h4', 'code-lines-info-title')
+    setText(heading, t('codeLines.infoTitle'))
+    const closeBtn = el('button', 'code-lines-info-close')
+    closeBtn.type = 'button'
+    setText(closeBtn, t('codeLines.infoClose'))
+    closeBtn.addEventListener('click', function () {
+      closeCodeLinesInfoDialog(dialog)
+    })
+    head.appendChild(heading)
+    head.appendChild(closeBtn)
+    panel.appendChild(head)
+    panel.appendChild(codeLinesAuthorsBlock(input.authors))
+    panel.appendChild(
+      codeLinesInfoBlock(
+        t('codeLines.infoWindowTitle'),
+        input.rangeText || null,
+        t('codeLines.infoWindowBody'),
+      ),
+    )
+    panel.appendChild(
+      codeLinesInfoBlock(
+        t('codeLines.yourRate'),
+        shareFormulaText(input.rateFormula) || null,
+        t('codeLines.infoRateBody', { branch: input.branch }),
+      ),
+    )
+    panel.appendChild(
+      codeLinesInfoBlock(
+        t('codeLines.ifLanded', { branch: input.branch }),
+        shareFormulaText(input.landedFormula) || null,
+        t('codeLines.infoLandedBody', { branch: input.branch }),
+      ),
+    )
+    panel.appendChild(
+      codeLinesInfoBlock(
+        t('codeLines.allProjects'),
+        input.allLabel,
+        t('codeLines.infoAllBody'),
+      ),
+    )
+    panel.appendChild(
+      codeLinesInfoBlock(
+        t('codeLines.reposToggle', { n: input.repoCount }),
+        null,
+        t('codeLines.infoReposBody'),
+      ),
+    )
+    dialog.appendChild(panel)
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) {
+        closeCodeLinesInfoDialog(dialog)
+      }
+    })
+    return dialog
+  }
+
+  function codeLinesCard(codeLines) {
+    const summary = codeLines.summary || {}
+    const headline = codeLinesHeadline(summary)
+    const allEdited = headline.allEdited
+    const allScale = Math.max(allEdited, 1)
+    const branch = codeLines.defaultBranch || 'main'
+    const rangeText = headline.rangeText
+    const rateFormula = headline.rateFormula
+    const landedFormula = headline.landedFormula
+    const repos = Array.isArray(codeLines.repos) ? codeLines.repos : []
+    const visibleRepos = []
+    for (let i = 0; i < repos.length; i++) {
+      const repo = repos[i]
+      if (!repo) {
+        continue
+      }
+      const edited =
+        typeof repo.edited === 'number' && isFinite(repo.edited) ? repo.edited : 0
+      if (edited <= 0) {
+        continue
+      }
+      visibleRepos.push({
+        label: repo.label || t('codeLines.otherRepos'),
+        edited: edited,
+        current: repo.current === true,
+      })
+    }
+    const card = el('article', 'status-block is-code-lines')
+    const head = el('div', 'code-lines-head')
+    const title = el('h3')
+    title.appendChild(document.createTextNode(t('codeLines.cardTitle')))
+    if (rangeText) {
+      const rangeEl = el('span', 'code-lines-title-range')
+      setText(rangeEl, ' (' + rangeText + ')')
+      title.appendChild(rangeEl)
+    }
+    head.appendChild(title)
+    const dialog = codeLinesInfoDialog({
+      rangeText: rangeText,
+      branch: branch,
+      rateFormula: rateFormula,
+      landedFormula: landedFormula,
+      authors: codeLines.authors || null,
+      allLabel:
+        allEdited !== null && allEdited > 0
+          ? formatCodeLinesCount(allEdited)
+          : null,
+      repoCount: visibleRepos.length,
+    })
+    const infoBtn = el('button', 'code-lines-info-btn')
+    infoBtn.type = 'button'
+    infoBtn.setAttribute('aria-label', t('codeLines.infoAria'))
+    infoBtn.title = t('codeLines.infoAria')
+    const infoMark = el('span', 'code-lines-info-mark')
+    infoMark.appendChild(document.createTextNode('?'))
+    infoBtn.appendChild(infoMark)
+    infoBtn.addEventListener('click', function (event) {
+      event.preventDefault()
+      event.stopPropagation()
+      openCodeLinesInfoDialog(dialog)
+    })
+    head.appendChild(infoBtn)
+    card.appendChild(head)
+    card.appendChild(dialog)
+    const formulas = codeLinesFormulas([
+      {
+        formula: rateFormula,
+        caption: t('codeLines.yourRate'),
+        hero: true,
+      },
+    ])
+    if (formulas) {
+      card.appendChild(formulas)
+    }
+    const landed = codeLinesCollapsedFormula(
+      landedFormula,
+      t('codeLines.ifLanded', { branch: branch }),
+    )
+    if (landed) {
+      card.appendChild(landed)
+    }
+    const meters = el('div', 'meter-list meter-list-tight')
+    if (allEdited !== null && allEdited > 0) {
+      meters.appendChild(
+        meterRow(
+          t('codeLines.allProjects'),
+          formatCodeLinesCount(allEdited),
+          100,
+          'share',
+        ),
+      )
+    }
+    if (visibleRepos.length > 0) {
+      const details = el('details', 'code-lines-repos')
+      const summaryEl = el('summary', 'code-lines-repos-summary')
+      setText(
+        summaryEl,
+        t('codeLines.reposToggle', { n: visibleRepos.length }),
+      )
+      details.appendChild(summaryEl)
+      const repoMeters = el('div', 'meter-list meter-list-tight')
+      for (let i = 0; i < visibleRepos.length; i++) {
+        const repo = visibleRepos[i]
+        repoMeters.appendChild(
+          meterRow(
+            repo.label,
+            formatCodeLinesCount(repo.edited),
+            Math.round((repo.edited / allScale) * 100),
+            repo.current ? 'share' : 'neutral',
+          ),
+        )
+      }
+      details.appendChild(repoMeters)
+      meters.appendChild(details)
+    }
+    if (meters.childNodes.length > 0) {
+      card.appendChild(meters)
+    }
+    return card
   }
 
   function glossaryCard(item) {
@@ -1550,6 +2436,74 @@
     if (item.body) {
       const body = el('p', 'stats-hint')
       setText(body, item.body)
+      card.appendChild(body)
+    }
+    return card
+  }
+
+  function burnBanner(burnRate, warnOn) {
+    const banner = el(
+      'article',
+      'burn-banner' +
+        (warnOn ? ' is-' + burnRate.level : ''),
+    )
+    const title = el('h3')
+    setText(title, burnRate.bannerTitle || t('burnRate.highTitle'))
+    banner.appendChild(title)
+    const body = el('p')
+    setText(body, burnRate.bannerBody || '')
+    banner.appendChild(body)
+    return banner
+  }
+
+  function burnRateCard(burnRate, warnOn) {
+    const card = el('article', 'status-block is-burn')
+    if (
+      warnOn &&
+      (burnRate.level === 'warning' || burnRate.level === 'critical')
+    ) {
+      card.classList.add('is-over')
+    }
+    const title = el('h3')
+    setText(title, t('burnRate.cardTitle'))
+    card.appendChild(title)
+    const value = el('p', 'stats-value stats-value-hero')
+    if (
+      warnOn &&
+      (burnRate.level === 'warning' || burnRate.level === 'critical')
+    ) {
+      value.classList.add('is-warn')
+    }
+    setText(value, burnRate.summary || '')
+    card.appendChild(value)
+    if (burnRate.paceLabel) {
+      const pace = el('p', 'stats-hint')
+      setText(pace, '↑ ' + burnRate.paceLabel)
+      card.appendChild(pace)
+    }
+    const meters = el('div', 'meter-list meter-list-tight')
+    const high =
+      warnOn &&
+      (burnRate.level === 'warning' || burnRate.level === 'critical')
+    meters.appendChild(
+      meterRow(
+        t('burnRate.windowVsCritical'),
+        burnRate.summary || '',
+        burnRate.percent || 0,
+        high ? 'warn' : 'usage',
+      ),
+    )
+    card.appendChild(meters)
+    const parts = []
+    if (burnRate.mixLabel) {
+      parts.push(burnRate.mixLabel)
+    }
+    if (burnRate.todayLabel) {
+      parts.push(burnRate.todayLabel)
+    }
+    if (parts.length > 0) {
+      const body = el('p', 'stats-hint')
+      setText(body, parts.join(' · '))
       card.appendChild(body)
     }
     return card
@@ -1823,7 +2777,7 @@
     if (!Number.isFinite(n) || n <= 0) {
       return ''
     }
-    return n === 1 ? '1 query' : n.toLocaleString('en-US') + ' queries'
+    return n === 1 ? t('stats.queryOne') : t('stats.queryMany', { n: n.toLocaleString('en-US') })
   }
 
   function applyMtdPayload(mtd) {
@@ -1888,22 +2842,20 @@
     const hint = el('p', 'chart-hint')
     setText(
       hint,
-      mtdUnit === 'percent'
-        ? 'Bars and solid lines are cumulative used (same 0–100% scale). Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).'
-        : 'Bars and solid lines are cumulative spend (same dollar scale). Dashed lines are the forecast; dotted green lines are leftover budget to month end (Good color).',
+      mtdUnit === 'percent' ? t('mtd.hintPercent') : t('mtd.hintUsd'),
     )
     card.appendChild(hint)
     const legend = el('div', 'chart-legend')
     const barItem = el('span', 'chart-legend-item is-bar')
-    setText(barItem, 'Cumulative')
+    setText(barItem, t('mtd.cumulative'))
     legend.appendChild(barItem)
     for (let i = 0; i < series.length; i++) {
       const tone = ' is-s' + (i % 4)
-      const label = String(series[i].label || 'Used')
+      const label = String(series[i].label || t('mtd.used'))
       const usedItem = el('span', 'chart-legend-item' + tone)
       setText(usedItem, label)
       const forecastItem = el('span', 'chart-legend-item is-forecast' + tone)
-      setText(forecastItem, label + ' forecast')
+      setText(forecastItem, t('mtd.forecastSuffix', { label: label }))
       legend.appendChild(usedItem)
       legend.appendChild(forecastItem)
       const hasIdeal = Array.isArray(series[i].ideal)
@@ -1913,7 +2865,7 @@
         : false
       if (hasIdeal) {
         const idealItem = el('span', 'chart-legend-item is-ideal' + tone)
-        setText(idealItem, label + ' ideal')
+        setText(idealItem, t('mtd.idealSuffix', { label: label }))
         legend.appendChild(idealItem)
       }
     }
@@ -1928,9 +2880,7 @@
       preserveAspectRatio: 'none',
       role: 'img',
       'aria-label':
-        mtdUnit === 'percent'
-          ? 'Cumulative used, ideal budget, and month-end forecast'
-          : 'Cumulative spend, ideal budget, and month-end forecast',
+        mtdUnit === 'percent' ? t('mtd.ariaPercent') : t('mtd.ariaUsd'),
     })
     frame.appendChild(svg)
     card.appendChild(frame)
@@ -1939,7 +2889,7 @@
   }
 
   function mtdForecastSection(mtd) {
-    const pace = section('Monthly cost forecast')
+    const pace = section(mtd.title || t('mtd.title'))
     pace.appendChild(mtdForecastCard(mtd))
     const chips = mtdMetricsStrip(mtd.metrics)
     if (chips) {
@@ -1961,7 +2911,7 @@
     chartsMtdEl.appendChild(mtdForecastSection(mtd))
   }
 
-  function renderStats(stats, mtd) {
+  function renderStats(stats, mtd, burnRate, warnOn, codeLines) {
     while (statsEl.firstChild) {
       statsEl.removeChild(statsEl.firstChild)
     }
@@ -1969,11 +2919,21 @@
       return
     }
 
-    const glossary = section('Status bar')
+    if (burnRate && (burnRate.level === 'warning' || burnRate.level === 'critical')) {
+      statsEl.appendChild(burnBanner(burnRate, warnOn !== false))
+    }
+
+    const glossary = section(t('stats.statusBar'))
     const glossaryGrid = el('div', 'status-explain')
+    if (burnRate) {
+      glossaryGrid.appendChild(burnRateCard(burnRate, warnOn !== false))
+    }
     const items = stats.glossary || []
     for (let i = 0; i < items.length; i++) {
       glossaryGrid.appendChild(glossaryCard(items[i]))
+    }
+    if (codeLines) {
+      glossaryGrid.appendChild(codeLinesCard(codeLines))
     }
     glossary.appendChild(glossaryGrid)
     statsEl.appendChild(glossary)
@@ -1983,13 +2943,13 @@
     }
 
     if (stats.cycle && stats.cycle.length > 0) {
-      const cycle = section('Billing cycle')
+      const cycle = section(t('stats.billingCycle'))
       cycle.appendChild(cycleStrip(stats.cycle))
       statsEl.appendChild(cycle)
     }
 
     const sample = section(
-      lastHeading(stats.historyLimit) + ' summary',
+      t('stats.sampleSummary', { heading: lastHeading(stats.historyLimit) }),
       queryCountMeta(stats),
     )
     const note = el('p', 'stats-note')
@@ -2007,13 +2967,13 @@
       (stats.byModel && stats.byModel.length > 0) ||
       (stats.byKind && stats.byKind.length > 0)
     ) {
-      const breakdown = section('Spend breakdown')
+      const breakdown = section(t('stats.spendBreakdown'))
       const split = el('div', 'breakdown-split')
       if (stats.byModel && stats.byModel.length > 0) {
-        split.appendChild(breakdownChart(stats.byModel, 'By model'))
+        split.appendChild(breakdownChart(stats.byModel, t('stats.byModel')))
       }
       if (stats.byKind && stats.byKind.length > 0) {
-        split.appendChild(breakdownChart(stats.byKind, 'By kind'))
+        split.appendChild(breakdownChart(stats.byKind, t('stats.byKind')))
       }
       breakdown.appendChild(split)
       statsEl.appendChild(breakdown)
@@ -2066,12 +3026,15 @@
         millions >= 10
           ? String(Math.round(millions))
           : millions.toFixed(1).replace(/\.0$/, '')
-      return grouped + ' tokens  ·  ' + compact + 'M'
+      return t('settings.tokenPreviewM', { grouped: grouped, compact: compact })
     }
     if (n >= 1000) {
-      return grouped + ' tokens  ·  ' + Math.round(n / 1000) + 'k'
+      return t('settings.tokenPreviewK', {
+        grouped: grouped,
+        compact: Math.round(n / 1000),
+      })
     }
-    return grouped + ' tokens'
+    return t('settings.tokenPreview', { grouped: grouped })
   }
 
   function updateThresholdPreview() {
@@ -2107,11 +3070,29 @@
     if (criticalCostEl) {
       criticalCostEl.disabled = !on
     }
-    if (applyCriticalAlertEl) {
-      applyCriticalAlertEl.disabled = !on
-    }
     syncNumberStepperState(criticalTokenEl)
     syncNumberStepperState(criticalCostEl)
+  }
+
+  function syncBurnRateGuardState() {
+    const on = !burnRateGuardEl || burnRateGuardEl.checked === true
+    const fields = [
+      burnRateWindowEl,
+      burnRateWarningUsdEl,
+      burnRateCriticalUsdEl,
+      burnRateMinQueriesEl,
+      burnRateWarningToastEl,
+      burnRateCriticalToastEl,
+    ]
+    for (let i = 0; i < fields.length; i++) {
+      if (fields[i]) {
+        fields[i].disabled = !on
+      }
+    }
+    syncNumberStepperState(burnRateWindowEl)
+    syncNumberStepperState(burnRateWarningUsdEl)
+    syncNumberStepperState(burnRateCriticalUsdEl)
+    syncNumberStepperState(burnRateMinQueriesEl)
   }
 
   function syncNumberStepperState(inputEl) {
@@ -2158,6 +3139,14 @@
       next = snapKilo(next)
     } else if (inputEl === criticalCostEl) {
       next = clampCriticalCost(next)
+    } else if (inputEl === burnRateWindowEl) {
+      next = clampBurnWindow(next)
+    } else if (inputEl === burnRateWarningUsdEl) {
+      next = clampBurnUsd(next, DEFAULT_BURN_WARNING_USD)
+    } else if (inputEl === burnRateCriticalUsdEl) {
+      next = clampBurnUsd(next, DEFAULT_BURN_CRITICAL_USD)
+    } else if (inputEl === burnRateMinQueriesEl) {
+      next = clampBurnMinQueries(next)
     } else if (inputEl === pollIntervalEl) {
       next = clampPollInterval(next)
     } else if (step < 1) {
@@ -2169,14 +3158,8 @@
       next = Math.round(next)
     }
     inputEl.value = String(next)
-    // Always update the local preview. Critical alert fields save only on
-    // Apply / Enter — not on −/+, so do not fire `change` for those.
     inputEl.dispatchEvent(new Event('input', { bubbles: true }))
-    const applyGated =
-      inputEl === criticalTokenEl || inputEl === criticalCostEl
-    if (!applyGated) {
-      inputEl.dispatchEvent(new Event('change', { bubbles: true }))
-    }
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }))
   }
 
   function wireNumberSteppers() {
@@ -2211,6 +3194,17 @@
   }
 
   function renderSettings(data) {
+    if (
+      isSupportedLanguage(data.language) &&
+      languageSettingEl &&
+      document.activeElement !== languageSettingEl
+    ) {
+      languageSettingEl.value = data.language
+      uiLanguage = data.language
+    }
+    if (data.i18n && typeof data.i18n === 'object') {
+      ui = data.i18n
+    }
     if (typeof data.spikeTokenThreshold === 'number' && !thresholdDirty) {
       fillIfIdle(thresholdEl, String(kiloFromTokens(data.spikeTokenThreshold)))
       if (document.activeElement !== thresholdEl) {
@@ -2249,6 +3243,63 @@
       fillIfIdle(criticalCostEl, String(data.criticalCostUsdThreshold))
     }
     syncCriticalAlertState()
+    if (
+      typeof data.burnRateGuard === 'boolean' &&
+      burnRateGuardEl &&
+      document.activeElement !== burnRateGuardEl
+    ) {
+      burnRateGuardEl.checked = data.burnRateGuard
+    }
+    if (
+      typeof data.burnRateWindowMinutes === 'number' &&
+      burnRateWindowEl &&
+      !burnWindowDirty
+    ) {
+      fillIfIdle(burnRateWindowEl, String(data.burnRateWindowMinutes))
+    }
+    if (
+      typeof data.burnRateWarningUsd === 'number' &&
+      burnRateWarningUsdEl &&
+      !burnWarningDirty
+    ) {
+      fillIfIdle(burnRateWarningUsdEl, String(data.burnRateWarningUsd))
+    }
+    if (
+      typeof data.burnRateCriticalUsd === 'number' &&
+      burnRateCriticalUsdEl &&
+      !burnCriticalDirty
+    ) {
+      fillIfIdle(burnRateCriticalUsdEl, String(data.burnRateCriticalUsd))
+    }
+    if (
+      typeof data.burnRateMinQueries === 'number' &&
+      burnRateMinQueriesEl &&
+      !burnMinQueriesDirty
+    ) {
+      fillIfIdle(burnRateMinQueriesEl, String(data.burnRateMinQueries))
+    }
+    if (
+      typeof data.burnRateWarningToast === 'boolean' &&
+      burnRateWarningToastEl &&
+      document.activeElement !== burnRateWarningToastEl
+    ) {
+      burnRateWarningToastEl.checked = data.burnRateWarningToast
+    }
+    if (
+      typeof data.burnRateCriticalToast === 'boolean' &&
+      burnRateCriticalToastEl &&
+      document.activeElement !== burnRateCriticalToastEl
+    ) {
+      burnRateCriticalToastEl.checked = data.burnRateCriticalToast
+    }
+    syncBurnRateGuardState()
+    if (
+      typeof data.codeLinesInsight === 'boolean' &&
+      codeLinesInsightEl &&
+      document.activeElement !== codeLinesInsightEl
+    ) {
+      codeLinesInsightEl.checked = data.codeLinesInsight
+    }
     if (
       typeof data.showStatusBar === 'boolean' &&
       showStatusBarEl &&
@@ -2380,18 +3431,25 @@
       emptyEl.hidden = false
       setText(
         emptyEl,
-        spikesOnly ? 'No queries over Warn at' : 'No queries yet',
+        spikesOnly ? t('queries.emptySpikes') : t('queries.empty'),
       )
       return
     }
     emptyEl.hidden = true
-    setText(emptyEl, 'No queries yet')
+    setText(emptyEl, t('queries.empty'))
     for (let i = 0; i < list.length; i++) {
       const row = list[i]
       const tr = document.createElement('tr')
+      const burnRow =
+        warnOn &&
+        (tableBurnLevel === 'warning' || tableBurnLevel === 'critical') &&
+        row.inBurnWindow === true
+      if (burnRow) {
+        tr.classList.add('row-burn')
+      }
       addCell(tr, row.time)
       addCell(tr, row.model)
-      addCell(tr, row.cost)
+      addCell(tr, row.cost, burnRow ? 'cost-burn' : undefined)
       const spike = rowIsSpike(row, warnOn)
       addCell(tr, row.tokens, spike ? 'tokens-spike' : undefined)
       addCell(tr, row.inputOutput)
@@ -2418,30 +3476,26 @@
       btn.hidden = btn.getAttribute('data-set-default') === depth
     }
     if (runOptimizeToolbarEl) {
-      const label =
-        depth === 'quick' ? 'Quick' : depth === 'deep' ? 'Deep' : 'Balanced'
-      setText(runOptimizeToolbarEl, 'Run Optimize (' + label + ')')
-      runOptimizeToolbarEl.title =
-        'Paste the default ' + label + ' prompt into the last chat'
+      const label = depthLabel(depth)
+      setText(runOptimizeToolbarEl, t('toolbar.runOptimize', { depth: label }))
+      runOptimizeToolbarEl.title = t('toolbar.runOptimizeTitle', {
+        depth: label,
+      })
     }
   }
 
   function promptMetaLabel(depth, text) {
-    const depthLabel =
-      depth === 'quick' ? 'Quick' : depth === 'deep' ? 'Deep' : 'Balanced'
+    const depthName = depthLabel(depth)
     if (!text) {
-      return depthLabel + ' prompt — empty'
+      return t('optimize.promptEmpty', { depth: depthName })
     }
     const chars = text.length
     const lines = text.split('\n').length
-    return (
-      depthLabel +
-      ' · ' +
-      lines +
-      ' lines · ' +
-      chars.toLocaleString('en-US') +
-      ' chars — expand to preview'
-    )
+    return t('optimize.promptMeta', {
+      depth: depthName,
+      lines: lines,
+      chars: chars.toLocaleString('en-US'),
+    })
   }
 
   function renderOptimizeLifetime(lifetime) {
@@ -2513,13 +3567,12 @@
     syncOptimizeDefaultUi(depth)
     setText(
       optimizeSummaryEl,
-      optimize.summary || 'Projected save per similar request: 0 / 0.00 $',
+      optimize.summary || t('optimize.savingsSummary'),
     )
     if (optimizeNoteEl) {
       setText(
         optimizeNoteEl,
-        optimize.note ||
-          'Projected cost saved on a similar request. Stays 0 / 0.00 $ until you Run Optimize and press Start.',
+        optimize.note || t('optimize.savingsNote'),
       )
     }
     renderOptimizeLifetime(optimize.lifetime)
@@ -2584,7 +3637,9 @@
       const linkId = btn.getAttribute('data-support-link')
       const isReady = ready[linkId] === true
       btn.disabled = !isReady
-      btn.title = isReady ? 'Opens in your browser' : 'Link coming soon'
+      btn.title = isReady
+        ? t('support.opensInBrowser')
+        : t('support.comingSoonTitle')
       const card = btn.closest('.support-coffee-card, .support-tier')
       if (card) {
         card.classList.toggle('is-ready', isReady)
@@ -2593,6 +3648,14 @@
   }
 
   function render(events, message, stats, settings) {
+    if (isSupportedLanguage(settings.language)) {
+      uiLanguage = settings.language
+    }
+    if (settings.i18n && typeof settings.i18n === 'object') {
+      ui = settings.i18n
+    }
+    applyStaticI18n()
+
     if (message) {
       statusEl.hidden = false
       setText(statusEl, message)
@@ -2616,18 +3679,54 @@
     }
 
     renderSettings(settings)
+    applyHistoryTitle(
+      typeof settings.historyLimit === 'number'
+        ? settings.historyLimit
+        : DEFAULT_HISTORY,
+    )
     applyRefreshing(settings.refreshing === true)
 
     const warnOn = settings.showSpikeWarning !== false
     tableEvents = events || []
     tableWarnOn = warnOn
+    tableBurnLevel =
+      settings.burnRate && settings.burnRate.level
+        ? settings.burnRate.level
+        : 'ok'
     syncSpikesFilterUi()
     paintRows(tableEvents, warnOn)
 
     applyMtdPayload(settings.mtd)
-    renderStats(stats, settings.mtd)
+    renderStats(
+      stats,
+      settings.mtd,
+      settings.burnRate,
+      warnOn,
+      settings.codeLinesInsight === false ? null : settings.codeLines,
+    )
     renderChartsMtd(settings.mtd)
     chartPoints = Array.isArray(settings.charts) ? settings.charts : []
+    if (settings.codeLinesInsight === false || !settings.codeLines) {
+      codeLinesSeries = []
+      codeLinesSummary = null
+      codeLinesDefaultBranch = 'master'
+      if (codeLinesChartCardEl) {
+        codeLinesChartCardEl.hidden = true
+      }
+    } else {
+      codeLinesSeries = Array.isArray(settings.codeLines.series)
+        ? settings.codeLines.series
+        : []
+      codeLinesSummary = settings.codeLines.summary || null
+      codeLinesDefaultBranch =
+        typeof settings.codeLines.defaultBranch === 'string' &&
+        settings.codeLines.defaultBranch
+          ? settings.codeLines.defaultBranch
+          : 'master'
+      if (codeLinesChartCardEl) {
+        codeLinesChartCardEl.hidden = false
+      }
+    }
     renderPeriodCards(settings.periods)
     renderOptimize(settings.optimize)
     renderSupport(settings.support)
@@ -2700,7 +3799,6 @@
       thresholdEl.blur()
     }
   })
-  applyEl.addEventListener('click', submitThreshold)
   function submitHistoryLimit(fromEl) {
     const source =
       fromEl ||
@@ -2734,9 +3832,6 @@
     for (let i = 0; i < historyLimitEls.length; i++) {
       historyLimitEls[i].disabled = hasDate
     }
-    if (applyHistoryLimitEl) {
-      applyHistoryLimitEl.disabled = hasDate
-    }
   }
 
   function submitHistoryFromDate(value) {
@@ -2769,11 +3864,6 @@
         submitHistoryLimit(inputEl)
         inputEl.blur()
       }
-    })
-  }
-  if (applyHistoryLimitEl) {
-    applyHistoryLimitEl.addEventListener('click', function () {
-      submitHistoryLimit(historyLimitEl)
     })
   }
   for (let i = 0; i < historyFromDateEls.length; i++) {
@@ -2843,10 +3933,6 @@
     criticalCostEl.value = String(value)
     vscode.postMessage({ type: 'setCriticalCostUsdThreshold', value: value })
   }
-  function submitCriticalAlert() {
-    submitCriticalToken()
-    submitCriticalCost()
-  }
   if (showCriticalAlertEl) {
     showCriticalAlertEl.addEventListener('change', function () {
       syncCriticalAlertState()
@@ -2856,34 +3942,154 @@
       })
     })
   }
-  if (criticalTokenEl) {
-    criticalTokenEl.addEventListener('input', function () {
+  function bindCriticalNumber(inputEl, markDirty, submit) {
+    if (!inputEl) {
+      return
+    }
+    inputEl.addEventListener('input', function () {
+      markDirty()
+    })
+    inputEl.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        submit()
+        inputEl.blur()
+      }
+    })
+    inputEl.addEventListener('change', submit)
+    inputEl.addEventListener('blur', submit)
+  }
+  bindCriticalNumber(
+    criticalTokenEl,
+    function () {
       criticalTokenDirty = true
       updateCriticalTokenPreview()
-    })
-    // Save only on Apply / Enter — not on blur or −/+ (see stepNumberInput).
-    criticalTokenEl.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        submitCriticalToken()
-        criticalTokenEl.blur()
-      }
-    })
-  }
-  if (criticalCostEl) {
-    criticalCostEl.addEventListener('input', function () {
+    },
+    submitCriticalToken,
+  )
+  bindCriticalNumber(
+    criticalCostEl,
+    function () {
       criticalCostDirty = true
+    },
+    submitCriticalCost,
+  )
+  function submitBurnWindow() {
+    if (!burnRateWindowEl || burnRateWindowEl.disabled) {
+      return
+    }
+    const value = clampBurnWindow(burnRateWindowEl.value)
+    burnWindowDirty = false
+    burnRateWindowEl.value = String(value)
+    vscode.postMessage({ type: 'setBurnRateWindowMinutes', value: value })
+  }
+  function submitBurnWarningUsd() {
+    if (!burnRateWarningUsdEl || burnRateWarningUsdEl.disabled) {
+      return
+    }
+    const value = clampBurnUsd(burnRateWarningUsdEl.value, DEFAULT_BURN_WARNING_USD)
+    burnWarningDirty = false
+    burnRateWarningUsdEl.value = String(value)
+    vscode.postMessage({ type: 'setBurnRateWarningUsd', value: value })
+  }
+  function submitBurnCriticalUsd() {
+    if (!burnRateCriticalUsdEl || burnRateCriticalUsdEl.disabled) {
+      return
+    }
+    const value = clampBurnUsd(
+      burnRateCriticalUsdEl.value,
+      DEFAULT_BURN_CRITICAL_USD,
+    )
+    burnCriticalDirty = false
+    burnRateCriticalUsdEl.value = String(value)
+    vscode.postMessage({ type: 'setBurnRateCriticalUsd', value: value })
+  }
+  function submitBurnMinQueries() {
+    if (!burnRateMinQueriesEl || burnRateMinQueriesEl.disabled) {
+      return
+    }
+    const value = clampBurnMinQueries(burnRateMinQueriesEl.value)
+    burnMinQueriesDirty = false
+    burnRateMinQueriesEl.value = String(value)
+    vscode.postMessage({ type: 'setBurnRateMinQueries', value: value })
+  }
+  function bindBurnNumber(inputEl, markDirty, submit) {
+    if (!inputEl) {
+      return
+    }
+    inputEl.addEventListener('input', function () {
+      markDirty()
     })
-    criticalCostEl.addEventListener('keydown', function (event) {
+    inputEl.addEventListener('keydown', function (event) {
       if (event.key === 'Enter') {
         event.preventDefault()
-        submitCriticalCost()
-        criticalCostEl.blur()
+        submit()
+        inputEl.blur()
       }
     })
+    inputEl.addEventListener('change', submit)
+    inputEl.addEventListener('blur', submit)
   }
-  if (applyCriticalAlertEl) {
-    applyCriticalAlertEl.addEventListener('click', submitCriticalAlert)
+  if (burnRateGuardEl) {
+    burnRateGuardEl.addEventListener('change', function () {
+      syncBurnRateGuardState()
+      vscode.postMessage({
+        type: 'setBurnRateGuard',
+        value: burnRateGuardEl.checked === true,
+      })
+    })
+  }
+  if (codeLinesInsightEl) {
+    codeLinesInsightEl.addEventListener('change', function () {
+      vscode.postMessage({
+        type: 'setCodeLinesInsight',
+        value: codeLinesInsightEl.checked === true,
+      })
+    })
+  }
+  bindBurnNumber(
+    burnRateWindowEl,
+    function () {
+      burnWindowDirty = true
+    },
+    submitBurnWindow,
+  )
+  bindBurnNumber(
+    burnRateWarningUsdEl,
+    function () {
+      burnWarningDirty = true
+    },
+    submitBurnWarningUsd,
+  )
+  bindBurnNumber(
+    burnRateCriticalUsdEl,
+    function () {
+      burnCriticalDirty = true
+    },
+    submitBurnCriticalUsd,
+  )
+  bindBurnNumber(
+    burnRateMinQueriesEl,
+    function () {
+      burnMinQueriesDirty = true
+    },
+    submitBurnMinQueries,
+  )
+  if (burnRateWarningToastEl) {
+    burnRateWarningToastEl.addEventListener('change', function () {
+      vscode.postMessage({
+        type: 'setBurnRateWarningToast',
+        value: burnRateWarningToastEl.checked === true,
+      })
+    })
+  }
+  if (burnRateCriticalToastEl) {
+    burnRateCriticalToastEl.addEventListener('change', function () {
+      vscode.postMessage({
+        type: 'setBurnRateCriticalToast',
+        value: burnRateCriticalToastEl.checked === true,
+      })
+    })
   }
   if (showStatusBarEl) {
     showStatusBarEl.addEventListener('change', function () {
@@ -2939,6 +4145,16 @@
       optimizeDepth = value
       syncOptimizeDefaultUi(value)
       vscode.postMessage({ type: 'setOptimizeDepth', value: value })
+    })
+  }
+  if (languageSettingEl) {
+    languageSettingEl.addEventListener('change', function () {
+      const value = isSupportedLanguage(languageSettingEl.value)
+        ? languageSettingEl.value
+        : 'en'
+      languageSettingEl.value = value
+      uiLanguage = value
+      vscode.postMessage({ type: 'setLanguage', value: value })
     })
   }
   if (optimizeDepthCardsEl) {
@@ -3002,9 +4218,6 @@
         pollIntervalEl.blur()
       }
     })
-  }
-  if (applyPollIntervalEl) {
-    applyPollIntervalEl.addEventListener('click', submitPollInterval)
   }
   okColorEl.addEventListener('input', scheduleColors)
   warnColorEl.addEventListener('input', scheduleColors)

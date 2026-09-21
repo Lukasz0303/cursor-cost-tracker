@@ -1,4 +1,6 @@
 import { clampHistoryLimit, DEFAULT_HISTORY_LIMIT } from '../historyLimit'
+import { catalogFor, interpolate } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { stripModelPrefix } from '../usage/parse'
 import type { UsageQuery } from '../usage/types'
 import {
@@ -64,10 +66,10 @@ function queryCacheHit(query: UsageQuery): number | null {
   return cacheHitPercent(query.inputTokens, query.cacheReadTokens)
 }
 
-function modelLabel(model: string | null): string {
+function modelLabel(model: string | null, locale: Locale = DEFAULT_LOCALE): string {
   const stripped = stripModelPrefix(model)
   if (stripped === null || stripped === '') {
-    return 'unknown'
+    return catalogFor(locale).findings.unknown
   }
   return stripped
 }
@@ -113,9 +115,12 @@ function cheapModelCeiling(models: OptimizeModelCost[]): number | null {
   return ceiling === undefined ? null : ceiling
 }
 
-function toFocusQuery(query: UsageQuery): OptimizeFocusQuery {
+function toFocusQuery(
+  query: UsageQuery,
+  locale: Locale = DEFAULT_LOCALE,
+): OptimizeFocusQuery {
   return {
-    model: modelLabel(query.model),
+    model: modelLabel(query.model, locale),
     tokens: query.tokens,
     costUsd: query.costUsd,
     kind: kindLabel(query.kind),
@@ -139,6 +144,7 @@ export function lastRedQuery(
 export type OptimizeInsightsOptions = {
   historyLimit?: number
   spikeTokenThreshold?: number
+  locale?: Locale
 }
 
 export function toOptimizeInsights(
@@ -150,6 +156,8 @@ export function toOptimizeInsights(
   )
   const spikeTokenThreshold =
     options?.spikeTokenThreshold ?? DEFAULT_SPIKE_TOKEN_THRESHOLD
+  const locale = options?.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).findings
   const sorted = [...queries]
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, limit)
@@ -190,7 +198,7 @@ export function toOptimizeInsights(
     if (isSpike(query.tokens, spikeTokenThreshold)) {
       spikeCount += 1
     }
-    const model = modelLabel(query.model)
+    const model = modelLabel(query.model, locale)
     const existing = byModel.get(model)
     if (existing) {
       existing.costUsd += query.costUsd
@@ -222,7 +230,7 @@ export function toOptimizeInsights(
   }
 
   const redQuery = lastRedQuery(sorted, spikeTokenThreshold)
-  const focus = redQuery ? toFocusQuery(redQuery) : null
+  const focus = redQuery ? toFocusQuery(redQuery, locale) : null
   const sampleHit = cacheHitPercent(input, cacheRead)
   const highInputShare =
     output > 0 ? input / output >= HIGH_INPUT_RATIO : input > 0 && output === 0
@@ -234,29 +242,43 @@ export function toOptimizeInsights(
   if (focus && redQuery) {
     findings.push({
       id: 'newest-spike',
-      label: 'Last red query (Warn at)',
-      detail: `${focus.model} used ${focus.tokens.toLocaleString('en-US')} tokens (≥ ${spikeTokenThreshold.toLocaleString('en-US')} — Optimize targets this chat).`,
+      label: copy.lastRed,
+      detail: interpolate(copy.lastRedDetail, {
+        model: focus.model,
+        tokens: focus.tokens.toLocaleString('en-US'),
+        threshold: spikeTokenThreshold.toLocaleString('en-US'),
+      }),
     })
     const focusHit = focus.cacheHitPercent
     if (focusHit !== null && focusHit < LOW_CACHE_HIT) {
       findings.push({
         id: 'newest-low-cache',
-        label: 'Last red query low cache',
-        detail: `Cache hit ${focusHit}% on the last red query (under ${LOW_CACHE_HIT}%).`,
+        label: copy.lastRedLowCache,
+        detail: interpolate(copy.lastRedLowCacheDetail, {
+          hit: focusHit,
+          limit: LOW_CACHE_HIT,
+        }),
       })
     }
   } else {
     findings.push({
       id: 'no-red-query',
-      label: 'No red query in sample',
-      detail: `No query in the last ${sorted.length} is ≥ Warn at (${spikeTokenThreshold.toLocaleString('en-US')} tokens). Lower Warn at in Settings or wait for a spike.`,
+      label: copy.noRed,
+      detail: interpolate(copy.noRedDetail, {
+        n: sorted.length,
+        threshold: spikeTokenThreshold.toLocaleString('en-US'),
+      }),
     })
   }
   if (spikeCount > 1) {
     findings.push({
       id: 'spikes',
-      label: 'More spikes in sample',
-      detail: `${spikeCount} of ${sorted.length} recent queries (≥ ${spikeTokenThreshold.toLocaleString('en-US')} tokens).`,
+      label: copy.moreSpikes,
+      detail: interpolate(copy.moreSpikesDetail, {
+        count: spikeCount,
+        n: sorted.length,
+        threshold: spikeTokenThreshold.toLocaleString('en-US'),
+      }),
     })
   }
   const top = topModelsByCost[0]
@@ -264,8 +286,12 @@ export function toOptimizeInsights(
   if (top && top.model !== focusModel) {
     findings.push({
       id: 'top-model',
-      label: 'Other top cost model',
-      detail: `${top.model}: ${top.costUsd.toFixed(2)} $ across ${top.queries} queries (context only).`,
+      label: copy.otherTop,
+      detail: interpolate(copy.otherTopDetail, {
+        model: top.model,
+        cost: top.costUsd.toFixed(2),
+        queries: top.queries,
+      }),
     })
   }
 

@@ -1,0 +1,35 @@
+{
+  "version": "1.0.4",
+  "date": "2026-09-20",
+  "gitTag": "v1.0.4",
+  "title": "Release notes — Cursor Cost Tracker (1.0.4)",
+  "intro": "Burn Rate Guard, Coding stats (AI vs git), 10 UI languages, and a Critical alert Ignore / no-reopen update.",
+  "sections": [
+    {
+      "name": "New features",
+      "items": [
+        "**Language** — 10 locales via Settings → Language (`cursorCost.language`): English (default), Polski, 简体中文, 日本語, Español, Português (Brasil), Русский, 한국어, Français, Deutsch.",
+        "**Burn Rate Guard** — live $/window on Statistics (default 10 min), High burn rate banner, non-blocking $2 / $5 toasts (Snooze can fire again while the window stays high), Settings fieldset (`cursorCost.burnRateGuard`).",
+        "**Today + Last N** — warn styling when the live burn window is high and Show warnings is on.",
+        "**Coding stats** — landed / AI = % (your effectiveness), if this branch landed, All on Cursor (dashboard Lines Edited) plus Projects split; GitHub noreply / origin/main matching (`cursorCost.codeLinesInsight`)."
+      ]
+    },
+    {
+      "name": "Improvements / Fixes",
+      "items": [
+        "**Critical alert** — Ignore next to Open History. No re-open when the same query’s tokens/cost are revised by the API.",
+        "**Monthly cost forecast** — nine chips in a 3×3 grid (Month forecast, Pace, Runs out, Daily pace, Daily budget, To last, days so far / left, leftover).",
+        "**Charts** — tokens and cost over time are one cumulative bar per calendar day."
+      ]
+    },
+    {
+      "name": "Notes",
+      "items": [
+        "Only blocking modal remains the last-query critical alert (10M tokens / $5).",
+        "Included Pro $0 events show token throughput on the burn card; dollar toasts need billed costUsd.",
+        "minQueries default 2 so a single expensive query stays the last-query critical alert.",
+        "Effectiveness is git insertions on the default branch ÷ AI for this repo — not AI − pending."
+      ]
+    }
+  ]
+}

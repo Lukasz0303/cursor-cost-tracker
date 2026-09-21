@@ -78,11 +78,34 @@ describe('toMtdPace', () => {
         percent: 84,
       },
     ])
+    expect(stats.metrics.map((row) => row.id)).toEqual([
+      'mtdForecast',
+      'mtdPace',
+      'mtdRunOut',
+      'mtdAvg',
+      'mtdDaily',
+      'mtdToLast',
+      'mtdDays',
+      'mtdDaysLeft',
+      'mtdLeft',
+    ])
     expect(stats.metrics.find((row) => row.id === 'mtdDays')?.value).toBe('5')
+    expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.value).toBe(
+      '17',
+    )
     expect(stats.metrics.find((row) => row.id === 'mtdDaily')?.value).toBe(
       '10.00 $',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Under')
+    expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toBe(
+      'Lasts the month',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdToLast')?.value).toBe(
+      '10.47 $',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe(
+      '178.00 $',
+    )
     expect(stats.body).toContain('Bars are cumulative dollars')
     expect(stats.metrics.find((row) => row.id === 'mtdAvg')?.value).toBe(
       '8.40 $',
@@ -165,6 +188,17 @@ describe('toMtdPace', () => {
     expect(stats.bars[0]?.value).toContain('21% used')
     expect(stats.bars[1]?.label).toBe('Other Models')
     expect(stats.bars[1]?.value).toContain('Lasts the month')
+    expect(stats.metrics.map((row) => row.id)).toEqual([
+      'mtdForecast',
+      'mtdPace',
+      'mtdRunOut',
+      'mtdAvg',
+      'mtdDaily',
+      'mtdToLast',
+      'mtdDays',
+      'mtdDaysLeft',
+      'mtdLeft',
+    ])
     expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe('79%')
     expect(stats.metrics.find((row) => row.id === 'mtdDaily')?.value).toBe('4.5%')
     expect(stats.metrics.find((row) => row.id === 'mtdAvg')?.value).toBe('7%')
@@ -174,6 +208,15 @@ describe('toMtdPace', () => {
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Over')
     expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toContain(
       'Cursor Models',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdToLast')?.value).toBe(
+      '4.2%',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.value).toBe(
+      '19',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.label).toBe(
+      'Working days left',
     )
     expect(stats.body).toContain('working-day pace')
     expect(stats.series.map((line) => line.label)).toEqual([
@@ -299,6 +342,12 @@ describe('calendar day budget basis', () => {
       'Days so far',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdDays')?.value).toBe('5')
+    expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.label).toBe(
+      'Calendar days left',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.value).toBe(
+      '25',
+    )
     expect(stats.forecast).toHaveLength(30)
     expect(stats.forecast[4]?.workingDayIndex).toBe(5)
     expect(stats.forecast[4]?.allowanceUsd).toBe(50)

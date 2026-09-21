@@ -3,6 +3,8 @@ import {
   MAX_RECENT_QUERY_COUNT,
   type CursorCostConfig,
 } from '../config'
+import { catalogFor, interpolate } from '../i18n'
+import { DEFAULT_LOCALE } from '../locale'
 import { isSpike } from '../spikes/threshold'
 import {
   applyBudgetDayBasis,
@@ -11,6 +13,8 @@ import {
 } from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
 import { buildBudgetTooltipMarkdown } from './statusBarTooltip'
+import { evaluateBurnRate } from '../burnRate/detect'
+import { formatPaceLabel, formatBurnSummary } from '../burnRate/copy'
 import {
   averageTodayPercent,
   dailyPacePercent,
@@ -73,70 +77,75 @@ function spendTone(used: number, cap: number | null): SpendTone {
   return 'green'
 }
 
-function cycleEndLabel(iso: string | null): string | null {
+function cycleEndLabel(iso: string | null, locale = DEFAULT_LOCALE): string | null {
   if (iso === null || iso === '') {
     return null
   }
   const day = iso.slice(0, 10)
+  const copy = catalogFor(locale).statusBar
   if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-    return `cycle ends ${day}`
+    return interpolate(copy.cycleEnds, { day })
   }
-  return `cycle ends ${iso}`
+  return interpolate(copy.cycleEnds, { day: iso })
 }
 
 function joinTooltip(parts: Array<string | null | undefined>): string {
   return parts.filter((part): part is string => Boolean(part && part.trim())).join(' · ')
 }
 
-function includedQuotaTooltip(data: UsageReady): string {
+function includedQuotaTooltip(data: UsageReady, locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).statusBar
   if (data.includedQuotas.length === 0) {
-    return 'Included usage'
+    return copy.includedUsage
   }
   return data.includedQuotas
-    .map((quota) => `${quota.name} ${formatPercentUsed(quota.percent)} used`)
+    .map((quota) =>
+      interpolate(copy.quotaUsed, {
+        name: quota.name,
+        percent: formatPercentUsed(quota.percent),
+      }),
+    )
     .join(' · ')
 }
 
-function currentTooltip(data: UsageReady): string {
+function currentTooltip(data: UsageReady, locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).statusBar
   if (data.spendDisplay === 'percent') {
     const text = joinTooltip([
       data.email,
       data.plan,
-      cycleEndLabel(data.billingCycleEnd),
-      includedQuotaTooltip(data),
+      cycleEndLabel(data.billingCycleEnd, locale),
+      includedQuotaTooltip(data, locale),
     ])
-    return text === '' ? includedQuotaTooltip(data) : text
+    return text === '' ? includedQuotaTooltip(data, locale) : text
   }
 
   const text = joinTooltip([
     data.email,
     data.plan,
-    cycleEndLabel(data.billingCycleEnd),
-    'Cycle pool used / limit (not the sum of today\'s queries)',
+    cycleEndLabel(data.billingCycleEnd, locale),
+    copy.cyclePoolNote,
   ])
-  return text === ''
-    ? 'Cycle pool used / limit (not the sum of today\'s queries)'
-    : text
+  return text === '' ? copy.cyclePoolNote : text
 }
 
 function todayTooltip(data: UsageReady, config: CursorCostConfig): string {
+  const copy = catalogFor(config.language).statusBar
   if (data.remainingUsd !== null && data.remainingUsd <= 0) {
-    return "Today = sum of today's queries. Cycle remaining is $0, so there is no daily budget. Today can exceed Current (events vs plan pool)."
+    return copy.todayNoBudget
   }
   const days = data.workingDaysLeft
   if (days === null) {
-    return "Today = sum of today's queries vs remaining cycle allowance."
+    return copy.todayVsCycle
   }
   const unit =
-    config.budgetDayBasis === 'calendarDays'
-      ? 'calendar days'
-      : 'working days'
-  return `Today = sum of today's queries vs remaining cycle ÷ ${unit} left (${days} days).`
+    config.budgetDayBasis === 'calendarDays' ? copy.calendarDays : copy.weekdays
+  return interpolate(copy.todayVsDays, { unit, days })
 }
 
-function currentText(data: UsageReady): string {
+function currentText(data: UsageReady, locale = DEFAULT_LOCALE): string {
   if (data.isUnlimited) {
-    return '$(credit-card) Unlimited'
+    return `$(credit-card) ${catalogFor(locale).statusBar.unlimited}`
   }
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
     const averaged = proCurrentStatusText(data.includedQuotas)
@@ -190,13 +199,25 @@ function todayText(
 function todayTone(
   data: UsageReady,
   now: Date,
-  budgetDayBasis: CursorCostConfig['budgetDayBasis'],
+  config: CursorCostConfig,
 ): SpendTone {
+  const burn = evaluateBurnRate({
+    queries: data.recentQueries,
+    enabled: config.burnRateGuard,
+    windowMinutes: config.burnRateWindowMinutes,
+    warningUsd: config.burnRateWarningUsd,
+    criticalUsd: config.burnRateCriticalUsd,
+    minQueries: config.burnRateMinQueries,
+    nowMs: now.getTime(),
+  })
+  if (burn.level === 'warning' || burn.level === 'critical') {
+    return 'red'
+  }
   if (isPercentPlan(data) && data.includedQuotas.length > 0) {
     const todayUsd = data.todayUsedUsd ?? 0
     const monthUsd = Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd)
     const avg = averageTodayPercent(data.includedQuotas, todayUsd, monthUsd)
-    const pace = dailyPacePercent(now, budgetDayBasis)
+    const pace = dailyPacePercent(now, config.budgetDayBasis)
     if (avg === null || pace === null) {
       return 'green'
     }
@@ -211,10 +232,10 @@ function todayTone(
   return spendTone(data.todayUsedUsd ?? 0, data.dailyBudgetUsd)
 }
 
-function modelLabel(model: string | null): string {
+function modelLabel(model: string | null, locale = DEFAULT_LOCALE): string {
   const stripped = stripModelPrefix(model)
   if (stripped === null || stripped.trim() === '') {
-    return 'query'
+    return catalogFor(locale).statusBar.queryFallback
   }
   return stripped
 }
@@ -247,21 +268,22 @@ function recentQueryView(
 ): StatusBarItemView {
   const bang =
     config.showSpikeWarning && isSpike(query.tokens, config.spikeTokenThreshold)
-  const model = modelLabel(query.model)
+  const model = modelLabel(query.model, config.language)
+  const copy = catalogFor(config.language)
   return {
     visible: true,
     text: recentQueryText(query, bang),
     tooltip: joinTooltip([
       model,
       formatDateTime(query.timestamp),
-      `${formatTokens(query.tokens)} tokens`,
+      interpolate(copy.statusBar.tokens, { n: formatTokens(query.tokens) }),
       formatKind(query.kind),
     ]),
     tone: bang ? 'red' : 'green',
-    command: showHistoryCommand('queries', 'Show Cursor Cost queries'),
+    command: showHistoryCommand('queries', copy.statusBar.showQueries),
     accessibility: bang
-      ? `Query over token warning ${model}`
-      : `Recent query ${model}`,
+      ? interpolate(copy.statusBar.queryOver, { model })
+      : interpolate(copy.statusBar.recentQuery, { model }),
   }
 }
 
@@ -304,18 +326,15 @@ function refreshItem(
   config: CursorCostConfig,
   spinning: boolean,
 ): StatusBarItemView {
+  const copy = catalogFor(config.language).statusBar
   return {
     visible: config.showStatusBar,
     // Trailing NBSP: icon-only status bar items can collapse to 0 width.
     text: spinning ? '$(sync~spin)\u00A0' : '$(sync)\u00A0',
-    tooltip: spinning
-      ? 'Refreshing usage from cursor.com…'
-      : 'Refresh usage from cursor.com',
+    tooltip: spinning ? copy.refreshingTooltip : copy.refreshTooltip,
     tone: 'green',
     command: REFRESH_COMMAND,
-    accessibility: spinning
-      ? 'Refreshing Cursor cost'
-      : 'Refresh Cursor cost',
+    accessibility: spinning ? copy.refreshingAria : copy.refreshAria,
   }
 }
 
@@ -327,11 +346,12 @@ export function toStatusBarView(
 ): StatusBarView {
   const spinning = refreshing || snapshot.status === 'loading'
   const refresh = refreshItem(config, spinning)
+  const copy = catalogFor(config.language).statusBar
 
   if (!config.showStatusBar) {
     return {
-      current: hiddenItem('Cursor cost current'),
-      today: hiddenItem('Cursor cost today'),
+      current: hiddenItem(copy.currentAria),
+      today: hiddenItem(copy.todayAria),
       recent: hiddenRecent(),
       refresh,
     }
@@ -342,12 +362,12 @@ export function toStatusBarView(
       current: {
         visible: true,
         text: '$(loading~spin) …',
-        tooltip: 'Loading usage…',
+        tooltip: copy.loading,
         tone: 'default',
-        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
-        accessibility: 'Cursor cost current',
+        command: showHistoryCommand('stats', copy.showStats),
+        accessibility: copy.currentAria,
       },
-      today: hiddenItem('Cursor cost today'),
+      today: hiddenItem(copy.todayAria),
       recent: hiddenRecent(),
       refresh,
     }
@@ -360,10 +380,10 @@ export function toStatusBarView(
         text: '$(warning) N/A',
         tooltip: snapshot.message,
         tone: 'default',
-        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
-        accessibility: 'Cursor cost current',
+        command: showHistoryCommand('stats', copy.showStats),
+        accessibility: copy.currentAria,
       },
-      today: hiddenItem('Cursor cost today'),
+      today: hiddenItem(copy.todayAria),
       recent: hiddenRecent(),
       refresh,
     }
@@ -381,19 +401,19 @@ export function toStatusBarView(
     {
       current: {
         visible: true,
-        text: currentText(data),
-        tooltip: currentTooltip(data),
+        text: currentText(data, config.language),
+        tooltip: currentTooltip(data, config.language),
         tone: currentTone(data),
-        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
-        accessibility: 'Cursor cost current',
+        command: showHistoryCommand('stats', copy.showStats),
+        accessibility: copy.currentAria,
       },
       today: {
         visible: todayVisible,
         text: todayText(data, now, config.budgetDayBasis),
         tooltip: todayTooltip(data, config),
-        tone: todayTone(data, now, config.budgetDayBasis),
-        command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
-        accessibility: 'Cursor cost today',
+        tone: todayTone(data, now, config),
+        command: showHistoryCommand('stats', copy.showStats),
+        accessibility: copy.todayAria,
       },
       recent: minimal ? hiddenRecent() : recentViews(data.recentQueries, config),
       refresh,
@@ -401,6 +421,7 @@ export function toStatusBarView(
     config,
   )
 }
+
 
 function applyWarningDisplay(
   view: StatusBarView,
@@ -438,7 +459,9 @@ function worstTone(tones: SpendTone[]): SpendTone {
 function joinStatusParts(
   parts: StatusBarItemView[],
   accessibility: string,
+  locale = DEFAULT_LOCALE,
 ): StatusBarItemView {
+  const statsTitle = catalogFor(locale).statusBar.showStats
   const visible = parts.filter((item) => item.visible && item.text !== '')
   if (visible.length === 0) {
     return {
@@ -446,7 +469,7 @@ function joinStatusParts(
       text: '',
       tooltip: '',
       tone: 'default',
-      command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
+      command: showHistoryCommand('stats', statsTitle),
       accessibility,
     }
   }
@@ -459,7 +482,7 @@ function joinStatusParts(
       .filter((tip) => tip !== '')
       .join('\n'),
     tone: worstTone(visible.map((item) => item.tone)),
-    command: showHistoryCommand('stats', 'Show Cursor Cost statistics'),
+    command: showHistoryCommand('stats', statsTitle),
     accessibility,
   }
 }
@@ -471,16 +494,50 @@ export function toBudgetStatusItem(
   now: Date = new Date(),
 ): StatusBarItemView {
   const parts = config.minimalMode ? [view.current] : [view.current, view.today]
-  const item = joinStatusParts(parts, 'Cursor cost current and today')
+  const item = joinStatusParts(parts, 'Cursor cost current and today', config.language)
   if (snapshot.status !== 'ready') {
     return item
   }
   const data = applyBudgetDayBasis(snapshot.data, config.budgetDayBasis, now)
   return {
     ...item,
-    tooltip: buildBudgetTooltipMarkdown(data, now),
+    tooltip: buildBudgetTooltipMarkdown(
+      data,
+      now,
+      burnTooltipLine(data, config, now),
+      config.language,
+    ),
     tooltipMarkdown: true,
   }
+}
+
+function burnTooltipLine(
+  data: UsageReady,
+  config: CursorCostConfig,
+  now: Date,
+): string | null {
+  if (!config.burnRateGuard) {
+    return null
+  }
+  const burn = evaluateBurnRate({
+    queries: data.recentQueries,
+    enabled: config.burnRateGuard,
+    windowMinutes: config.burnRateWindowMinutes,
+    warningUsd: config.burnRateWarningUsd,
+    criticalUsd: config.burnRateCriticalUsd,
+    minQueries: config.burnRateMinQueries,
+    nowMs: now.getTime(),
+  })
+  const summary = formatBurnSummary(
+    burn.window.costUsd,
+    config.burnRateWindowMinutes,
+    config.language,
+  )
+  const pace = formatPaceLabel(burn.multiplier, config.language)
+  if (pace === null) {
+    return summary
+  }
+  return `${summary} · ${pace}`
 }
 
 const CODICONS_RE = /^\$\(([^)]+)\)\s*(.*)$/

@@ -86,6 +86,25 @@ describe('toHistoryRows extras', () => {
     expect(rows[0]?.spike).toBe(false)
   })
 
+  it('flags queries inside the live burn window', () => {
+    const nowMs = 2_000_000
+    const rows = toHistoryRows(
+      [
+        query({ timestamp: nowMs - 60_000, costUsd: 1.2 }),
+        query({ timestamp: nowMs - 20 * 60_000, costUsd: 0.4 }),
+      ],
+      {
+        spikeTokenThreshold: 1_000_000,
+        showSpikeWarning: true,
+        nowMs,
+        burnRateGuard: true,
+        burnRateWindowMinutes: 10,
+      },
+    )
+    expect(rows[0]?.inBurnWindow).toBe(true)
+    expect(rows[1]?.inBurnWindow).toBe(false)
+  })
+
   it('uses an em dash for missing model', () => {
     const rows = toHistoryRows([
       query({ timestamp: 1, model: null }),
@@ -114,13 +133,25 @@ describe('historyDataPayload', () => {
     expect(json.includes('Authorization')).toBe(false)
     expect(Object.keys(payload).sort()).toEqual([
       'budgetDayBasis',
+      'burnRate',
+      'burnRateCriticalToast',
+      'burnRateCriticalUsd',
+      'burnRateGuard',
+      'burnRateMinQueries',
+      'burnRateWarningToast',
+      'burnRateWarningUsd',
+      'burnRateWindowMinutes',
       'charts',
+      'codeLines',
+      'codeLinesInsight',
       'criticalCostUsdThreshold',
       'criticalTokenThreshold',
       'events',
       'extensionVersion',
       'historyFromDate',
       'historyLimit',
+      'i18n',
+      'language',
       'minimalMode',
       'mtd',
       'okColor',
@@ -141,6 +172,8 @@ describe('historyDataPayload', () => {
       'type',
       'warnColor',
     ])
+    expect(payload.language).toBe('en')
+    expect(payload.i18n.tabs.settings).toBe('Settings')
     expect(payload.optimizeDepth).toBe('balanced')
     expect(payload.support).toEqual({
       buyMeACoffee: true,
@@ -160,6 +193,10 @@ describe('historyDataPayload', () => {
     expect(payload.refreshing).toBe(false)
     expect(payload.pollIntervalMinutes).toBe(1)
     expect(payload.showCriticalAlert).toBe(true)
+    expect(payload.burnRateGuard).toBe(true)
+    expect(payload.burnRateWindowMinutes).toBe(10)
+    expect(payload.burnRate).not.toBeNull()
+    expect(payload.burnRate?.summary).toContain('/ 10 min')
     expect(payload.criticalTokenThreshold).toBe(10_000_000)
     expect(payload.criticalCostUsdThreshold).toBe(5)
     expect(payload.showStatusBar).toBe(true)

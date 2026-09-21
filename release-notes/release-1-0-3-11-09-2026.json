@@ -3,7 +3,7 @@
   "date": "2026-09-11",
   "gitTag": "v1.0.3",
   "title": "Release notes — Cursor Cost Tracker (1.0.3)",
-  "intro": "Optimize and Support tabs, From date, budget day basis, Pro percent status bar, Over Warn at filter, and marketplace copy. Canonical line is 1.0.0 → 1.0.3 only (no 1.1.x).",
+  "intro": "Optimize and Support tabs, From date, budget day basis, Pro percent status bar, Over Warn at filter, and marketplace copy.",
   "sections": [
     {
       "name": "New features",

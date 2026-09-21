@@ -1,0 +1,27 @@
+---
+description: After Warn-at — no broad “continue”; slice large media/HTML edits
+alwaysApply: true
+---
+# Continue-after-Warn-at / large webview edits
+
+This pattern burned multi-million tokens when the user said “continue” / “kontynuj” in a chat that already had a red `!`, and the agent kept editing a huge `media/history.html` (or similar) plus rules/tests in the same thread.
+
+## After a red Warn-at (`!`) in this chat
+
+- Do **not** treat “continue” / “kontynuj prace” as permission to finish the whole leftover feature surface.
+- Prefer a **new Composer chat**. If staying here, the next ask must name **≤5 paths** and one concrete leftover (e.g. one Settings fieldset, not all of Settings).
+- Do **not** paste Optimize (Deep) into this thread again — start Optimize in a new chat.
+- **Another** coding-stats / git-lines / polyrepo / account-picker feature after `!` is not a leftover slice — new chat; see [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc).
+- **Icon / glyph / CSS polish** after `!` is not a leftover slice — new chat, ≤2 `media/history.*` paths; see [optimize-cosmetic-after-warn.mdc](./optimize-cosmetic-after-warn.mdc).
+- Do not bump version or `npm run package` on that polish turn unless the user named VSIX.
+
+## Large static UI / i18n passes (`media/history.html`, catalogs)
+
+- When translation keys already exist in `src/i18n.ts`, tagging `data-i18n` is mostly mechanical — prefer **Ask**, or Agent with **one fieldset / one section** per turn.
+- Do not re-read the entire `history.html` / `history.js` on every small tag fix. Open only the offset/section being edited.
+- Do not combine: finish all Settings labels + Support + update `.cursor/rules` + full `npm test` “while we’re here” after `!`. Tests once at the end of a named slice is enough.
+
+## Still allowed
+
+- Finishing a **named** unfinished slice (paths in the user message).
+- One short Agent turn that only writes `.ai/optimize-savings.md` + a small rule add when Optimize was started in a **new** chat.

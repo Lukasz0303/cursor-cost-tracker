@@ -1,3 +1,6 @@
+import { catalogFor, interpolate } from './i18n'
+import { DEFAULT_LOCALE, type Locale } from './locale'
+
 const KIND_PREFIX = /^USAGE_EVENT_KIND_/i
 
 const TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
@@ -58,7 +61,7 @@ function oneDecimal(n: number): string {
   return (Math.round(n * 10) / 10).toFixed(1)
 }
 
-export function formatDateTime(ms: number): string {
+export function formatDate(ms: number): string {
   const d = new Date(ms)
   if (!Number.isFinite(d.getTime())) {
     return '—'
@@ -66,10 +69,18 @@ export function formatDateTime(ms: number): string {
   const day = d.getDate()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
+  return `${day}.${month}.${year}`
+}
+
+export function formatDateTime(ms: number): string {
+  const d = new Date(ms)
+  if (!Number.isFinite(d.getTime())) {
+    return '—'
+  }
   const hours = String(d.getHours()).padStart(2, '0')
   const minutes = String(d.getMinutes()).padStart(2, '0')
   const seconds = String(d.getSeconds()).padStart(2, '0')
-  return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`
+  return `${formatDate(ms)}, ${hours}:${minutes}:${seconds}`
 }
 
 export function formatKind(kind: string | null): string {
@@ -93,7 +104,11 @@ export function isoDayLabel(iso: string | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : iso
 }
 
-export function cycleResetLabel(endIso: string | null, now: Date): string | null {
+export function cycleResetLabel(
+  endIso: string | null,
+  now: Date,
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
   if (endIso === null || endIso === '') {
     return null
   }
@@ -107,16 +122,23 @@ export function cycleResetLabel(endIso: string | null, now: Date): string | null
   const days = Math.round(
     (startOfEnd.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000),
   )
+  const copy = catalogFor(locale)
   if (days < 0) {
-    return dateLabel ? `Cycle ended ${dateLabel}` : 'Cycle ended'
+    return dateLabel
+      ? interpolate(copy.format.cycleEnded, { date: dateLabel })
+      : copy.format.cycleEndedBare
   }
   if (days === 0) {
-    return dateLabel ? `Resets today (${dateLabel})` : 'Resets today'
+    return dateLabel
+      ? interpolate(copy.format.resetsToday, { date: dateLabel })
+      : copy.format.resetsTodayBare
   }
   if (days === 1) {
-    return dateLabel ? `Resets in 1 day (${dateLabel})` : 'Resets in 1 day'
+    return dateLabel
+      ? interpolate(copy.format.resetsIn1, { date: dateLabel })
+      : copy.format.resetsIn1Bare
   }
   return dateLabel
-    ? `Resets in ${days} days (${dateLabel})`
-    : `Resets in ${days} days`
+    ? interpolate(copy.format.resetsInN, { date: dateLabel, n: days })
+    : interpolate(copy.format.resetsInNBare, { n: days })
 }

@@ -1,50 +1,91 @@
 # Projected savings
 
-## What changed (Optimize Quick run #5)
+## Optimize Deep run #10
 
-- Last red: **Agent volume** (`grok-4.6-high`, 1.1M tokens, 0.93 $, Included In Pro, cache 82%) — merge two Optimize cards into one `<details>`.
-- Same habit as run #4: broad grep/read across `media` + `src` + `.ai/context` + rules before editing the three webview files.
-- No new alwaysApply rule (`optimize-agent-turns.mdc` already covers tool churn / path-named asks). Tips only.
-- Prior mid ~1.35M / ~0.80 $ (run #4) kept cumulative.
+Last red: **grok-4.6-high**, **3.6M** tokens (3,641,891 raw), **2.55 $**, Included In Pro, cache **88%** — Generated Lines / coding-stats Agent thread that stacked git-author, VSIX, account picker + catalogs, clone grouping, then polyrepo-in-parent-folder. Optimize Deep was pasted **into the same spiked chat**.
 
-## Why THIS last red turn was expensive
+Prior mid **11.7M / 6.80 $** (run #9, cosmetic-after-Warn-at) kept cumulative. This run **adds** the next-feature-after-Warn-at cluster (do not stack another git/coding-stats MINOR in the fat `!` thread).
 
-- Agent on a **UI-only** ask (join two sections + clarify “similar request” copy) while still scanning PRD, README, CHANGELOG, and rules.
-- Explore-first: multi-pattern greps for `Saved so far` / `Projected save` across the whole tree before opening `media/history.html`.
-- Extra reads (image asset path, architecture, versioning rule) that did not change the merge.
-- Doc/context updates bundled into the same Agent turn instead of a follow-up Ask.
-- Cache ~82% — burn is **turn length / tool volume**, not a cold-cache miss.
+### Diagnosis (this spike)
 
-## Next-message changes
+| Check | Answer |
+|---|---|
+| Main driver | **Input context** (long Agent history: author identities, picker, grouping, polyrepo). Cache **88%** → not cold cache. |
+| Tool loops | Secondary: reads + several `package` shells the user asked for. Not the 3.6M. |
+| Model | **grok-4.6-high** for successive MINOR slices in one thread — overkill once `!` had already fired. |
+| Retries | Not the story. |
+| What the user should type next | **New chat** for the next git/coding-stats ask (goal + ≤5 paths). Package stays a dedicated Shell if they want VSIX. Do **not** paste Optimize here again. |
+| Single rule that would have prevented most burn | After `!`, the next polyrepo / picker / grouping feature leaves this thread. |
+| Must stay allowed | Named leftover ≤5 paths; user-named VSIX-only Shell; quality of author filter, clone grouping, and polyrepo when each is its own chat. |
 
-1. Name the files: `media/history.html` + `media/history.css` + `media/history.js` (+ `src/ui/optimizeSavings.ts` only if copy strings live there) — no `.ai/context` / PRD scan.
-2. Skip README / CHANGELOG / rules unless the ask says “update docs.”
-3. Prefer Ask / cheaper model for copy-only tweaks; Agent only when HTML+CSS+JS (or host strings) must change together.
+### Why THIS last red turn was expensive
 
-## Projected savings after adopting these tips
+- Chat was already a **continuation** of Generated Lines (team vs personal git author, 6 329 vs 31 294, dirty 5 153, “?” accounts, duplicate `pc-playercenter-monorepo`, then 20-repo `rhino-rage` stack). Compaction **re-fed a large summary** into Agent.
+- Each product ask was reasonable **alone**; stacking them after `!` made every turn pay the whole thread.
+- Split-minor / continue-after-warn already said new chat for the next feature and **no Deep Optimize in the spiked thread**. This chat **violated** both (picker + N catalogs, then polyrepo, then Deep paste here).
+- Cache **88%** → burn was **volume of context**, not misses. Density this query ≈ **0.70 $ / 1M** (2.55 / 3.64).
 
-Next similar ~1.1M-class Optimize UI edit with path-named files and no context crawl should cut most of the explore tax on top of prior packaging discipline.
+### Rules added this run
+
+- **New** `.cursor/rules/optimize-next-feature-after-warn.mdc` — after `!`, next coding-stats / git / polyrepo / account-picker slice → new chat, ≤5 paths; verify-with-Ask unless a named defect; no Deep Optimize here.
+- **Add** to `optimize-agent-turns.mdc` — pointer at that rule.
+- **Add** to `optimize-continue-after-warn.mdc` — next git/coding-stats feature is not a leftover.
+- **Add** to `optimize-split-minor-features.mdc` — after `!`, those MINORs are a new chat, not phase 2 of the spike.
+
+Prior cosmetic-after-warn (run #9), i18n split (run #8), and continue-after-warn stay; this run does not replace them.
+
+### Next similar turn (another git/coding-stats slice after Warn-at)
+
+| | This spike | Disciplined | Tokens saved | USD saved |
+|---|---:|---:|---:|---:|
+| Next MINOR in the fat `!` thread | 3.6M / 2.55 $ | ~0.5–0.8M / ~0.40 $ | ~2.9M | ~2.05 $ |
+
+Incremental mid uses this query’s density (**0.70 $ / 1M**), not the sample 0.65.
+
+### Projected savings after adopting these rules (cumulative vs run #9)
 
 | | Tokens saved | USD saved |
 |---|-------------:|----------:|
-| Low | ~1.45M | ~0.88 $ |
-| Mid | ~1.60M | ~0.97 $ |
-| High | ~1.85M | ~1.15 $ |
+| Low | ~14.1M | ~8.50 $ |
+| Mid | ~14.6M | ~8.85 $ |
+| High | ~15.5M | ~9.40 $ |
 
-Mids are **cumulative** vs run #4 (~1.35M / 0.80 $). Incremental mid ~250k / ~0.17 $ at ~0.85 $ / 1M tokens (this spike’s $/token).
+What grew: run #9 mid **11.7M / 6.80 $** + this pattern incremental mid **~2.9M / ~2.05 $** → **14.6M / 8.85 $**. High still includes older i18n + cosmetic ceilings.
 
-## Assumptions
+### Per-rule-cluster
 
-- Otherwise next Agent turn on a small Optimize UI ask still lands near ~1M+ if context greps continue.
-- Cache stays high; savings from fewer tools and fewer doc files, not invented transcript.
+| Cluster | Incremental mid | Notes |
+|---|---:|---|
+| i18n N catalogs after Ask (run #8) | 1.6M / 1.05 $ | already in the 11.7M cumulative |
+| Cosmetic + VSIX after Warn-at (run #9) | 4.6M / 2.50 $ | already in the 11.7M cumulative |
+| Next coding-stats MINOR after `!` (this run) | 2.9M / 2.05 $ | 3.6M → ~0.7M in a ≤5-path new chat |
+| Continue / no Deep Optimize in spiked thread | overlap | already written; this Deep paste **violated** it again |
+
+### Monthly (if this rate continues)
+
+Two similar “one more git/coding-stats feature in the same `!` thread” spikes per month → about **5.8M tokens / ~4.10 $** extra avoided, on top of cosmetic + i18n clusters. Sample has **164 / 521** queries ≥ 1M — this rule only cuts the **post-Warn-at next-MINOR** subset.
+
+### Assumptions
+
+- Next similar turn is another **Generated Lines / git-author / polyrepo / project-split** follow-up in a **compacted** coding-stats Agent thread, not a greenfield MVP.
+- User actually **opens a new chat** after `!` (this Deep paste did not).
+- User-named **VSIX-only** Shell stays cheap (one `package`) and is **not** bundled with the next feature.
+- **grok-4.6-high** is not required to verify “czy dwa klony się skleją” — Ask is enough.
+- Density stays near **0.70 $ / 1M** for included Pro on this model class.
+
+### Extension settings (do not auto-change)
+
+- `spikeTokenThreshold` **1M** did its job (`!` at 3.6M).
+- `criticalTokenThreshold` **10M** / `criticalCostUsdThreshold` **5 $** did **not** modal — this turn was **3.6M / 2.55 $**. Only lower those if they **want** a blocking dialog at this size.
+- Burn Rate Guard is a **window**, not a single Agent turn — leaving it is fine for this pattern.
 
 ```cct-savings
 project: cursor-cost-tracker
-tokens_mid: 1600000
-usd_mid: 0.97
-tokens_low: 1450000
-usd_low: 0.88
-tokens_high: 1850000
-usd_high: 1.15
-run: 5
+tokens_mid: 14600000
+usd_mid: 8.85
+tokens_low: 14100000
+usd_low: 8.50
+tokens_high: 15500000
+usd_high: 9.40
+run: 10
 ```

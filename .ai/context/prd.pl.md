@@ -2,8 +2,8 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.15  
-**Data:** 2026-09-07  
+**Wersja dokumentu:** 2.17  
+**Data:** 2026-09-14  
 **Status:** decyzja produktowa (MVP)  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
 
@@ -109,6 +109,10 @@ Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Ignore 
 
 **Krytyczny alert ostatniego zapytania:** gdy **najnowsze** zapytanie osiągnie `cursorCost.criticalTokenThreshold` (domyślnie **10 000 000** tokenów) **lub** `cursorCost.criticalCostUsdThreshold` (domyślnie **5 $**), host pokazuje blokujący dialog. Niezależnie od `!` na belce (`showSpikeWarning`). Każdy fingerprint najnowszego zapytania raz (`globalState` `cursorCost.lastCriticalSeenKey`). Historyczne ostatnie zapytanie starsze niż pięć minut jest zapamiętane przy pierwszym załadowaniu — bez modala — żeby restart nie blokował pracy. Świeżo skończone zapytanie nadal alertuje. **Open History** otwiera Last N. Przełącznik: `showCriticalAlert`.
 
+**Burn Rate Guard (1.0.4):** suma billed `costUsd` w żywym oknie kończącym się **teraz** (domyślnie **10 minut**). Statistics zawsze pokazuje **Current burn rate**, gdy funkcja jest włączona (`3.42 $ / 10 min`, opcjonalnie `×` względem własnego tempa, Today). ≥ **2 $** (domyślnie) — **niemodalny** toast ostrzegawczy; ≥ **5 $** — **niemodalny** toast błędu. Raz na epizod, eskalacja warning→critical raz, Snooze 30 min, grace 5 min przy pierwszym załadowaniu. **Nie zatrzymuje** Cursora. Opcjonalnie **Focus Composer** na toście krytycznym. `minQueries` domyślnie **2**, żeby pojedyncze drogie zapytanie zostawało przy alercie ostatniego zapytania. Zdarzenia Pro included przy 0 $ nadal pokazują przepustowość tokenów na karcie. Chip Today używa warnColor, gdy okno jest warning/critical i Show warnings jest włączone. Wiersze Last N w oknie dostają styl ostrzeżenia (bez 7. kolumny). Przełącznik: `cursorCost.burnRateGuard`.
+
+**Generated Lines Insight / Coding stats (1.0.4):** dla **aktywnego workspace** karta **Coding stats** w tym samym oknie co Last N / From date: **landed / AI = %** (Twoje insercje git na `main`/`master` ÷ linie AI composera w tym repo), to samo **jeśli ten branch wylądował** (`(landed + this branch) / AI`), oraz **All on Cursor** (dashboard Lines Edited, podział pod **Projects** wg lokalnego mixu composera). Charts używa tych samych wzorów. Nie `AI − pending`; bez blame linii. Przełącznik: `cursorCost.codeLinesInsight` (domyślnie **true**).
+
 ### 5.3 Poza MVP
 
 Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce kliknięcia historii, TreeView na 6 kolumn, React/Vue w webview, osobna aplikacja Electron, Advise / skan workspace / auto-naprawa LLM.
@@ -123,7 +127,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 | G2 | Jeden klik do historii | Statistics (Current/Today) albo tabela Last N (chip zapytania) < 2 s (cache) |
 | G3 | Spójne liczby | Current/Today zgodne z usage Cursor (± 0,01 $) |
 | G4 | Zero konfiguracji | VSIX, bez `.env` |
-| G5 | Nie blokuje pracy | brak modalów na zwykłej ścieżce; błąd API = N/A. Blokujący dialog tylko przy krytycznym alercie ostatniego zapytania (domyślnie 10M tokenów lub 5 $) |
+| G5 | Nie blokuje pracy | brak modalów na zwykłej ścieżce; błąd API = N/A. Blokujący dialog tylko przy krytycznym alercie ostatniego zapytania (domyślnie 10M tokenów lub 5 $). Burn Rate Guard tylko niemodalne toasty |
 
 ---
 
@@ -140,7 +144,8 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 | A7 | programista | tooltip z planem i datą cyklu | mieć kontekst bez tabeli |
 
 v1.1: wykrzyknik przy spike (§5.1–5.2), Ignore, próg w ustawieniach; alerty 80%/90% wydatków; Copy stats.  
-v1.2: sidebar; opcjonalny Quick Pick.
+**1.0.4:** **Burn Rate Guard** (żywe okno $/czas, banner, niemodalne toasty, karta Statistics, tint Today), **Coding stats** (landed / AI · All on Cursor) oraz **10 języków UI**.
+v1.2: sidebar; opcjonalny Quick Pick (backlog).
 
 ### 7b. User stories (v1.1 — spike tokenów)
 
@@ -220,8 +225,19 @@ media/history.{html,css,js}
 | `cursorCost.showCriticalAlert` | true | blokujący dialog, gdy najnowsze zapytanie trafi w próg tokenów lub dolarów |
 | `cursorCost.criticalTokenThreshold` | 10000000 | min 1000; Settings w **k** (10000 = 10M); wystarczy jeden próg |
 | `cursorCost.criticalCostUsdThreshold` | 5 | min 0,01 USD; wystarczy jeden próg |
+| `cursorCost.burnRateGuard` | true | żywe okno na Statistics; niemodalne toasty; tint Today gdy wysoko |
+| `cursorCost.burnRateWindowMinutes` | 10 | 2–60; prawa krawędź to teraz |
+| `cursorCost.burnRateWarningUsd` | 2 | min 0,01; niemodalny toast ostrzegawczy |
+| `cursorCost.burnRateCriticalUsd` | 5 | nigdy poniżej warning; niemodalny toast błędu; nie zatrzymuje Cursora |
+| `cursorCost.burnRateMinQueries` | 2 | 1–50; pojedyncze zapytanie zostaje przy alercie ostatniego zapytania |
+| `cursorCost.burnRateWarningToast` | true | wyłączone = zapamiętaj epizod bez tosta |
+| `cursorCost.burnRateCriticalToast` | true | wyłączone = zapamiętaj epizod bez tosta |
+| `cursorCost.codeLinesInsight` | true | Coding stats na Statistics i Charts (landed / AI · All on Cursor) |
+| `cursorCost.language` | `en` | Panel, belka, toasty; niezależnie od języka VS Code / Cursor |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignorowane gdy From date jest ustawione |
 | `cursorCost.historyFromDate` | (puste) | lokalne `YYYY-MM-DD`; Settings **From date** (Start of month / Today); puste = Last N |
+| `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (pn–pt, domyślnie) albo `calendarDays`; Settings **Pace by** |
+| `cursorCost.optimizeDepth` | `balanced` | Prompt Optimize: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | kolor dobrego stanu (ciemniejszy `#18794E` na jasnym motywie) |
 | `cursorCost.warnColor` | `#F14C4C` | kolor ostrzeżenia (ciemniejszy `#C50F1F` na jasnym motywie) |
 
@@ -235,7 +251,8 @@ Aktywacja: `onStartupFinished`.
 |------|--------|
 | **MVP** | sesja + API, status bar, webview Last 100, polling, błędy |
 | **v1.1** | `!` przy spike (domyślnie 1M tokenów, ustawienie), Ignore + persist, alerty 80/90% wydatków, Copy stats |
-| **v1.2** | sidebar, opcjonalny Quick Pick |
+| **1.0.4** | Burn Rate Guard + Coding stats (AI vs git) + 10 języków UI |
+| **v1.2** | (otwarte — sidebar / Quick Pick backlog) |
 | **v2** | Secret Storage, CSV, Open VSX |
 
 ---
@@ -272,6 +289,15 @@ Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `
 - [ ] Późniejsze nowsze zapytanie ponad progiem alertuje znowu
 - [ ] Pierwsze załadowanie ostatniego zapytania starszego niż pięć minut nie blokuje
 - [ ] Wyłączenie przez `showCriticalAlert`; niezależnie od `showSpikeWarning`
+
+### 13d. Burn Rate Guard (1.0.4)
+
+- [ ] Statistics **Current burn rate** gdy włączone, nawet poniżej progu ostrzeżenia
+- [ ] Okno ≥ 2 $ warning / ≥ 5 $ critical: niemodalne toasty, raz na epizod, Snooze 30 min
+- [ ] Pierwsze załadowanie z newest-in-window starszym niż pięć minut nie pokazuje toasta
+- [ ] Chip Today warnColor gdy okno jest wysokie i Show warnings jest włączone
+- [ ] Pojedyncze drogie zapytanie (minQueries domyślnie 2) nie odpala tego toasta
+- [ ] Brak drugiego blokującego modala; G5 nadal ma tylko krytyczny alert ostatniego zapytania
 
 ---
 

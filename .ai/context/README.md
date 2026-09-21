@@ -26,7 +26,7 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 | Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** Phase 7 / MVP wired (`activate` + status bar + Last 100). Local VSIX `1.0.3`. See [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired. **1.0.4** Burn Rate Guard, Coding stats (AI vs git · All on Cursor), 10 UI languages. See [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 
@@ -53,6 +53,9 @@ Open VSX / VSIX: [publishing.md](./publishing.md).
 | [../implementation-plans/mvp.md](../implementation-plans/mvp.md) | MVP implementation plan (English) |
 | [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md) | same plan in Polish |
 | [../implementation-plans/README.md](../implementation-plans/README.md) | detailed plans per MVP phase 0–7 |
+| [../implementation-plans/burn-rate-guard.md](../implementation-plans/burn-rate-guard.md) | Burn Rate Guard (1.0.4) |
+| [../implementation-plans/generated-lines-insight.md](../implementation-plans/generated-lines-insight.md) | Generated Lines Insight (1.0.4) |
+| [../implementation-plans/additional/README.md](../implementation-plans/additional/README.md) | deferred feature plans (backlog) |
 
 ## 4. House rules
 

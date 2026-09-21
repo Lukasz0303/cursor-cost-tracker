@@ -67,10 +67,20 @@ describe('buildBudgetTooltipMarkdown', () => {
     expect(tooltip).toContain('<strong>On-demand</strong>')
     expect(tooltip).toContain('<code>█░░░░░░░░░</code>')
     expect(tooltip).toContain('*Resets in 10 days (2026-09-30)*')
+    expect(tooltip).not.toContain('**Burn**')
     expect(tooltip).toContain('**Usage by model**')
     expect(tooltip).toContain('<th align="right">Spend</th>')
     expect(tooltip).toContain('<td>gpt-5</td><td align="right">1</td>')
     expect(tooltip).toContain('[Refresh](command:cursorCost.refresh)')
+  })
+
+  it('adds a Burn row when the live window is passed in', () => {
+    const tooltip = buildBudgetTooltipMarkdown(
+      data(),
+      new Date('2026-09-20T12:00:00'),
+      '3.42 $ / 10 min · 2.8× your normal rate',
+    )
+    expect(tooltip).toContain('**Burn** 3.42 $ / 10 min · 2.8× your normal rate')
   })
 
   it('uses one meter per included quota on Pro', () => {

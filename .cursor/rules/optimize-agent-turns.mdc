@@ -11,4 +11,10 @@ For this repo, multi-million-token turns usually come from **volume** (long Agen
 - Keep the next user message short: goal + paths; do not ask the agent to “scan the whole project.”
 - Cap tool churn: avoid exploratory ripgrep/read loops; open only files named in the ask (or clearly required).
 - After a red Warn-at spike (`!`), the next turn in that chat should be narrower than the spike turn — not another full audit.
+- After Warn-at: prefer a **new chat** for Optimize or the next feature slice; do not keep pasting Deep Optimize into the same growing thread.
+- After Warn-at, **another** coding-stats / git / polyrepo / account-picker feature is not “one more Agent turn here” — [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc) (new chat, ≤5 paths).
+- After Warn-at, **icon/CSS polish** is not “one more Agent turn here” — [optimize-cosmetic-after-warn.mdc](./optimize-cosmetic-after-warn.mdc) (new chat, ≤2 media paths, no VSIX unless named).
+- “Continue” / “kontynuj” after `!` is **not** a full leftover pass — follow [optimize-continue-after-warn.mdc](./optimize-continue-after-warn.mdc) (new chat or ≤5 paths / one section).
+- For MINOR “implement the plan” asks: follow [optimize-split-minor-features.mdc](./optimize-split-minor-features.mdc) — core+tests → UI wire → docs in separate turns.
+- For “did the alarm fire?” / burn-rate “stuck at $0” triage: follow [optimize-bug-triage.mdc](./optimize-bug-triage.mdc) — Ask first; Agent only on named hot-path files.
 - For `npm run package` / `vsce`: one Shell with `all` permissions first — do not diagnose sandbox (`cpus=0`) with extra reads/help loops.

@@ -1,0 +1,25 @@
+---
+description: After Warn-at — glyph/CSS polish and VSIX stay out of the fat thread
+alwaysApply: true
+---
+# Cosmetic / icon polish after Warn-at
+
+This chat burned **~5.0M tokens / 2.73 $** (`grok-4.6-high`, cache **98%**) by continuing a compacted coding-stats thread: info icon, then “ikona jest okropna”, plus **VSIX package twice**. Volume was **context**, not cold cache.
+
+## After a red `!` in this chat
+
+- **Glyph / icon / 12px CSS** (“daj inną ikonę”, spacing, `?` vs SVG) → **new chat**, **≤2 paths**: `media/history.js` + `media/history.css`. No catalogs, no CHANGELOG, no `package.json`.
+- Do **not** `npm run package` / bump version in the same turn as a visual tweak unless the user names **`package.json` + VSIX** as the goal.
+- Do **not** resume a compacted feature thread (long summary already in context) with Agent for polish — the summary is already the spike.
+- Prefer **Ask** or a cheaper model for “looks wrong”; Agent only to patch the two media files.
+
+## Still allowed
+
+- User names VSIX in a **short dedicated** message (one Shell `package`, no extra reads).
+- Named leftover slice with ≤5 paths that is not a glyph swap.
+
+## Checklist (user)
+
+- [ ] New Composer chat after `!`
+- [ ] Message is goal + `history.js` / `history.css` only
+- [ ] Package in a later message, or skip until they ask

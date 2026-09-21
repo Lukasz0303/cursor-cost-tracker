@@ -16,6 +16,9 @@ File names in `.ai/context/` use **kebab-case, lowercase** (`architecture.md`, `
 | MVP implementation | [../implementation-plans/mvp.md](../implementation-plans/mvp.md) · [../implementation-plans/mvp.pl.md](../implementation-plans/mvp.pl.md) |
 | MVP phases 0–7 | [../implementation-plans/README.md](../implementation-plans/README.md) |
 | Token spike / Ignore | [../implementation-plans/token-spike.md](../implementation-plans/token-spike.md) · [../implementation-plans/token-spike.pl.md](../implementation-plans/token-spike.pl.md) |
+| 1.0.4 Burn Rate Guard | [../implementation-plans/burn-rate-guard.md](../implementation-plans/burn-rate-guard.md) · [../implementation-plans/burn-rate-guard.pl.md](../implementation-plans/burn-rate-guard.pl.md) |
+| 1.0.4 Generated Lines Insight | [../implementation-plans/generated-lines-insight.md](../implementation-plans/generated-lines-insight.md) · [../implementation-plans/generated-lines-insight.pl.md](../implementation-plans/generated-lines-insight.pl.md) |
+| Additional / backlog plans | [../implementation-plans/additional/README.md](../implementation-plans/additional/README.md) |
 
 ## When to update
 

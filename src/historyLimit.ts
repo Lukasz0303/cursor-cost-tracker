@@ -2,6 +2,8 @@ import {
   formatHistoryFromDateLabel,
   parseHistoryFromDate,
 } from './historyFromDate'
+import { catalogFor, interpolate } from './i18n'
+import { DEFAULT_LOCALE, type Locale } from './locale'
 
 export const MIN_HISTORY_LIMIT = 100
 export const MAX_HISTORY_LIMIT = 10_000
@@ -31,17 +33,33 @@ export function sampleSizeLimit(
 export function lastQueriesHeading(
   limit: number,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
   const iso = parseHistoryFromDate(fromDate)
+  const copy = catalogFor(locale)
   if (iso !== null) {
-    return `From ${formatHistoryFromDateLabel(iso)}`
+    return interpolate(copy.queries.fromHeading, {
+      date: formatHistoryFromDateLabel(iso),
+    })
   }
-  return `Last ${clampHistoryLimit(limit)}`
+  return interpolate(copy.queries.lastHeading, {
+    n: clampHistoryLimit(limit),
+  })
 }
 
 export function lastQueriesTitle(
   limit: number,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
-  return `${lastQueriesHeading(limit, fromDate)} Cursor queries`
+  const iso = parseHistoryFromDate(fromDate)
+  const copy = catalogFor(locale)
+  if (iso !== null) {
+    return interpolate(copy.queries.fromTitle, {
+      date: formatHistoryFromDateLabel(iso),
+    })
+  }
+  return interpolate(copy.queries.lastTitle, {
+    n: clampHistoryLimit(limit),
+  })
 }

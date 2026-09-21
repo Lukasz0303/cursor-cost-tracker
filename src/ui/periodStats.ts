@@ -1,17 +1,10 @@
-import {
-  cycleResetLabel,
-  formatCompactTokens,
-  formatDateTime,
-  formatDollars,
-  formatKind,
-  formatPercentPoint,
-  formatPercentUsed,
-  formatTokens,
-} from '../format'
+import { cycleResetLabel, formatCompactTokens, formatDateTime, formatDollars, formatKind, formatPercentPoint, formatPercentUsed, formatTokens } from '../format'
 import {
   DEFAULT_BUDGET_DAY_BASIS,
   type BudgetDayBasis,
 } from '../budgetDayBasis'
+import { catalogFor, interpolate, EN } from '../i18n'
+import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { isSpike } from '../spikes/threshold'
 import {
   clampHistoryLimit,
@@ -26,54 +19,51 @@ import { todayAttributedPercent } from './proPercentSummary'
 
 const BREAKDOWN_LIMIT = 8
 
-export const CURRENT_PRO_BODY =
-  'Included Cursor Models and Other Models this cycle — same bars as the dashboard.'
-export const CURRENT_TEAM_BODY =
-  'Dollar pool used / cap this billing cycle.'
-export const TODAY_PRO_BODY =
-  'Today’s share of included usage vs even monthly pace (100% ÷ days this month).'
-export const TODAY_TEAM_BODY =
-  'Today’s queries vs remaining cycle ÷ weekdays left.'
-export const TODAY_TEAM_BODY_CALENDAR =
-  'Today’s queries vs remaining cycle ÷ calendar days left.'
-export const TODAY_TEAM_NO_BUDGET_BODY =
-  'No daily budget — the monthly dollar pool is empty.'
-export const SAMPLE_NOTE_SUFFIX = ' is recent queries, not Current.'
-export const CACHE_HIT_HINT =
-  'Share of prompt tokens reused from cache instead of billed as new input. Cached tokens cost less.'
+export const CURRENT_PRO_BODY = EN.stats.currentProBody
+export const CURRENT_TEAM_BODY = EN.stats.currentTeamBody
+export const TODAY_PRO_BODY = EN.stats.todayProBody
+export const TODAY_TEAM_BODY = EN.stats.todayTeamBody
+export const TODAY_TEAM_BODY_CALENDAR = EN.stats.todayTeamBodyCalendar
+export const TODAY_TEAM_NO_BUDGET_BODY = EN.stats.todayTeamNoBudget
+export const SAMPLE_NOTE_SUFFIX = EN.stats.sampleNoteSuffix
+export const CACHE_HIT_HINT = EN.stats.cacheHitHint
 
 export function sampleNoteForLimit(
   limit: number,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
-  return `${lastQueriesHeading(limit, fromDate)}${SAMPLE_NOTE_SUFFIX}`
+  return `${lastQueriesHeading(limit, fromDate, locale)}${catalogFor(locale).stats.sampleNoteSuffix}`
 }
 
 export const SAMPLE_NOTE = sampleNoteForLimit(DEFAULT_HISTORY_LIMIT)
-export const QUERIES_OVER_TOKEN_WARNING_LABEL = 'Queries over token warning'
+export const QUERIES_OVER_TOKEN_WARNING_LABEL = EN.stats.spikes
 
 function isPercentPlan(data: UsageReady): boolean {
   return data.spendDisplay === 'percent'
 }
 
-function currentGlossaryBody(data: UsageReady): string {
+function currentGlossaryBody(data: UsageReady, locale: Locale): string {
+  const copy = catalogFor(locale).stats
   if (isPercentPlan(data)) {
-    return CURRENT_PRO_BODY
+    return copy.currentProBody
   }
-  return CURRENT_TEAM_BODY
+  return copy.currentTeamBody
 }
 
 function todayGlossaryBody(
   data: UsageReady,
   basis: BudgetDayBasis,
+  locale: Locale,
 ): string {
+  const copy = catalogFor(locale).stats
   if (isPercentPlan(data)) {
-    return TODAY_PRO_BODY
+    return copy.todayProBody
   }
   if (data.remainingUsd !== null && data.remainingUsd <= 0) {
-    return TODAY_TEAM_NO_BUDGET_BODY
+    return copy.todayTeamNoBudget
   }
-  return basis === 'calendarDays' ? TODAY_TEAM_BODY_CALENDAR : TODAY_TEAM_BODY
+  return basis === 'calendarDays' ? copy.todayTeamBodyCalendar : copy.todayTeamBody
 }
 
 export type PeriodBar = {
@@ -124,6 +114,7 @@ export type PeriodStatsOptions = {
   historyFromDate?: string | null
   now?: Date
   budgetDayBasis?: BudgetDayBasis
+  locale?: Locale
 }
 
 function dash(value: string | null | undefined): string {
@@ -179,13 +170,15 @@ function tokenShares(
   output: number,
   cacheWrite: number,
   cacheRead: number,
+  locale: Locale = DEFAULT_LOCALE,
 ): PeriodShare[] {
   const percents = sharePercents([input, output, cacheWrite, cacheRead])
+  const copy = catalogFor(locale).stats
   return [
-    { key: 'input', label: 'Input', percent: percents[0] ?? 0 },
-    { key: 'output', label: 'Output', percent: percents[1] ?? 0 },
-    { key: 'cacheWrite', label: 'Cache write', percent: percents[2] ?? 0 },
-    { key: 'cacheRead', label: 'Cache read', percent: percents[3] ?? 0 },
+    { key: 'input', label: copy.input, percent: percents[0] ?? 0 },
+    { key: 'output', label: copy.output, percent: percents[1] ?? 0 },
+    { key: 'cacheWrite', label: copy.cacheWrite, percent: percents[2] ?? 0 },
+    { key: 'cacheRead', label: copy.cacheRead, percent: percents[3] ?? 0 },
   ]
 }
 
@@ -224,9 +217,9 @@ function isoDay(iso: string | null): string | null {
   return iso
 }
 
-function currentValue(data: UsageReady): string {
+function currentValue(data: UsageReady, locale: Locale = DEFAULT_LOCALE): string {
   if (data.isUnlimited) {
-    return 'Unlimited'
+    return catalogFor(locale).stats.unlimited
   }
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
     return data.includedQuotas
@@ -271,11 +264,12 @@ function todayValue(
   return `${used} / ${formatDollars(data.dailyBudgetUsd)}`
 }
 
-function todayTitle(data: UsageReady): string {
+function todayTitle(data: UsageReady, locale: Locale = DEFAULT_LOCALE): string {
+  const copy = catalogFor(locale).stats
   if (!isPercentPlan(data) || data.todayUsedUsd === null) {
-    return 'Today'
+    return copy.today
   }
-  return `Today · sum ${formatDollars(data.todayUsedUsd)}`
+  return interpolate(copy.todaySum, { amount: formatDollars(data.todayUsedUsd) })
 }
 
 function newestQueries(queries: UsageQuery[], limit: number): UsageQuery[] {
@@ -332,9 +326,13 @@ function dayKey(ms: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function busiestDay(queries: UsageQuery[]): PeriodMetric {
+function busiestDay(
+  queries: UsageQuery[],
+  locale: Locale = DEFAULT_LOCALE,
+): PeriodMetric {
+  const copy = catalogFor(locale).stats
   if (queries.length === 0) {
-    return metric('busiest', 'Busiest day', '—')
+    return metric('busiest', copy.busiestDay, '—')
   }
   const byDay = new Map<string, number>()
   const byDayCount = new Map<string, number>()
@@ -352,9 +350,12 @@ function busiestDay(queries: UsageQuery[]): PeriodMetric {
     }
   }
   const count = byDayCount.get(bestDay) ?? 0
-  return metric('busiest', 'Busiest day', formatDollars(bestCost), {
+  return metric('busiest', copy.busiestDay, formatDollars(bestCost), {
     detail: bestDay,
-    hint: count === 1 ? '1 query' : `${formatTokens(count)} queries`,
+    hint:
+      count === 1
+        ? copy.queryOne
+        : interpolate(copy.queryMany, { n: formatTokens(count) }),
   })
 }
 
@@ -365,9 +366,13 @@ function poolPercent(used: number, cap: number | null): number {
   return Math.round((used / cap) * 100)
 }
 
-function currentBars(data: UsageReady): PeriodBar[] {
+function currentBars(
+  data: UsageReady,
+  locale: Locale = DEFAULT_LOCALE,
+): PeriodBar[] {
+  const copy = catalogFor(locale).stats
   if (data.isUnlimited) {
-    return [{ label: 'Current', value: 'Unlimited', percent: 0 }]
+    return [{ label: copy.current, value: copy.unlimited, percent: 0 }]
   }
   if (isPercentPlan(data) && data.includedQuotas.length > 0) {
     return data.includedQuotas.map((quota) => ({
@@ -378,8 +383,8 @@ function currentBars(data: UsageReady): PeriodBar[] {
   }
   return [
     {
-      label: 'Cycle pool',
-      value: currentValue(data),
+      label: copy.cyclePool,
+      value: currentValue(data, locale),
       percent: poolPercent(data.usedUsd, data.limitUsd),
     },
   ]
@@ -389,6 +394,7 @@ function todayBars(
   data: UsageReady,
   monthUsedUsd: number,
   dailyPct: number | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): PeriodBar[] {
   if (data.todayUsedUsd === null) {
     return []
@@ -414,7 +420,7 @@ function todayBars(
   }
   return [
     {
-      label: 'Today',
+      label: catalogFor(locale).stats.today,
       value: todayValue(data, monthUsedUsd, dailyPct),
       percent: poolPercent(data.todayUsedUsd, data.dailyBudgetUsd),
     },
@@ -434,17 +440,19 @@ function glossaryItem(
 function emptyStats(
   historyLimit: number,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): PeriodStatsPayload {
+  const copy = catalogFor(locale).stats
   return {
     glossary: [
-      glossaryItem('current', 'Current', '—', CURRENT_TEAM_BODY, []),
-      glossaryItem('today', 'Today', '—', TODAY_TEAM_BODY, []),
+      glossaryItem('current', copy.current, '—', copy.currentTeamBody, []),
+      glossaryItem('today', copy.today, '—', copy.todayTeamBody, []),
     ],
     cycle: [],
     sample: [],
     byModel: [],
     byKind: [],
-    sampleNote: sampleNoteForLimit(historyLimit, fromDate),
+    sampleNote: sampleNoteForLimit(historyLimit, fromDate, locale),
     historyLimit,
     queryCount: 0,
   }
@@ -457,12 +465,14 @@ function cycleMetrics(
   now: Date,
   basis: BudgetDayBasis,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): PeriodMetric[] {
+  const copy = catalogFor(locale).stats
   const start = isoDay(data.billingCycleStart)
   const end = isoDay(data.billingCycleEnd)
   const cycle =
     start && end ? `${start} → ${end}` : dash(end ?? start)
-  const reset = cycleResetLabel(data.billingCycleEnd, now)
+  const reset = cycleResetLabel(data.billingCycleEnd, now, locale)
   const elapsed = cycleElapsedPercent(
     data.billingCycleStart,
     data.billingCycleEnd,
@@ -470,8 +480,8 @@ function cycleMetrics(
   )
 
   const metrics: PeriodMetric[] = [
-    metric('plan', 'Plan', formatPlan(data.plan)),
-    metric('cycle', 'Billing cycle', cycle, {
+    metric('plan', copy.plan, formatPlan(data.plan)),
+    metric('cycle', copy.billingCycleLabel, cycle, {
       hint: reset ?? undefined,
       percent: elapsed,
     }),
@@ -492,15 +502,16 @@ function cycleMetrics(
   const days =
     data.workingDaysLeft === null ? '—' : String(data.workingDaysLeft)
   const daysLabel =
-    basis === 'calendarDays' ? 'Calendar days left' : 'Working days left'
+    basis === 'calendarDays' ? copy.calendarDaysLeft : copy.workingDaysLeft
+  const heading = lastQueriesHeading(historyLimit, fromDate, locale)
 
   metrics.push(
-    metric('remaining', 'Remaining', remaining),
+    metric('remaining', copy.remaining, remaining),
     metric('workingDays', daysLabel, days),
-    metric('dailyBudget', 'Daily budget', daily),
+    metric('dailyBudget', copy.dailyBudget, daily),
     metric(
       'sampleVsCurrent',
-      `${lastQueriesHeading(historyLimit, fromDate)} vs Current`,
+      interpolate(copy.sampleVsCurrent, { heading }),
       `${formatDollars(sampleSum)} vs ${formatDollars(data.usedUsd)}`,
     ),
   )
@@ -512,12 +523,14 @@ function sampleMetrics(
   spikeTokenThreshold: number,
   historyLimit: number,
   fromDate?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): PeriodMetric[] {
-  const heading = lastQueriesHeading(historyLimit, fromDate)
+  const copy = catalogFor(locale).stats
+  const heading = lastQueriesHeading(historyLimit, fromDate, locale)
   if (queries.length === 0) {
     return [
-      metric('avgTokens', 'Average per query tokens', '0'),
-      metric('total', `${heading} total`, formatDollars(0)),
+      metric('avgTokens', copy.avgTokens, '0'),
+      metric('total', interpolate(copy.sampleTotal, { heading }), formatDollars(0)),
     ]
   }
 
@@ -537,7 +550,8 @@ function sampleMetrics(
     isSpike(query.tokens, spikeTokenThreshold),
   ).length
   const hit = cacheHitPercent(input, cacheRead)
-  const queryNoun = queries.length === 1 ? 'query' : 'queries'
+  const queryNoun =
+    queries.length === 1 ? copy.queryNounOne : copy.queryNounMany
 
   let priciest = queries[0]
   let heaviest = queries[0]
@@ -553,45 +567,48 @@ function sampleMetrics(
   const metrics: PeriodMetric[] = [
     metric(
       'avgTokens',
-      'Average per query tokens',
+      copy.avgTokens,
       formatCompactTokens(tokens / queries.length),
     ),
-    metric('total', `${heading} total`, formatDollars(total), {
+    metric('total', interpolate(copy.sampleTotal, { heading }), formatDollars(total), {
       hint: `${formatTokens(queries.length)} ${queryNoun}`,
     }),
     metric(
       'avgCost',
-      'Average per query',
+      copy.avgCost,
       formatDollars(total / queries.length),
     ),
     metric(
       'medianCost',
-      'Median per query',
+      copy.medianCost,
       formatDollars(median(queries.map((query) => query.costUsd))),
     ),
     metric(
       'spikes',
-      QUERIES_OVER_TOKEN_WARNING_LABEL,
+      copy.spikes,
       String(spikes),
-      { hint: `tokens ≥ ${formatCompactTokens(spikeTokenThreshold)}` },
+      { hint: interpolate(copy.spikesHint, { n: formatCompactTokens(spikeTokenThreshold) }) },
     ),
-    metric('cacheHit', 'Cache hit', formatPercentUsed(hit), {
-      hint: CACHE_HIT_HINT,
+    metric('cacheHit', copy.cacheHit, formatPercentUsed(hit), {
+      hint: copy.cacheHitHint,
     }),
     metric(
       'costPerMillion',
-      'Cost per 1M tokens',
+      copy.costPerMillion,
       costPerMillion(total, tokens),
     ),
-    metric('tokens', `Tokens in ${heading}`, formatCompactTokens(tokens), {
-      hint: `${formatTokens(input)} in · ${formatTokens(output)} out`,
-      shares: tokenShares(input, output, cacheWrite, cacheRead),
+    metric('tokens', interpolate(copy.tokensIn, { heading }), formatCompactTokens(tokens), {
+      hint: interpolate(copy.tokensHint, {
+        input: formatTokens(input),
+        output: formatTokens(output),
+      }),
+      shares: tokenShares(input, output, cacheWrite, cacheRead, locale),
     }),
   ]
 
   if (priciest) {
     metrics.push(
-      metric('priciest', 'Most expensive query', formatDollars(priciest.costUsd), {
+      metric('priciest', copy.mostExpensive, formatDollars(priciest.costUsd), {
         detail: modelLabel(priciest.model),
         hint: formatDateTime(priciest.timestamp),
       }),
@@ -599,15 +616,16 @@ function sampleMetrics(
   }
   if (heaviest) {
     metrics.push(
-      metric('heaviest', 'Heaviest query', formatCompactTokens(heaviest.tokens), {
+      metric('heaviest', copy.heaviest, formatCompactTokens(heaviest.tokens), {
         detail: modelLabel(heaviest.model),
         hint: formatDateTime(heaviest.timestamp),
       }),
     )
   }
-  metrics.push(busiestDay(queries))
+  metrics.push(busiestDay(queries, locale))
   return metrics
 }
+
 
 export function toPeriodStats(
   snapshot: UsageSnapshot,
@@ -620,12 +638,14 @@ export function toPeriodStats(
   const historyFromDate = options.historyFromDate ?? null
   const now = options.now ?? new Date()
   const basis = options.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const locale = options.locale ?? DEFAULT_LOCALE
+  const copy = catalogFor(locale).stats
   const sample = newestQueries(
     queries,
     sampleSizeLimit(historyLimit, historyFromDate),
   )
   if (snapshot.status !== 'ready') {
-    const empty = emptyStats(historyLimit, historyFromDate)
+    const empty = emptyStats(historyLimit, historyFromDate, locale)
     if (sample.length === 0) {
       return empty
     }
@@ -636,6 +656,7 @@ export function toPeriodStats(
         options.spikeTokenThreshold,
         historyLimit,
         historyFromDate,
+        locale,
       ),
       byModel: groupCost(sample, (query) => modelLabel(query.model)),
       byKind: groupCost(sample, (query) => formatKind(query.kind)),
@@ -653,17 +674,17 @@ export function toPeriodStats(
     glossary: [
       glossaryItem(
         'current',
-        'Current',
-        currentValue(data),
-        currentGlossaryBody(data),
-        currentBars(data),
+        copy.current,
+        currentValue(data, locale),
+        currentGlossaryBody(data, locale),
+        currentBars(data, locale),
       ),
       glossaryItem(
         'today',
-        todayTitle(data),
+        todayTitle(data, locale),
         todayValue(data, monthUsedUsd, dailyPct),
-        todayGlossaryBody(data, basis),
-        todayBars(data, monthUsedUsd, dailyPct),
+        todayGlossaryBody(data, basis, locale),
+        todayBars(data, monthUsedUsd, dailyPct, locale),
       ),
     ],
     cycle: cycleMetrics(
@@ -673,17 +694,20 @@ export function toPeriodStats(
       now,
       basis,
       historyFromDate,
+      locale,
     ),
     sample: sampleMetrics(
       sample,
       options.spikeTokenThreshold,
       historyLimit,
       historyFromDate,
+      locale,
     ),
     byModel: groupCost(sample, (query) => modelLabel(query.model)),
     byKind: groupCost(sample, (query) => formatKind(query.kind)),
-    sampleNote: sampleNoteForLimit(historyLimit, historyFromDate),
+    sampleNote: sampleNoteForLimit(historyLimit, historyFromDate, locale),
     historyLimit,
     queryCount: sample.length,
   }
 }
+

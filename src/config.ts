@@ -24,9 +24,20 @@ import {
   clampSpikeTokenThreshold,
   DEFAULT_SPIKE_TOKEN_THRESHOLD,
 } from './spikes/threshold'
+import {
+  clampBurnRateMinQueries,
+  clampBurnRateThresholds,
+  clampBurnRateWindowMinutes,
+  DEFAULT_BURN_RATE_CRITICAL_USD,
+  DEFAULT_BURN_RATE_MIN_QUERIES,
+  DEFAULT_BURN_RATE_WARNING_USD,
+  DEFAULT_BURN_RATE_WINDOW_MINUTES,
+} from './burnRate/detect'
+import { DEFAULT_LOCALE, parseLocale, type Locale } from './locale'
 
-export type { BudgetDayBasis, OptimizeDepth }
+export type { BudgetDayBasis, Locale, OptimizeDepth }
 export { DEFAULT_BUDGET_DAY_BASIS, parseBudgetDayBasis }
+export { DEFAULT_LOCALE, parseLocale }
 export { DEFAULT_OPTIMIZE_DEPTH, parseOptimizeDepth }
 
 const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i
@@ -121,11 +132,20 @@ export type CursorCostConfig = {
   showCriticalAlert: boolean
   criticalTokenThreshold: number
   criticalCostUsdThreshold: number
+  burnRateGuard: boolean
+  burnRateWindowMinutes: number
+  burnRateWarningUsd: number
+  burnRateCriticalUsd: number
+  burnRateMinQueries: number
+  burnRateWarningToast: boolean
+  burnRateCriticalToast: boolean
+  codeLinesInsight: boolean
   historyLimit: number
   /** Local `YYYY-MM-DD`; `null` uses Last N (`historyLimit`). */
   historyFromDate: string | null
   budgetDayBasis: BudgetDayBasis
   optimizeDepth: OptimizeDepth
+  language: Locale
   okColor: string
   warnColor: string
 }
@@ -141,10 +161,19 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   showCriticalAlert: true,
   criticalTokenThreshold: DEFAULT_CRITICAL_TOKEN_THRESHOLD,
   criticalCostUsdThreshold: DEFAULT_CRITICAL_COST_USD_THRESHOLD,
+  burnRateGuard: true,
+  burnRateWindowMinutes: DEFAULT_BURN_RATE_WINDOW_MINUTES,
+  burnRateWarningUsd: DEFAULT_BURN_RATE_WARNING_USD,
+  burnRateCriticalUsd: DEFAULT_BURN_RATE_CRITICAL_USD,
+  burnRateMinQueries: DEFAULT_BURN_RATE_MIN_QUERIES,
+  burnRateWarningToast: true,
+  burnRateCriticalToast: true,
+  codeLinesInsight: true,
   historyLimit: DEFAULT_HISTORY_LIMIT,
   historyFromDate: null,
   budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
   optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
+  language: DEFAULT_LOCALE,
   okColor: DEFAULT_OK_COLOR,
   warnColor: DEFAULT_WARN_COLOR,
 }
@@ -175,6 +204,16 @@ export function parseHexColor(value: unknown, fallback: string): string {
 }
 
 export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
+  const burnUsd = clampBurnRateThresholds(
+    section.get(
+      'burnRateWarningUsd',
+      DEFAULT_CURSOR_COST_CONFIG.burnRateWarningUsd,
+    ),
+    section.get(
+      'burnRateCriticalUsd',
+      DEFAULT_CURSOR_COST_CONFIG.burnRateCriticalUsd,
+    ),
+  )
   return {
     pollIntervalMinutes: clampPollIntervalMinutes(
       section.get(
@@ -211,6 +250,24 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
         DEFAULT_CURSOR_COST_CONFIG.criticalCostUsdThreshold,
       ),
     ),
+    burnRateGuard: section.get('burnRateGuard', true) === true,
+    burnRateWindowMinutes: clampBurnRateWindowMinutes(
+      section.get(
+        'burnRateWindowMinutes',
+        DEFAULT_CURSOR_COST_CONFIG.burnRateWindowMinutes,
+      ),
+    ),
+    burnRateWarningUsd: burnUsd.warningUsd,
+    burnRateCriticalUsd: burnUsd.criticalUsd,
+    burnRateMinQueries: clampBurnRateMinQueries(
+      section.get(
+        'burnRateMinQueries',
+        DEFAULT_CURSOR_COST_CONFIG.burnRateMinQueries,
+      ),
+    ),
+    burnRateWarningToast: section.get('burnRateWarningToast', true) === true,
+    burnRateCriticalToast: section.get('burnRateCriticalToast', true) === true,
+    codeLinesInsight: section.get('codeLinesInsight', true) === true,
     historyLimit: clampHistoryLimit(
       section.get('historyLimit', DEFAULT_CURSOR_COST_CONFIG.historyLimit),
     ),
@@ -221,6 +278,7 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     optimizeDepth: parseOptimizeDepth(
       section.get('optimizeDepth', DEFAULT_OPTIMIZE_DEPTH),
     ),
+    language: parseLocale(section.get('language', DEFAULT_LOCALE)),
     okColor: parseHexColor(
       section.get('okColor', DEFAULT_OK_COLOR),
       DEFAULT_OK_COLOR,

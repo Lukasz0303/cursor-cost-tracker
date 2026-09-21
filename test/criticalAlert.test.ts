@@ -127,6 +127,57 @@ describe('decideCriticalAlert', () => {
     expect(decision).toEqual({ kind: 'skip' })
   })
 
+  it('does not re-alert when the same query later revises tokens or cost', () => {
+    const first = query({
+      timestamp: 50,
+      tokens: 15_000_000,
+      costUsd: 8,
+      model: 'grok-4.6-high',
+    })
+    const revised = query({
+      timestamp: 50,
+      tokens: 21_637_225,
+      costUsd: 12.57,
+      model: 'grok-4.6-high',
+    })
+    const decision = decideCriticalAlert({
+      queries: [revised],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(first),
+      lastAlertedTimestamp: first.timestamp,
+      nowMs: revised.timestamp + 60_000,
+    })
+    expect(decision).toEqual({
+      kind: 'remember',
+      key: queryFingerprint(revised),
+    })
+  })
+
+  it('still alerts when a non-critical query later crosses the threshold', () => {
+    const early = query({
+      timestamp: 50,
+      tokens: 100_000,
+      costUsd: 0.2,
+      model: 'grok-4.6-high',
+    })
+    const crossed = query({
+      timestamp: 50,
+      tokens: 21_637_225,
+      costUsd: 12.57,
+      model: 'grok-4.6-high',
+    })
+    const decision = decideCriticalAlert({
+      queries: [crossed],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(early),
+      lastAlertedTimestamp: undefined,
+      nowMs: crossed.timestamp + 30_000,
+    })
+    expect(decision.kind).toBe('alert')
+  })
+
   it('remembers a historical expensive query on first load instead of blocking', () => {
     const decision = decideCriticalAlert({
       queries: [expensive],
@@ -196,6 +247,71 @@ describe('decideCriticalAlert', () => {
       return
     }
     expect(decision.query).toBe(later)
+  })
+
+  it('alerts an older critical query when newer follow-ups are under threshold', () => {
+    const mega = query({
+      timestamp: 50,
+      tokens: 21_637_225,
+      costUsd: 12.57,
+      model: 'grok-4.6-high',
+    })
+    const followUp = query({ timestamp: 60, tokens: 42_500, costUsd: 0.07 })
+    const decision = decideCriticalAlert({
+      queries: [followUp, mega],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(
+        query({ timestamp: 40, tokens: 1_000, costUsd: 0.02 }),
+      ),
+      nowMs: followUp.timestamp + 30_000,
+    })
+    expect(decision.kind).toBe('alert')
+    if (decision.kind !== 'alert') {
+      return
+    }
+    expect(decision.query).toBe(mega)
+    expect(decision.breach).toEqual({ tokens: true, cost: true })
+  })
+
+  it('advances the frontier after a critical query was already shown', () => {
+    const mega = query({
+      timestamp: 50,
+      tokens: 21_637_225,
+      costUsd: 12.57,
+    })
+    const followUp = query({ timestamp: 60, tokens: 42_500, costUsd: 0.07 })
+    const decision = decideCriticalAlert({
+      queries: [followUp, mega],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(mega),
+      nowMs: followUp.timestamp + 30_000,
+    })
+    expect(decision).toEqual({
+      kind: 'remember',
+      key: queryFingerprint(followUp),
+    })
+  })
+
+  it('still alerts extreme historical queries on first load past grace', () => {
+    const mega = query({
+      timestamp: 50,
+      tokens: 21_637_225,
+      costUsd: 12.57,
+    })
+    const decision = decideCriticalAlert({
+      queries: [mega],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: undefined,
+      nowMs: mega.timestamp + DEFAULT_CRITICAL_ALERT_GRACE_MS + 60_000,
+    })
+    expect(decision.kind).toBe('alert')
+    if (decision.kind !== 'alert') {
+      return
+    }
+    expect(decision.query).toBe(mega)
   })
 })
 

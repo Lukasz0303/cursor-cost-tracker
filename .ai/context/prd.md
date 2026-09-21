@@ -2,8 +2,8 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.15  
-**Date:** 2026-09-07  
+**Document version:** 2.17  
+**Date:** 2026-09-14  
 **Status:** Product decision (MVP)  
 **Canonical location:** this file (`.ai/context/prd.md`)  
 **Polish translation:** [prd.pl.md](./prd.pl.md)
@@ -80,7 +80,7 @@ Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCo
 | Refresh | `$(sync)` / `$(sync~spin)` | Refresh usage from cursor.com | refresh only, no panel |
 | Last 1–10 queries (default 3) | `0.03 $ - 64.8k` or `! 1.20 $ - 1.2M` | model · time · tokens · kind | **open queries list** |
 
-Colors: when warnings are on, good state uses `cursorCost.okColor` (default green `#89D185` on dark themes, `#18794E` on light). **Team:** at/over monthly or daily dollar cap uses `cursorCost.warnColor` (default red `#F14C4C` on dark, `#C50F1F` on light). Custom hex is used as-is. **Pro / Pro+:** Current (included percents) and Today (query sum, often no daily cap) stay the good color — they are not a dollar-pool overage. A `!` spike on a recent query uses warnColor. Loading/error — default. When `cursorCost.showSpikeWarning` is off, there is no `!` and no status color. Warn at, colors, and the warning toggle live on the **Settings** tab.
+Colors: when warnings are on, good state uses `cursorCost.okColor` (default green `#89D185` on dark themes, `#18794E` on light). **Team:** at/over monthly or daily dollar cap uses `cursorCost.warnColor` (default red `#F14C4C` on dark, `#C50F1F` on light). Custom hex is used as-is. **Pro / Pro+:** Current (included percents) and Today (query sum, often no daily cap) stay the good color — they are not a dollar-pool overage — **unless Burn Rate Guard** is on and the live window is at warning/critical, in which case **Today** uses warnColor. A `!` spike on a recent query uses warnColor. Loading/error — default. When `cursorCost.showSpikeWarning` is off, there is no `!` and no status color. Warn at, colors, and the warning toggle live on the **Settings** tab.
 
 Empty recent slots are hidden. Ignore of spikes (persist in `globalState`) remains v1.1 follow-up.
 
@@ -108,9 +108,13 @@ No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignor
 
 **Critical last-query alert:** when the **newest** query is at or above `cursorCost.criticalTokenThreshold` (default **10,000,000** tokens) **or** `cursorCost.criticalCostUsdThreshold` (default **$5**), the extension host shows a blocking error dialog. Independent of the status-bar `!` (`showSpikeWarning`). Each newest-query fingerprint is processed once (`globalState` `cursorCost.lastCriticalSeenKey`). A historical last query older than five minutes is remembered on first load — no modal — so a restart does not block work. A query that just completed still alerts. **Open History** opens Last N. Toggle: `showCriticalAlert`.
 
+**Burn Rate Guard (1.0.4):** sum billed `costUsd` in a live window ending **now** (default **10 minutes**). Statistics always shows **Current burn rate** when enabled (`3.42 $ / 10 min`, optional `×` vs the user’s own recent pace, Today total). Window spend ≥ **$2** (default) shows a **non-modal** warning toast; ≥ **$5** a **non-modal** error toast. Once per episode, escalate warning→critical once, Snooze 30 min, first-load grace 5 min. Does **not** stop Cursor. Optional **Focus Composer** on the critical toast. `minQueries` default **2** so a single expensive query stays the last-query critical alert. Included Pro events at $0 still show token throughput on the card; dollar toasts may never fire. Today chip uses warnColor when the window is warning/critical and Show warnings is on. Last N rows in the window get warn styling (no 7th column). Toggle: `cursorCost.burnRateGuard`.
+
+**Generated Lines Insight / Coding stats (1.0.4):** for the **active workspace**, Statistics shows a **Coding stats** card in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed** (`(landed + this branch) / AI`), and **All on Cursor** (dashboard Lines Edited, split under **Projects** by local composer mix). Charts uses the same formulas. Not `AI − pending`; not line-level blame. Toggle: `cursorCost.codeLinesInsight` (default **true**).
+
 ### 5.3 Out of MVP
 
-Quick Pick as default click, Activity Bar, blocking modal on the history click path, 6-column TreeView, React/Vue in the webview, a separate Electron app, auto-repair / workspace scan / reading chat transcript bodies.
+Quick Pick as default click, Activity Bar, blocking modal on the history click path, 6-column TreeView, React/Vue in the webview, a separate Electron app, auto-repair / workspace scan / reading chat transcript bodies (structured composer header line totals and checkpoint hunk counts for Generated Lines are allowed; message `text` is not).
 
 ---
 
@@ -122,7 +126,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | G2 | One click to history | Statistics (Current/Today) or Last N table (query chip) &lt; 2 s (cache) |
 | G3 | Consistent numbers | Current/Today match Cursor usage (± $0.01) |
 | G4 | Zero configuration | VSIX, no `.env` |
-| G5 | Does not block work | no modals on the normal path; API error = N/A. Blocking dialog only for a last-query critical alert (default 10M tokens or $5) |
+| G5 | Does not block work | no modals on the normal path; API error = N/A. Blocking dialog only for a last-query critical alert (default 10M tokens or $5). Burn Rate Guard uses non-modal toasts only |
 
 ---
 
@@ -139,7 +143,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | A7 | developer | a tooltip with plan and cycle date | I get context without the table |
 
 v1.1: token-spike bang (§5.1–5.2), Ignore, configurable threshold; 80%/90% spend alerts; Copy stats.  
-v1.2: sidebar; optional Quick Pick.
+**1.0.4:** **Burn Rate Guard** (live window $/time, banner, non-modal toasts, Statistics card, Today tint), **Coding stats** (landed / AI · All on Cursor), and **10 UI languages**.
 
 ### 7b. User stories (v1.1 — token spike)
 
@@ -219,9 +223,19 @@ media/history.{html,css,js}
 | `cursorCost.showCriticalAlert` | true | blocking dialog when the newest query hits the critical token or dollar threshold |
 | `cursorCost.criticalTokenThreshold` | 10000000 | min 1000; Settings tab in **k** (10000 = 10M); either threshold is enough |
 | `cursorCost.criticalCostUsdThreshold` | 5 | min 0.01 USD; either threshold is enough |
+| `cursorCost.burnRateGuard` | true | live window on Statistics; non-modal toasts; Today tint when high |
+| `cursorCost.burnRateWindowMinutes` | 10 | 2–60; right edge is now |
+| `cursorCost.burnRateWarningUsd` | 2 | min 0.01; non-modal warning toast |
+| `cursorCost.burnRateCriticalUsd` | 5 | never below warning; non-modal error toast; does not stop Cursor |
+| `cursorCost.burnRateMinQueries` | 2 | 1–50; a single query stays the last-query critical alert |
+| `cursorCost.burnRateWarningToast` | true | off = remember episode without a toast |
+| `cursorCost.burnRateCriticalToast` | true | off = remember episode without a toast |
+| `cursorCost.codeLinesInsight` | true | Coding stats on Statistics and Charts (landed / AI · All on Cursor) |
+| `cursorCost.language` | `en` | Panel, status bar, toasts; independent of VS Code / Cursor display language |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignored when From date is set |
 | `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date** (Start of month / Today); empty = Last N |
 | `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (Mon–Fri, default) or `calendarDays` (every day in the month); Settings **Pace by** — Today daily budget, MTD meters, forecast |
+| `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | good-state color (darker `#18794E` on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | warning color (darker `#C50F1F` on light themes) |
 
@@ -235,7 +249,8 @@ Activation: `onStartupFinished`.
 |-------|--------|
 | **MVP** | session + API, status bar, Last 100 webview, polling, errors |
 | **v1.1** | spike `!` (default 1M tokens, user setting), Ignore + persist, 80/90% spend alerts, Copy stats |
-| **v1.2** | sidebar, optional Quick Pick |
+| **1.0.4** | Burn Rate Guard + Coding stats (AI vs git) + 10 UI languages |
+| **v1.2** | (open — sidebar / Quick Pick backlog) |
 | **v2** | Secret Storage, CSV, Open VSX |
 
 ---
@@ -272,6 +287,15 @@ Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Session: `
 - [ ] A later newest query over the threshold alerts again
 - [ ] First load of a last query older than five minutes does not block
 - [ ] Off via `showCriticalAlert`; independent of `showSpikeWarning`
+
+### 13d. Burn Rate Guard (1.0.4)
+
+- [ ] Statistics **Current burn rate** card when enabled, even under the warning floor
+- [ ] Window ≥ $2 warning / ≥ $5 critical: non-modal toasts, once per episode, Snooze 30 min
+- [ ] First load with newest-in-window older than five minutes does not toast
+- [ ] Today chip warnColor when the window is high and Show warnings is on
+- [ ] A single expensive query (minQueries default 2) does not fire this toast
+- [ ] No second blocking modal; G5 still has only the last-query critical dialog
 
 ---
 

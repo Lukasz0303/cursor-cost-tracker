@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 import * as vscode from 'vscode'
 import {
   EXPORT_CSV_COMMAND,
@@ -20,22 +21,38 @@ import {
   resolveStatusColors,
   type BudgetDayBasis,
   type CursorCostConfig,
+  type Locale,
   type OptimizeDepth,
 } from '../config'
 import {
   isUnregisteredConfigError,
   persistedSettingKey,
 } from '../settingsStore'
+import { catalogFor, interpolate } from '../i18n'
+import { parseLocale } from '../locale'
 import { parseHistoryFromDate } from '../historyFromDate'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
   lastQueriesTitle,
+  sampleSizeLimit,
 } from '../historyLimit'
+import { codeLinesWindowFromSample } from '../codeLines/window'
 import {
   clampCriticalCostUsdThreshold,
   clampCriticalTokenThreshold,
 } from '../spikes/criticalAlert'
+import {
+  clampBurnRateMinQueries,
+  clampBurnRateThresholds,
+  clampBurnRateWindowMinutes,
+} from '../burnRate/detect'
+import { collectCodeLinesPayload } from '../codeLines/collect'
+import {
+  CODE_LINES_AUTHORS_STATE_KEY,
+  parseStoredAuthorChoice,
+} from '../codeLines/authorChoice'
+import { readCursorSession } from '../usage/session'
 import { clampSpikeTokenThreshold } from '../spikes/threshold'
 import type { UsageQuery } from '../usage/types'
 import {
@@ -99,6 +116,10 @@ function asConfigPatch(
     case 'spikeTokenThreshold':
     case 'criticalTokenThreshold':
     case 'criticalCostUsdThreshold':
+    case 'burnRateWindowMinutes':
+    case 'burnRateWarningUsd':
+    case 'burnRateCriticalUsd':
+    case 'burnRateMinQueries':
     case 'historyLimit':
       return { [key]: value as number }
     case 'historyFromDate':
@@ -108,11 +129,17 @@ function asConfigPatch(
     case 'minimalMode':
     case 'showSpikeWarning':
     case 'showCriticalAlert':
+    case 'burnRateGuard':
+    case 'burnRateWarningToast':
+    case 'burnRateCriticalToast':
+    case 'codeLinesInsight':
       return { [key]: value === true }
     case 'budgetDayBasis':
       return { budgetDayBasis: parseBudgetDayBasis(value) }
     case 'optimizeDepth':
       return { optimizeDepth: parseOptimizeDepth(value) }
+    case 'language':
+      return { language: parseLocale(value) }
     case 'okColor':
     case 'warnColor':
       return { [key]: String(value) }
@@ -149,10 +176,12 @@ export class HistoryPanel {
   readonly panelVersion: string
   private readonly panel: vscode.WebviewPanel
   private readonly globalState: vscode.Memento
+  private readonly workspaceState: vscode.Memento
   private readonly disposables: vscode.Disposable[] = []
   private pendingTab: HistoryTab
   private optimizeSavingsMarkdown: string | null = null
   private postDataSeq = 0
+  private collectAbort: AbortController | undefined
 
   private constructor(
     context: vscode.ExtensionContext,
@@ -162,6 +191,7 @@ export class HistoryPanel {
   ) {
     this.panelVersion = version
     this.globalState = context.globalState
+    this.workspaceState = context.workspaceState
     this.pendingTab = initialTab
     const mediaRoot = vscode.Uri.joinPath(context.extensionUri, 'media')
     this.panel = vscode.window.createWebviewPanel(
@@ -236,7 +266,11 @@ export class HistoryPanel {
       const url = resolveSupportUrl((message as { id?: unknown }).id)
       if (!url) {
         void vscode.window.showInformationMessage(
-          'That support link is not live yet — check back after the next release.',
+          catalogFor(
+            readCursorCostConfig(
+              vscode.workspace.getConfiguration('cursorCost'),
+            ).language,
+          ).support.linkNotLive,
         )
         return
       }
@@ -282,6 +316,85 @@ export class HistoryPanel {
         'criticalCostUsdThreshold',
         clampCriticalCostUsdThreshold(parsed),
       )
+      return
+    }
+    if (type === 'setBurnRateGuard') {
+      void this.writeSetting(
+        'burnRateGuard',
+        (message as { value?: unknown }).value === true,
+      )
+      return
+    }
+    if (type === 'setBurnRateWindowMinutes') {
+      const raw = (message as { value?: unknown }).value
+      const parsed = typeof raw === 'number' ? raw : Number(raw)
+      void this.writeSetting(
+        'burnRateWindowMinutes',
+        clampBurnRateWindowMinutes(parsed),
+      )
+      return
+    }
+    if (type === 'setBurnRateWarningUsd' || type === 'setBurnRateCriticalUsd') {
+      const raw = (message as { value?: unknown }).value
+      const current = readCursorCostConfig(
+        vscode.workspace.getConfiguration('cursorCost'),
+      )
+      const warning =
+        type === 'setBurnRateWarningUsd'
+          ? raw
+          : current.burnRateWarningUsd
+      const critical =
+        type === 'setBurnRateCriticalUsd'
+          ? raw
+          : current.burnRateCriticalUsd
+      const next = clampBurnRateThresholds(warning, critical)
+      void this.writeSetting('burnRateWarningUsd', next.warningUsd)
+      void this.writeSetting('burnRateCriticalUsd', next.criticalUsd)
+      return
+    }
+    if (type === 'setBurnRateMinQueries') {
+      const raw = (message as { value?: unknown }).value
+      const parsed = typeof raw === 'number' ? raw : Number(raw)
+      void this.writeSetting(
+        'burnRateMinQueries',
+        clampBurnRateMinQueries(parsed),
+      )
+      return
+    }
+    if (type === 'setBurnRateWarningToast') {
+      void this.writeSetting(
+        'burnRateWarningToast',
+        (message as { value?: unknown }).value === true,
+      )
+      return
+    }
+    if (type === 'setBurnRateCriticalToast') {
+      void this.writeSetting(
+        'burnRateCriticalToast',
+        (message as { value?: unknown }).value === true,
+      )
+      return
+    }
+    if (type === 'setCodeLinesInsight') {
+      void this.writeSetting(
+        'codeLinesInsight',
+        (message as { value?: unknown }).value === true,
+      )
+      return
+    }
+    if (type === 'setCodeLinesAuthors') {
+      const parsed = parseStoredAuthorChoice({
+        emails: (message as { emails?: unknown }).emails,
+        sumMultiple: (message as { sumMultiple?: unknown }).sumMultiple,
+      })
+      void this.workspaceState
+        .update(
+          CODE_LINES_AUTHORS_STATE_KEY,
+          parsed ?? { emails: [], sumMultiple: false },
+        )
+        .then(() => {
+          this.postData()
+        })
       return
     }
     if (type === 'setShowStatusBar') {
@@ -337,6 +450,13 @@ export class HistoryPanel {
       void this.writeSetting(
         'optimizeDepth',
         parseOptimizeDepth((message as { value?: unknown }).value),
+      )
+      return
+    }
+    if (type === 'setLanguage') {
+      void this.writeSetting(
+        'language',
+        parseLocale((message as { value?: unknown }).value),
       )
       return
     }
@@ -428,8 +548,11 @@ export class HistoryPanel {
         return
       }
       const message = error instanceof Error ? error.message : String(error)
+      const language = readCursorCostConfig(
+        vscode.workspace.getConfiguration('cursorCost'),
+      ).language
       void vscode.window.showErrorMessage(
-        `Could not save Cursor Cost setting: ${message}`,
+        interpolate(catalogFor(language).alerts.saveSetting, { message }),
       )
       this.postData(patch)
       return
@@ -461,6 +584,7 @@ export class HistoryPanel {
         historyLimit: config.historyLimit,
         historyFromDate: config.historyFromDate,
         optimizeDepth: depth,
+        language: config.language,
         optimizeSavingsMarkdown: savingsMarkdown,
         optimizeProjectLabel: project.label,
         optimizeLifetimeSavings: lifetime,
@@ -468,7 +592,7 @@ export class HistoryPanel {
     ).optimize
     const prompt = optimize.prompts[depth] || optimize.prompt
     if (mode === 'chat') {
-      void openOptimizeChat(prompt)
+      void openOptimizeChat(prompt, undefined, config.language)
       return
     }
     await vscode.env.clipboard.writeText(prompt)
@@ -541,6 +665,15 @@ export class HistoryPanel {
       recentQueryCount: number
       budgetDayBasis: BudgetDayBasis
       optimizeDepth: OptimizeDepth
+      burnRateGuard: boolean
+      burnRateWindowMinutes: number
+      burnRateWarningUsd: number
+      burnRateCriticalUsd: number
+      burnRateMinQueries: number
+      burnRateWarningToast: boolean
+      burnRateCriticalToast: boolean
+      codeLinesInsight: boolean
+      language: Locale
       refreshing: boolean
     }>,
   ): void {
@@ -565,9 +698,21 @@ export class HistoryPanel {
       recentQueryCount: number
       budgetDayBasis: BudgetDayBasis
       optimizeDepth: OptimizeDepth
+      burnRateGuard: boolean
+      burnRateWindowMinutes: number
+      burnRateWarningUsd: number
+      burnRateCriticalUsd: number
+      burnRateMinQueries: number
+      burnRateWarningToast: boolean
+      burnRateCriticalToast: boolean
+      codeLinesInsight: boolean
+      language: Locale
       refreshing: boolean
     }>,
   ): Promise<void> {
+    this.collectAbort?.abort()
+    const collectAbort = new AbortController()
+    this.collectAbort = collectAbort
     const seq = ++this.postDataSeq
     const savingsMarkdown = await readOptimizeSavingsMarkdown()
     if (seq !== this.postDataSeq) {
@@ -585,6 +730,34 @@ export class HistoryPanel {
       ...readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost')),
       ...overrides,
     }
+    const folder = vscode.workspace.workspaceFolders?.[0]
+    const lineWindow = codeLinesWindowFromSample({
+      queries,
+      limit: sampleSizeLimit(config.historyLimit, config.historyFromDate),
+      fromDate: config.historyFromDate,
+    })
+    const session = await readCursorSession({
+      locateWasm: (file) => join(__dirname, file),
+    })
+    if (seq !== this.postDataSeq) {
+      return
+    }
+    const codeLines = await collectCodeLinesPayload({
+      enabled: config.codeLinesInsight,
+      activeWorkspacePath: folder?.uri.fsPath ?? null,
+      locale: config.language,
+      sinceMs: lineWindow.sinceMs,
+      untilMs: lineWindow.untilMs,
+      cookie: session.ok ? session.cookie : null,
+      cursorEmail: session.ok ? session.email : null,
+      savedAuthors: parseStoredAuthorChoice(
+        this.workspaceState.get(CODE_LINES_AUTHORS_STATE_KEY),
+      ),
+      signal: collectAbort.signal,
+    })
+    if (seq !== this.postDataSeq) {
+      return
+    }
     const colors = resolveStatusColors(
       config,
       colorSchemeFromKind(vscode.window.activeColorTheme.kind),
@@ -592,6 +765,7 @@ export class HistoryPanel {
     this.panel.title = lastQueriesTitle(
       config.historyLimit,
       config.historyFromDate,
+      config.language,
     )
     void this.panel.webview.postMessage(
       payloadForSnapshot(snapshot, queries, {
@@ -612,6 +786,16 @@ export class HistoryPanel {
         recentQueryCount: config.recentQueryCount,
         budgetDayBasis: config.budgetDayBasis,
         optimizeDepth: config.optimizeDepth,
+        burnRateGuard: config.burnRateGuard,
+        burnRateWindowMinutes: config.burnRateWindowMinutes,
+        burnRateWarningUsd: config.burnRateWarningUsd,
+        burnRateCriticalUsd: config.burnRateCriticalUsd,
+        burnRateMinQueries: config.burnRateMinQueries,
+        burnRateWarningToast: config.burnRateWarningToast,
+        burnRateCriticalToast: config.burnRateCriticalToast,
+        codeLinesInsight: config.codeLinesInsight,
+        codeLines,
+        language: config.language,
         optimizeSavingsMarkdown: this.optimizeSavingsMarkdown,
         optimizeProjectLabel: project.label,
         optimizeLifetimeSavings: lifetime,
@@ -638,6 +822,7 @@ export class HistoryPanel {
   }
 
   private dispose(): void {
+    this.collectAbort?.abort()
     HistoryPanel.current = undefined
     for (const disposable of this.disposables) {
       disposable.dispose()
@@ -663,7 +848,10 @@ export async function saveQueriesCsv(
       fileName,
     ),
     filters: { CSV: ['csv'] },
-    saveLabel: 'Export',
+    saveLabel: catalogFor(
+      readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+        .language,
+    ).alerts.export,
   })
   if (!uri) {
     return

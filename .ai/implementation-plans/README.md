@@ -25,3 +25,17 @@ Start at **phase 0**. Do not mix [token-spike.md](./token-spike.md) into these p
 ## After MVP
 
 - Token spike / Ignore: [token-spike.md](./token-spike.md) · [token-spike.pl.md](./token-spike.pl.md)
+
+## Shipped (1.0.4)
+
+- **Burn Rate Guard** + **Generated Lines Insight** (PATCH **1.0.4**):
+  - [burn-rate-guard.md](./burn-rate-guard.md) · [burn-rate-guard.pl.md](./burn-rate-guard.pl.md)
+  - [generated-lines-insight.md](./generated-lines-insight.md) · [generated-lines-insight.pl.md](./generated-lines-insight.pl.md)
+
+Do **not** mix this into MVP phases 0–7 or into remaining v1.1 Ignore. On conflict, [prd.md](../context/prd.md) wins.
+
+## Additional / backlog
+
+Deferred spend-control notes (loop heuristic, daily cap, efficiency, model advisor, attribution). Not scheduled; re-number if picked up later.
+
+Index: [additional/README.md](./additional/README.md)
