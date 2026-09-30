@@ -87,10 +87,10 @@
   const chartsEmptyEl = document.getElementById('chartsEmpty')
   const chartTokensEl = document.getElementById('chartTokens')
   const chartCostEl = document.getElementById('chartCost')
-  const chartsMtdEl = document.getElementById('chartsMtd')
   const chartTipEl = document.getElementById('chartTip')
   const periodCardsEl = document.getElementById('periodCards')
   const optimizeViewEl = document.getElementById('optimizeView')
+  const leaderboardViewEl = document.getElementById('leaderboardView')
   const optimizeEmptyEl = document.getElementById('optimizeEmpty')
   const optimizeContentEl = document.getElementById('optimizeContent')
   const optimizeSummaryEl = document.getElementById('optimizeSummary')
@@ -108,11 +108,31 @@
   const optimizeDepthCardsEl = document.getElementById('optimizeDepthCards')
   const runOptimizeToolbarEl = document.getElementById('runOptimizeToolbar')
   const supportViewEl = document.getElementById('supportView')
+  const supportCommentsEl = document.getElementById('supportComments')
+  const supportCommentsEmptyEl = document.getElementById('supportCommentsEmpty')
+  const supportMessageFormEl = document.getElementById('supportMessageForm')
+  const supportNicknameEl = document.getElementById('supportNickname')
+  const supportEmailEl = document.getElementById('supportEmail')
+  const supportReplyValueEl = document.getElementById('supportReplyValue')
+  const supportConsentEl = document.getElementById('supportConsent')
+  const supportCommentNoticeEl = document.getElementById('supportCommentNotice')
+  const supportBodyEl = document.getElementById('supportBody')
+  const supportSendEl = document.getElementById('supportSend')
+  const supportMessageStatusEl = document.getElementById('supportMessageStatus')
+  let supportNicknameDirty = false
+  let supportEmailDirty = false
+  let supportSending = false
+  let leaderboardUnlocked = false
+  let currentView = 'queries'
+  let pendingLeaderboardTab = false
+  /** Mirrors parseUnlockRequest in src/unlock/leaderboardUnlock.ts; the host still decides. */
+  const UNLOCK_BODY = /^\s*unlock\s*:\s*[0-9a-z\s-]{6,64}\s*$/i
   const settingsViewEl = document.getElementById('settingsView')
   const tabQueriesEl = document.getElementById('tabQueries')
   const tabStatsEl = document.getElementById('tabStats')
   const tabChartsEl = document.getElementById('tabCharts')
   const tabOptimizeEl = document.getElementById('tabOptimize')
+  const tabLeaderboardEl = document.getElementById('tabLeaderboard')
   const tabSupportEl = document.getElementById('tabSupport')
   const tabSettingsEl = document.getElementById('tabSettings')
   const extensionVersionEl = document.getElementById('extensionVersion')
@@ -141,6 +161,7 @@
   let mtdUnit = 'usd'
   let mtdMax = null
   let mtdChartRange = 'month'
+  let chartBarMode = 'cumulative'
   let mtdForecastSvgs = []
   let budgetDayBasis = 'workingDays'
   let optimizeDepth = 'balanced'
@@ -467,6 +488,14 @@
         el.title = value
       }
     }
+    const placeholderNodes = document.querySelectorAll('[data-i18n-placeholder]')
+    for (let i = 0; i < placeholderNodes.length; i++) {
+      const el = placeholderNodes[i]
+      const value = lookupPath(ui, el.getAttribute('data-i18n-placeholder'))
+      if (typeof value === 'string') {
+        el.placeholder = value
+      }
+    }
     const ariaNodes = document.querySelectorAll('[data-i18n-aria]')
     for (let i = 0; i < ariaNodes.length; i++) {
       const el = ariaNodes[i]
@@ -474,6 +503,13 @@
       if (typeof value === 'string') {
         el.setAttribute('aria-label', value)
       }
+    }
+    markLbSort()
+    syncAuthorTools()
+    syncLeaderboardReposToggle()
+    syncDailyChartMode()
+    if (lbRepoPayload) {
+      renderLeaderboardRepos(lbRepoPayload)
     }
   }
 
@@ -493,6 +529,1511 @@
     }
     return node
   }
+
+  let lbRows = []
+  let lbSortKey = 'linesMerged'
+  let lbSortDir = 'desc'
+  let lbScanning = false
+  let lbAuthorsOpen = true
+  let lbReposOpen = false
+  let lbManualAuthors = []
+  let lbGitAuthors = []
+  let lbTeamEmails = []
+  let lbMerges = []
+  let lbRepoPayload = null
+
+  function lbIso(date) {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return y + '-' + m + '-' + d
+  }
+
+  function lbRange() {
+    const fromEl = document.getElementById('lbFrom')
+    const toEl = document.getElementById('lbTo')
+    return {
+      from: fromEl ? fromEl.value : '',
+      to: toEl ? toEl.value : '',
+    }
+  }
+
+  function lbRangeOk(range) {
+    return Boolean(range.from) && Boolean(range.to) && range.from <= range.to
+  }
+
+  function lbEmailKey(email) {
+    return String(email || '').trim().toLowerCase()
+  }
+
+  function lbEmailOk(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  function boxEmails(box) {
+    const raw = box.getAttribute('data-emails') || box.value || ''
+    const emails = []
+    const seen = {}
+    const parts = String(raw).split('\n')
+    for (let i = 0; i < parts.length; i++) {
+      const email = parts[i].trim()
+      const key = lbEmailKey(email)
+      if (!key || seen[key]) {
+        continue
+      }
+      seen[key] = true
+      emails.push(email)
+    }
+    return emails
+  }
+
+  function selectedLeaderboardEmails() {
+    const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+    const emails = []
+    const seen = {}
+    for (let i = 0; i < boxes.length; i++) {
+      if (!boxes[i].checked) {
+        continue
+      }
+      const row = boxEmails(boxes[i])
+      for (let j = 0; j < row.length; j++) {
+        const key = lbEmailKey(row[j])
+        if (seen[key]) {
+          continue
+        }
+        seen[key] = true
+        emails.push(row[j])
+      }
+    }
+    return emails
+  }
+
+  function authorCheckState() {
+    const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+    const state = {}
+    for (let i = 0; i < boxes.length; i++) {
+      const row = boxEmails(boxes[i])
+      for (let j = 0; j < row.length; j++) {
+        state[lbEmailKey(row[j])] = boxes[i].checked
+      }
+    }
+    return state
+  }
+
+  function syncAuthorTools() {
+    const tools = document.getElementById('lbAuthorTools')
+    const authors = document.getElementById('lbAuthors')
+    const toggle = document.getElementById('lbToggleAuthors')
+    const selectAll = document.getElementById('lbSelectAll')
+    const manual = document.getElementById('lbManualEmail')
+    const count = authors ? authors.querySelectorAll('.lb-author').length : 0
+    if (tools) {
+      tools.hidden = count === 0
+    }
+    if (authors) {
+      authors.hidden = count === 0 || !lbAuthorsOpen
+    }
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', lbAuthorsOpen ? 'true' : 'false')
+      setText(toggle, lbAuthorsOpen ? t('leaderboard.collapse') : t('leaderboard.expand'))
+    }
+    if (selectAll) {
+      const boxes = authors ? authors.querySelectorAll('input[type="checkbox"]') : []
+      let allOn = boxes.length > 0
+      let checkedRows = 0
+      for (let i = 0; i < boxes.length; i++) {
+        if (!boxes[i].checked) {
+          allOn = false
+        } else {
+          checkedRows += 1
+        }
+      }
+      setText(selectAll, allOn ? t('leaderboard.clearAll') : t('leaderboard.selectAll'))
+      const merge = document.getElementById('lbMerge')
+      if (merge) {
+        merge.disabled = lbScanning || checkedRows < 2
+      }
+    }
+    if (manual) {
+      manual.placeholder = t('leaderboard.manualPlaceholder')
+    }
+  }
+
+  function syncLeaderboardButtons() {
+    const scan = document.getElementById('lbScan')
+    const load = document.getElementById('lbLoad')
+    const myTeam = document.getElementById('lbMyTeam')
+    const saveTeam = document.getElementById('lbSaveTeam')
+    const exp = document.getElementById('lbExport')
+    const range = lbRange()
+    const ok = lbRangeOk(range)
+    if (load) {
+      load.disabled = lbScanning || !ok
+    }
+    if (myTeam) {
+      myTeam.disabled = lbScanning
+    }
+    const myRepos = document.getElementById('lbMyRepos')
+    if (myRepos) {
+      myRepos.disabled = lbScanning
+    }
+    if (saveTeam) {
+      saveTeam.disabled = lbScanning || selectedLeaderboardEmails().length === 0
+    }
+    if (scan) {
+      scan.disabled =
+        lbScanning || !ok || selectedLeaderboardEmails().length === 0
+      setText(scan, lbScanning ? t('leaderboard.scanning') : t('leaderboard.scan'))
+    }
+    if (exp) {
+      exp.disabled = lbScanning || lbRows.length === 0
+    }
+    const add = document.getElementById('lbAddEmail')
+    const manual = document.getElementById('lbManualEmail')
+    const selectAll = document.getElementById('lbSelectAll')
+    const toggle = document.getElementById('lbToggleAuthors')
+    if (add) {
+      add.disabled = lbScanning
+    }
+    if (manual) {
+      manual.disabled = lbScanning
+    }
+    if (selectAll) {
+      selectAll.disabled = lbScanning
+    }
+    if (toggle) {
+      toggle.disabled = lbScanning
+    }
+  }
+
+  function clearLeaderboardResult() {
+    lbRows = []
+    const body = document.getElementById('lbBody')
+    const wrap = document.getElementById('lbTableWrap')
+    const empty = document.getElementById('lbEmpty')
+    const meta = document.getElementById('lbMeta')
+    if (body) {
+      body.textContent = ''
+    }
+    if (wrap) {
+      wrap.hidden = true
+    }
+    if (empty) {
+      empty.hidden = false
+    }
+    if (meta) {
+      setText(meta, '')
+    }
+    paintLeaderboardChart(null)
+    syncLeaderboardReposToggle()
+    syncLeaderboardResultBar()
+    syncLeaderboardButtons()
+  }
+
+  function onLeaderboardDatesChanged() {
+    lbGitAuthors = []
+    paintLeaderboardAuthors(null)
+    clearLeaderboardResult()
+  }
+
+  function applyLeaderboardRange(from, to) {
+    const fromEl = document.getElementById('lbFrom')
+    const toEl = document.getElementById('lbTo')
+    if (fromEl && !fromEl.value && typeof from === 'string') {
+      fromEl.value = from
+    }
+    if (toEl && !toEl.value && typeof to === 'string') {
+      toEl.value = to
+    }
+    syncLeaderboardButtons()
+  }
+
+  function markLbSort() {
+    const buttons = document.querySelectorAll('[data-lb-sort]')
+    for (let i = 0; i < buttons.length; i++) {
+      const key = buttons[i].getAttribute('data-lb-sort')
+      const i18nKey = buttons[i].getAttribute('data-i18n')
+      const label = i18nKey ? lookupPath(ui, i18nKey) : ''
+      const base = typeof label === 'string' ? label : ''
+      const arrow = key === lbSortKey ? (lbSortDir === 'asc' ? ' ↑' : ' ↓') : ''
+      setText(buttons[i], base + arrow)
+    }
+  }
+
+  function compareLbRows(left, right) {
+    if (lbSortKey === 'name') {
+      const byName = left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+      return lbSortDir === 'asc' ? byName : -byName
+    }
+    if (lbSortKey === 'repositories') {
+      const delta = left.repositories.length - right.repositories.length
+      if (delta !== 0) {
+        return lbSortDir === 'asc' ? delta : -delta
+      }
+      const a = left.repositories[0] ? left.repositories[0].label : ''
+      const b = right.repositories[0] ? right.repositories[0].label : ''
+      return a.localeCompare(b, undefined, { sensitivity: 'base' })
+    }
+    const delta = Number(left[lbSortKey]) - Number(right[lbSortKey])
+    if (delta !== 0) {
+      return lbSortDir === 'asc' ? delta : -delta
+    }
+    if (right.commits !== left.commits) {
+      return right.commits - left.commits
+    }
+    return left.email.localeCompare(right.email, undefined, { sensitivity: 'base' })
+  }
+
+  function formatLeaderboardCount(n) {
+    const value = Math.trunc(Number(n))
+    if (!Number.isFinite(value)) {
+      return '0'
+    }
+    const sign = value < 0 ? '-' : ''
+    const digits = String(Math.abs(value))
+    return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0')
+  }
+
+  let lbChartPayload = null
+  let lbChartMonthly = false
+  const lbChartHidden = new Set()
+
+  const LB_CHART_COLORS = [
+    '#6ea8fe',
+    '#f0a36a',
+    '#7dcea0',
+    '#e07a9a',
+    '#c4b15a',
+    '#8e7cc3',
+    '#5ec8d8',
+    '#e07a5f',
+    '#81b29a',
+    '#3d5a80',
+  ]
+
+  function leaderboardAxisLabel(iso) {
+    if (iso.indexOf('.') !== -1) {
+      return iso
+    }
+    return iso.slice(8) + '.' + iso.slice(5, 7)
+  }
+
+  function monthlyLeaderboardChart(dates, series) {
+    const keys = []
+    const indexOf = {}
+    for (let i = 0; i < dates.length; i++) {
+      const key = String(dates[i]).slice(0, 7)
+      if (indexOf[key] === undefined) {
+        indexOf[key] = keys.length
+        keys.push(key)
+      }
+    }
+    const labels = keys.map(function (key) {
+      return key.slice(5) + '.' + key.slice(0, 4)
+    })
+    const next = []
+    for (let s = 0; s < series.length; s++) {
+      const lines = new Array(keys.length)
+      for (let m = 0; m < keys.length; m++) {
+        lines[m] = 0
+      }
+      const src = series[s].lines || []
+      for (let i = 0; i < dates.length; i++) {
+        const idx = indexOf[String(dates[i]).slice(0, 7)]
+        lines[idx] += Number(src[i]) || 0
+      }
+      next.push({
+        name: series[s].name,
+        email: series[s].email,
+        lines: lines,
+      })
+    }
+    return { dates: labels, series: next }
+  }
+
+  function leaderboardLineColor(email) {
+    const series =
+      lbChartPayload && Array.isArray(lbChartPayload.series) ? lbChartPayload.series : []
+    const key = String(email || '').toLowerCase()
+    for (let i = 0; i < series.length; i++) {
+      if (String(series[i].email || '').toLowerCase() === key) {
+        return LB_CHART_COLORS[i % LB_CHART_COLORS.length]
+      }
+    }
+    return LB_CHART_COLORS[0]
+  }
+
+  function paintLeaderboardChart(chart) {
+    const host = document.getElementById('lbChart')
+    if (!host) {
+      return
+    }
+    const dates = chart && Array.isArray(chart.dates) ? chart.dates : []
+    const series = chart && Array.isArray(chart.series) ? chart.series : []
+    lbChartPayload = chart && dates.length > 0 ? chart : null
+    if (dates.length === 0 || series.length === 0) {
+      host.hidden = true
+      host.textContent = ''
+      return
+    }
+    host.hidden = false
+    host.textContent = ''
+    const plot = lbChartMonthly ? monthlyLeaderboardChart(dates, series) : { dates: dates, series: series }
+    const plotDates = plot.dates
+    const plotSeries = plot.series
+    const head = el('div', 'lb-chart-head')
+    const title = el('h3', 'lb-chart-title')
+    setText(title, t('leaderboard.chartTitle'))
+    const mode = el('label', 'lb-chart-mode')
+    const daily = el('span')
+    setText(daily, t('leaderboard.chartDaily'))
+    const monthly = el('span')
+    setText(monthly, t('leaderboard.chartMonthly'))
+    const toggle = document.createElement('input')
+    toggle.type = 'checkbox'
+    toggle.className = 'settings-switch'
+    toggle.checked = lbChartMonthly
+    toggle.setAttribute('aria-label', t('leaderboard.chartMonthly'))
+    toggle.addEventListener('change', function () {
+      lbChartMonthly = toggle.checked
+      paintLeaderboardChart(lbChartPayload)
+    })
+    mode.appendChild(daily)
+    mode.appendChild(toggle)
+    mode.appendChild(monthly)
+    head.appendChild(title)
+    head.appendChild(mode)
+    host.appendChild(head)
+    let max = 1
+    const drawn = []
+    for (let s = 0; s < plotSeries.length; s++) {
+      const hidden = lbChartHidden.has(String(plotSeries[s].email || '').toLowerCase())
+      const lines = plotSeries[s].lines || []
+      const running = []
+      let sum = 0
+      for (let i = 0; i < plotDates.length; i++) {
+        sum += Number(lines[i]) || 0
+        running.push(sum)
+        if (!hidden && sum > max) {
+          max = sum
+        }
+      }
+      if (!hidden) {
+        drawn.push({
+          name: plotSeries[s].name || plotSeries[s].email,
+          color: LB_CHART_COLORS[s % LB_CHART_COLORS.length],
+          running: running,
+        })
+      }
+    }
+    const width = 720
+    const height = 248
+    const left = 78
+    const right = 16
+    const top = 14
+    const bottom = 28
+    const plotW = width - left - right
+    const plotH = height - top - bottom
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
+    svg.setAttribute('class', 'lb-chart-svg')
+    svg.setAttribute('role', 'img')
+    function xAt(index) {
+      if (plotDates.length === 1) {
+        return left + plotW / 2
+      }
+      return left + (plotW * index) / (plotDates.length - 1)
+    }
+    function yAt(value) {
+      return top + plotH - (plotH * value) / max
+    }
+    const ticks = []
+    const seenTick = {}
+    for (let step = 0; step < 5; step++) {
+      const value = step === 4 ? 0 : Math.round((max * (4 - step)) / 4)
+      if (seenTick[value]) {
+        continue
+      }
+      seenTick[value] = true
+      ticks.push(value)
+    }
+    for (let tIndex = 0; tIndex < ticks.length; tIndex++) {
+      const value = ticks[tIndex]
+      const y = yAt(value)
+      const grid = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      grid.setAttribute('x1', String(left))
+      grid.setAttribute('x2', String(width - right))
+      grid.setAttribute('y1', String(y))
+      grid.setAttribute('y2', String(y))
+      grid.setAttribute('class', 'lb-chart-grid')
+      svg.appendChild(grid)
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      label.setAttribute('x', String(left - 6))
+      label.setAttribute('y', String(y + 3))
+      label.setAttribute('class', 'lb-chart-label')
+      label.setAttribute('text-anchor', 'end')
+      label.textContent = formatLeaderboardCount(value)
+      svg.appendChild(label)
+    }
+    const labelAt = []
+    if (plotDates.length <= 12) {
+      for (let i = 0; i < plotDates.length; i++) {
+        labelAt.push(i)
+      }
+    } else {
+      const slots = 8
+      const seenSlot = {}
+      for (let i = 0; i < slots; i++) {
+        const index = Math.round((i * (plotDates.length - 1)) / (slots - 1))
+        if (seenSlot[index]) {
+          continue
+        }
+        seenSlot[index] = true
+        labelAt.push(index)
+      }
+    }
+    for (let i = 0; i < labelAt.length; i++) {
+      const index = labelAt[i]
+      const x = xAt(index)
+      const guide = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      guide.setAttribute('x1', String(x))
+      guide.setAttribute('x2', String(x))
+      guide.setAttribute('y1', String(top))
+      guide.setAttribute('y2', String(top + plotH))
+      guide.setAttribute('class', 'lb-chart-grid')
+      svg.appendChild(guide)
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      label.setAttribute('x', String(xAt(index)))
+      label.setAttribute('y', String(height - 8))
+      label.setAttribute('class', 'lb-chart-label')
+      label.setAttribute('text-anchor', index === plotDates.length - 1 ? 'end' : 'middle')
+      label.textContent = leaderboardAxisLabel(plotDates[index])
+      svg.appendChild(label)
+    }
+    const lineNodes = []
+    for (let s = 0; s < drawn.length; s++) {
+      const points = []
+      for (let i = 0; i < plotDates.length; i++) {
+        points.push(xAt(i) + ',' + yAt(drawn[s].running[i]))
+      }
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
+      line.setAttribute('points', points.join(' '))
+      line.setAttribute('fill', 'none')
+      line.setAttribute('stroke', drawn[s].color)
+      line.setAttribute('stroke-width', '2.25')
+      line.setAttribute('stroke-linejoin', 'round')
+      line.setAttribute('stroke-linecap', 'round')
+      line.setAttribute('pointer-events', 'none')
+      svg.appendChild(line)
+      lineNodes.push(line)
+    }
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    marker.setAttribute('r', '3.5')
+    marker.setAttribute('class', 'lb-chart-dot')
+    marker.setAttribute('pointer-events', 'none')
+    marker.setAttribute('visibility', 'hidden')
+    svg.appendChild(marker)
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    hit.setAttribute('x', String(left))
+    hit.setAttribute('y', String(top))
+    hit.setAttribute('width', String(plotW))
+    hit.setAttribute('height', String(plotH))
+    hit.setAttribute('fill', 'transparent')
+    hit.setAttribute('class', 'lb-chart-hit')
+    const tip = el('div', 'chart-tip lb-chart-tip')
+    tip.hidden = true
+    function hideLineTip() {
+      tip.hidden = true
+      marker.setAttribute('visibility', 'hidden')
+      for (let s = 0; s < lineNodes.length; s++) {
+        lineNodes[s].setAttribute('stroke-width', '2.25')
+      }
+    }
+    hit.addEventListener('mousemove', function (event) {
+      const ctm = svg.getScreenCTM()
+      if (!ctm || drawn.length === 0) {
+        hideLineTip()
+        return
+      }
+      const point = svg.createSVGPoint()
+      point.x = event.clientX
+      point.y = event.clientY
+      const local = point.matrixTransform(ctm.inverse())
+      let index = 0
+      let bestX = Infinity
+      for (let i = 0; i < plotDates.length; i++) {
+        const dist = Math.abs(xAt(i) - local.x)
+        if (dist < bestX) {
+          bestX = dist
+          index = i
+        }
+      }
+      const threshold = 18 / Math.abs(ctm.a || 1)
+      let chosen = -1
+      let bestY = Infinity
+      for (let s = 0; s < drawn.length; s++) {
+        const dy = Math.abs(yAt(drawn[s].running[index]) - local.y)
+        if (dy < bestY) {
+          bestY = dy
+          chosen = s
+        }
+      }
+      if (chosen < 0 || bestY > threshold) {
+        hideLineTip()
+        return
+      }
+      const series = drawn[chosen]
+      const y = yAt(series.running[index])
+      marker.setAttribute('cx', String(xAt(index)))
+      marker.setAttribute('cy', String(y))
+      marker.setAttribute('fill', series.color)
+      marker.setAttribute('visibility', 'visible')
+      for (let s = 0; s < lineNodes.length; s++) {
+        lineNodes[s].setAttribute('stroke-width', s === chosen ? '3.25' : '2.25')
+      }
+      tip.replaceChildren()
+      tip.style.setProperty('--lb-tip-color', series.color)
+      tip.appendChild(tipTitle(series.name))
+      tip.appendChild(tipSub(leaderboardAxisLabel(plotDates[index])))
+      const value = el('p', 'chart-tip-title')
+      setText(value, formatLeaderboardCount(series.running[index] || 0))
+      tip.appendChild(value)
+      placeTip(tip, host, event.clientX, event.clientY)
+    })
+    hit.addEventListener('mouseleave', hideLineTip)
+    svg.appendChild(hit)
+    host.appendChild(svg)
+    host.appendChild(tip)
+    const legend = el('div', 'lb-chart-legend')
+    for (let s = 0; s < drawn.length; s++) {
+      const item = el('span', 'lb-chart-key')
+      const swatch = el('i')
+      swatch.style.background = drawn[s].color
+      item.appendChild(swatch)
+      item.appendChild(document.createTextNode(drawn[s].name))
+      legend.appendChild(item)
+    }
+    host.appendChild(legend)
+  }
+
+  function paintLeaderboardRows() {
+    const body = document.getElementById('lbBody')
+    const wrap = document.getElementById('lbTableWrap')
+    const empty = document.getElementById('lbEmpty')
+    if (!body) {
+      return
+    }
+    body.textContent = ''
+    const sorted = lbRows.slice().sort(compareLbRows)
+    for (let i = 0; i < sorted.length; i++) {
+      const row = sorted[i]
+      const tr = document.createElement('tr')
+      const who = document.createElement('td')
+      const lineKey = String(row.email || '').toLowerCase()
+      const pick = document.createElement('label')
+      pick.className = 'lb-line-pick'
+      const box = document.createElement('input')
+      box.type = 'checkbox'
+      box.checked = !lbChartHidden.has(lineKey)
+      box.setAttribute('aria-label', row.name || row.email || '')
+      const swatch = el('i', 'lb-line-swatch')
+      swatch.style.background = leaderboardLineColor(row.email)
+      pick.appendChild(box)
+      pick.appendChild(swatch)
+      if (!box.checked) {
+        tr.classList.add('is-off')
+      }
+      box.addEventListener('change', function () {
+        if (box.checked) {
+          lbChartHidden.delete(lineKey)
+          tr.classList.remove('is-off')
+        } else {
+          lbChartHidden.add(lineKey)
+          tr.classList.add('is-off')
+        }
+        paintLeaderboardChart(lbChartPayload)
+      })
+      const name = el('div', 'lb-name')
+      setText(name, row.name)
+      const mail = el('div', 'lb-email')
+      const addresses =
+        row.emails && row.emails.length ? row.emails : [row.email]
+      setText(mail, addresses.join('\n'))
+      who.appendChild(pick)
+      who.appendChild(name)
+      who.appendChild(mail)
+      tr.appendChild(who)
+      addCell(tr, formatLeaderboardCount(row.linesMerged), 'lb-added')
+      addCell(tr, formatLeaderboardCount(row.commits), 'lb-num')
+      addCell(tr, formatLeaderboardCount(row.linesDeleted), 'lb-deleted')
+      addCell(tr, formatLeaderboardCount(row.netLines), 'lb-num')
+      addCell(tr, formatLeaderboardCount(row.activeDays), 'lb-num')
+      const repos = document.createElement('td')
+      if (!row.repositories || row.repositories.length === 0) {
+        setText(repos, t('leaderboard.none'))
+      } else {
+        const extra = row.repositories.length > 1
+        const chips = el('div', 'lb-repos' + (extra && !lbReposOpen ? ' is-collapsed' : ''))
+        for (let r = 0; r < row.repositories.length; r++) {
+          const repo = row.repositories[r]
+          const chip = el('span', r === 0 ? 'lb-repo' : 'lb-repo lb-repo-extra')
+          const name = el('span', 'lb-repo-name')
+          setText(name, repo.label)
+          const lines = el('span', 'lb-repo-lines')
+          setText(lines, '(' + formatLeaderboardCount(repo.linesMerged) + ')')
+          chip.appendChild(name)
+          chip.appendChild(lines)
+          chip.title = repo.path
+          chips.appendChild(chip)
+        }
+        if (extra) {
+          const more = el('span', 'lb-repo lb-repo-more')
+          setText(more, '+' + String(row.repositories.length - 1))
+          more.title = row.repositories
+            .slice(1)
+            .map(function (repo) {
+              return repo.label + ' (' + formatLeaderboardCount(repo.linesMerged) + ')'
+            })
+            .join(', ')
+          chips.appendChild(more)
+        }
+        repos.appendChild(chips)
+      }
+      tr.appendChild(repos)
+      body.appendChild(tr)
+    }
+    if (wrap) {
+      wrap.hidden = sorted.length === 0
+    }
+    if (empty) {
+      empty.hidden = sorted.length !== 0
+    }
+    markLbSort()
+    syncLeaderboardReposToggle()
+    syncLeaderboardResultBar()
+    syncLeaderboardButtons()
+  }
+
+  function syncLeaderboardResultBar() {
+    const bar = document.getElementById('lbResultBar')
+    if (bar) {
+      bar.hidden = lbRows.length === 0
+    }
+  }
+
+  function syncLeaderboardReposToggle() {
+    const btn = document.getElementById('lbToggleRepos')
+    if (!btn) {
+      return
+    }
+    let extra = false
+    for (let i = 0; i < lbRows.length; i++) {
+      if (lbRows[i].repositories && lbRows[i].repositories.length > 1) {
+        extra = true
+        break
+      }
+    }
+    btn.hidden = !extra
+    btn.setAttribute('aria-expanded', lbReposOpen ? 'true' : 'false')
+    setText(btn, lbReposOpen ? t('leaderboard.collapseRepos') : t('leaderboard.expandRepos'))
+  }
+
+  function appendLeaderboardAuthor(authors, person, checked, manual) {
+    const emails = person.emails && person.emails.length ? person.emails : [person.email]
+    const label = el('label', 'lb-author')
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.value = emails[0]
+    box.setAttribute('data-emails', emails.join('\n'))
+    box.checked = checked
+    box.addEventListener('change', function () {
+      syncLeaderboardButtons()
+      syncAuthorTools()
+    })
+    const text = el('span')
+    const mailLine = emails.join(', ')
+    const same = lbEmailKey(person.name) === lbEmailKey(emails[0])
+    setText(text, same || !person.name ? mailLine : person.name + ' · ' + mailLine)
+    label.appendChild(box)
+    label.appendChild(text)
+    if (person.merged) {
+      const split = document.createElement('button')
+      split.type = 'button'
+      split.className = 'action-btn lb-author-remove'
+      setText(split, t('leaderboard.unmergeEmails'))
+      split.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        unmergeLeaderboardEmails(emails)
+      })
+      label.appendChild(split)
+    } else if (manual) {
+      const remove = document.createElement('button')
+      remove.type = 'button'
+      remove.className = 'action-btn lb-author-remove'
+      setText(remove, t('leaderboard.removeEmail'))
+      remove.addEventListener('click', function (event) {
+        event.preventDefault()
+        event.stopPropagation()
+        const key = lbEmailKey(person.email)
+        lbManualAuthors = lbManualAuthors.filter(function (row) {
+          return lbEmailKey(row.email) !== key
+        })
+        paintLeaderboardAuthors(null)
+      })
+      label.appendChild(remove)
+    }
+    authors.appendChild(label)
+  }
+
+  function paintLeaderboardAuthors(errorText) {
+    const status = document.getElementById('lbAuthorStatus')
+    const authors = document.getElementById('lbAuthors')
+    if (!authors) {
+      return
+    }
+    const checked = authorCheckState()
+    authors.textContent = ''
+    const known = {}
+    for (let i = 0; i < lbGitAuthors.length; i++) {
+      const person = lbGitAuthors[i]
+      const key = lbEmailKey(person.email)
+      if (key && !known[key]) {
+        known[key] = { email: person.email, name: person.name, manual: false }
+      }
+    }
+    for (let i = 0; i < lbManualAuthors.length; i++) {
+      const person = lbManualAuthors[i]
+      const key = lbEmailKey(person.email)
+      if (key && !known[key]) {
+        known[key] = { email: person.email, name: person.name, manual: true }
+      }
+    }
+    const mergeOf = {}
+    for (let g = 0; g < lbMerges.length; g++) {
+      for (let i = 0; i < lbMerges[g].length; i++) {
+        const key = lbEmailKey(lbMerges[g][i])
+        if (key && mergeOf[key] === undefined) {
+          mergeOf[key] = g
+        }
+      }
+    }
+    const used = {}
+    const list = []
+    function pushEmail(email) {
+      const key = lbEmailKey(email)
+      if (!key || used[key]) {
+        return
+      }
+      const groupIndex = mergeOf[key]
+      if (groupIndex === undefined) {
+        const person = known[key]
+        if (!person) {
+          return
+        }
+        used[key] = true
+        list.push({
+          person: {
+            email: person.email,
+            emails: [person.email],
+            name: person.name,
+            merged: false,
+          },
+          manual: person.manual,
+        })
+        return
+      }
+      const emails = []
+      let name = ''
+      let manual = true
+      const group = lbMerges[groupIndex]
+      for (let i = 0; i < group.length; i++) {
+        const addr = group[i]
+        const addrKey = lbEmailKey(addr)
+        if (!addrKey || used[addrKey]) {
+          continue
+        }
+        used[addrKey] = true
+        emails.push(addr)
+        const person = known[addrKey]
+        if (person && !name && lbEmailKey(person.name) !== addrKey) {
+          name = person.name
+        }
+        if (person && !person.manual) {
+          manual = false
+        }
+      }
+      if (emails.length === 0) {
+        return
+      }
+      list.push({
+        person: {
+          email: emails[0],
+          emails: emails,
+          name: name || emails[0],
+          merged: emails.length > 1,
+        },
+        manual: manual,
+      })
+    }
+    for (let g = 0; g < lbMerges.length; g++) {
+      if (lbMerges[g].length > 0) {
+        pushEmail(lbMerges[g][0])
+      }
+    }
+    const knownKeys = Object.keys(known)
+    for (let i = 0; i < knownKeys.length; i++) {
+      pushEmail(known[knownKeys[i]].email)
+    }
+    if (status) {
+      status.hidden = !errorText
+      setText(status, errorText || '')
+    }
+    for (let i = 0; i < list.length; i++) {
+      const row = list[i]
+      const emails = row.person.emails
+      let isOn = false
+      let anyState = false
+      for (let e = 0; e < emails.length; e++) {
+        const key = lbEmailKey(emails[e])
+        if (checked[key] === true) {
+          isOn = true
+        }
+        if (checked[key] !== undefined) {
+          anyState = true
+        }
+      }
+      if (!anyState) {
+        isOn = row.manual
+      }
+      appendLeaderboardAuthor(authors, row.person, isOn, row.manual && !row.person.merged)
+    }
+    syncAuthorTools()
+    syncLeaderboardButtons()
+  }
+
+  function saveLeaderboardMerges(groups) {
+    vscode.postMessage({ type: 'saveLeaderboardMerges', groups: groups })
+  }
+
+  function mergeCheckedAuthors() {
+    const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+    const picked = []
+    const pickedSet = {}
+    let rows = 0
+    for (let i = 0; i < boxes.length; i++) {
+      if (!boxes[i].checked) {
+        continue
+      }
+      rows += 1
+      const emails = boxEmails(boxes[i])
+      for (let j = 0; j < emails.length; j++) {
+        const key = lbEmailKey(emails[j])
+        if (pickedSet[key]) {
+          continue
+        }
+        pickedSet[key] = true
+        picked.push(emails[j])
+      }
+    }
+    if (rows < 2 || picked.length < 2) {
+      return
+    }
+    const next = []
+    for (let g = 0; g < lbMerges.length; g++) {
+      const rest = []
+      for (let i = 0; i < lbMerges[g].length; i++) {
+        if (!pickedSet[lbEmailKey(lbMerges[g][i])]) {
+          rest.push(lbMerges[g][i])
+        }
+      }
+      if (rest.length >= 2) {
+        next.push(rest)
+      }
+    }
+    next.push(picked)
+    lbAuthorsOpen = true
+    saveLeaderboardMerges(next)
+  }
+
+  function unmergeLeaderboardEmails(emails) {
+    const drop = {}
+    for (let i = 0; i < emails.length; i++) {
+      drop[lbEmailKey(emails[i])] = true
+    }
+    const next = []
+    for (let g = 0; g < lbMerges.length; g++) {
+      let hit = false
+      for (let i = 0; i < lbMerges[g].length; i++) {
+        if (drop[lbEmailKey(lbMerges[g][i])]) {
+          hit = true
+          break
+        }
+      }
+      if (!hit) {
+        next.push(lbMerges[g])
+      }
+    }
+    saveLeaderboardMerges(next)
+  }
+
+  function renderLeaderboardMerges(data) {
+    const raw = data && Array.isArray(data.groups) ? data.groups : []
+    lbMerges = []
+    for (let g = 0; g < raw.length; g++) {
+      if (!Array.isArray(raw[g]) || raw[g].length < 2) {
+        continue
+      }
+      const emails = []
+      for (let i = 0; i < raw[g].length; i++) {
+        const email = String(raw[g][i] || '').trim()
+        if (lbEmailOk(email)) {
+          emails.push(email)
+        }
+      }
+      if (emails.length >= 2) {
+        lbMerges.push(emails)
+      }
+    }
+    paintLeaderboardAuthors(null)
+  }
+
+  function renderLeaderboardAuthors(data) {
+    lbGitAuthors = data && Array.isArray(data.authors) ? data.authors : []
+    paintLeaderboardAuthors(data && data.error ? data.error : null)
+  }
+
+  function addManualLeaderboardEmail(raw) {
+    const email = String(raw || '').trim()
+    const status = document.getElementById('lbAuthorStatus')
+    if (!lbEmailOk(email)) {
+      if (status) {
+        status.hidden = false
+        setText(status, t('leaderboard.invalidEmail'))
+      }
+      return
+    }
+    if (status) {
+      status.hidden = true
+      setText(status, '')
+    }
+    const key = lbEmailKey(email)
+    const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+    for (let i = 0; i < boxes.length; i++) {
+      const row = boxEmails(boxes[i])
+      for (let j = 0; j < row.length; j++) {
+        if (lbEmailKey(row[j]) === key) {
+          boxes[i].checked = true
+          syncAuthorTools()
+          syncLeaderboardButtons()
+          return
+        }
+      }
+    }
+    lbManualAuthors.push({ email: email, name: email })
+    lbAuthorsOpen = true
+    paintLeaderboardAuthors(null)
+  }
+
+  function applyLeaderboardTeam() {
+    const status = document.getElementById('lbAuthorStatus')
+    if (lbTeamEmails.length === 0) {
+      if (status) {
+        status.hidden = false
+        setText(status, t('leaderboard.teamEmpty'))
+      }
+      syncLeaderboardButtons()
+      return
+    }
+    const wanted = {}
+    for (let i = 0; i < lbTeamEmails.length; i++) {
+      wanted[lbEmailKey(lbTeamEmails[i])] = lbTeamEmails[i]
+    }
+    const present = {}
+    for (let i = 0; i < lbManualAuthors.length; i++) {
+      present[lbEmailKey(lbManualAuthors[i].email)] = true
+    }
+    const keys = Object.keys(wanted)
+    for (let i = 0; i < keys.length; i++) {
+      if (!present[keys[i]]) {
+        lbManualAuthors.push({ email: wanted[keys[i]], name: wanted[keys[i]] })
+      }
+    }
+    lbAuthorsOpen = true
+    paintLeaderboardAuthors(null)
+    const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+    for (let i = 0; i < boxes.length; i++) {
+      const row = boxEmails(boxes[i])
+      let on = false
+      for (let j = 0; j < row.length; j++) {
+        if (wanted[lbEmailKey(row[j])]) {
+          on = true
+          break
+        }
+      }
+      boxes[i].checked = on
+    }
+    syncAuthorTools()
+    syncLeaderboardButtons()
+  }
+
+  function renderLeaderboardTeam(data) {
+    const raw = data && Array.isArray(data.emails) ? data.emails : []
+    const seen = {}
+    lbTeamEmails = []
+    for (let i = 0; i < raw.length; i++) {
+      const email = String(raw[i] || '').trim()
+      const key = lbEmailKey(email)
+      if (!lbEmailOk(email) || seen[key]) {
+        continue
+      }
+      seen[key] = true
+      lbTeamEmails.push(email)
+    }
+    const status = document.getElementById('lbAuthorStatus')
+    if (status && data && data.status) {
+      status.hidden = false
+      setText(status, data.status)
+    }
+    if (data && data.apply && lbTeamEmails.length > 0) {
+      applyLeaderboardTeam()
+      return
+    }
+    syncLeaderboardButtons()
+  }
+
+  function renderLeaderboard(payload) {
+    if (!payload) {
+      return
+    }
+    lbScanning = payload.status === 'scanning'
+    if (payload.status === 'ready') {
+      lbReposOpen = false
+      lbChartHidden.clear()
+      lbRows = Array.isArray(payload.rows) ? payload.rows : []
+      const meta = document.getElementById('lbMeta')
+      if (meta) {
+        setText(
+          meta,
+          t('leaderboard.meta', {
+            scanned: String(payload.reposScanned),
+            skipped: String(payload.reposSkipped),
+            from: payload.from,
+            to: payload.to,
+          }),
+        )
+      }
+      paintLeaderboardChart(payload.chart)
+      paintLeaderboardRows()
+      return
+    }
+    if (payload.status === 'error') {
+      lbChartHidden.clear()
+      lbRows = []
+      const meta = document.getElementById('lbMeta')
+      if (meta) {
+        setText(meta, payload.error || t('leaderboard.error'))
+      }
+      paintLeaderboardChart(null)
+      paintLeaderboardRows()
+      return
+    }
+    syncLeaderboardButtons()
+  }
+
+  function renderLeaderboardRepos(data) {
+    lbRepoPayload = data || null
+    const catalog = document.getElementById('lbCatalog')
+    const status = document.getElementById('lbRepoStatus')
+    const count = document.getElementById('lbRepoCount')
+    const list = document.getElementById('lbRepoList')
+    if (catalog) {
+      catalog.value = data && typeof data.catalog === 'string' ? data.catalog : ''
+    }
+    const repos = data && Array.isArray(data.repos) ? data.repos : []
+    let errorText = data && data.error ? data.error : ''
+    if (!errorText && data && data.catalogMissing) {
+      errorText = t('leaderboard.catalogMissing')
+    }
+    if (status) {
+      status.hidden = !errorText
+      setText(status, errorText || '')
+    }
+    if (count) {
+      let selected = 0
+      for (let i = 0; i < repos.length; i++) {
+        if (repos[i].included !== false) {
+          selected++
+        }
+      }
+      setText(
+        count,
+        repos.length === 0
+          ? t('leaderboard.reposEmpty')
+          : t('leaderboard.repoSelected', { n: String(selected), total: String(repos.length) }),
+      )
+    }
+    if (!list) {
+      return
+    }
+    list.textContent = ''
+    for (let i = 0; i < repos.length; i++) {
+      const repo = repos[i]
+      const row = document.createElement('li')
+      const included = repo.included !== false
+      row.className = included ? 'lb-repo-row' : 'lb-repo-row is-off'
+      const box = document.createElement('input')
+      box.type = 'checkbox'
+      box.checked = included
+      box.setAttribute('aria-label', t('leaderboard.includeRepo'))
+      box.addEventListener('change', function () {
+        vscode.postMessage({
+          type: 'setLeaderboardRepoIncluded',
+          path: repo.path,
+          included: box.checked,
+        })
+      })
+      row.appendChild(box)
+      const path = el('span', 'lb-repo-path')
+      setText(path, repo.label + '  ' + repo.path)
+      path.title = repo.path
+      const tag = el('span', 'lb-repo-tag')
+      setText(tag, repo.source === 'extra' ? t('leaderboard.extraRepo') : t('leaderboard.discoveredRepo'))
+      row.appendChild(path)
+      row.appendChild(tag)
+      if (repo.source === 'extra') {
+        const remove = document.createElement('button')
+        remove.type = 'button'
+        remove.className = 'action-btn lb-author-remove'
+        setText(remove, t('leaderboard.removeRepo'))
+        remove.addEventListener('click', function () {
+          vscode.postMessage({ type: 'removeLeaderboardRepo', path: repo.path })
+        })
+        row.appendChild(remove)
+      }
+      list.appendChild(row)
+    }
+  }
+
+  function fillLeaderboardPreset(which) {
+    const today = new Date()
+    const toEl = document.getElementById('lbTo')
+    const fromEl = document.getElementById('lbFrom')
+    if (!toEl || !fromEl) {
+      return
+    }
+    toEl.value = lbIso(today)
+    if (which === 'month') {
+      fromEl.value = lbIso(new Date(today.getFullYear(), today.getMonth(), 1))
+    } else if (which === 'year') {
+      fromEl.value = lbIso(new Date(today.getFullYear(), 0, 1))
+    } else {
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      start.setDate(start.getDate() - 29)
+      fromEl.value = lbIso(start)
+    }
+    onLeaderboardDatesChanged()
+  }
+
+  let lbConfirmAction = null
+
+  function closeLbConfirm() {
+    const dialog = document.getElementById('lbConfirm')
+    if (dialog) {
+      dialog.hidden = true
+    }
+    lbConfirmAction = null
+  }
+
+  function openLbConfirm(title, items, note, onOk) {
+    const dialog = document.getElementById('lbConfirm')
+    const titleEl = document.getElementById('lbConfirmTitle')
+    const noteEl = document.getElementById('lbConfirmNote')
+    const list = document.getElementById('lbConfirmList')
+    const ok = document.getElementById('lbConfirmOk')
+    if (!dialog || !list) {
+      return
+    }
+    if (titleEl) {
+      setText(titleEl, title)
+    }
+    if (noteEl) {
+      noteEl.hidden = !note
+      setText(noteEl, note || '')
+    }
+    list.textContent = ''
+    const rows = Array.isArray(items) ? items : []
+    for (let i = 0; i < rows.length; i++) {
+      const item = rows[i]
+      const li = document.createElement('li')
+      setText(li, item.path ? item.label + '  ' + item.path : item.label)
+      if (item.path) {
+        li.title = item.path
+      }
+      list.appendChild(li)
+    }
+    if (ok) {
+      ok.disabled = rows.length === 0
+    }
+    lbConfirmAction = rows.length === 0 ? null : onOk
+    dialog.hidden = false
+  }
+
+  function wireLeaderboard() {
+    const fromEl = document.getElementById('lbFrom')
+    const toEl = document.getElementById('lbTo')
+    const load = document.getElementById('lbLoad')
+    const scan = document.getElementById('lbScan')
+    const exp = document.getElementById('lbExport')
+    if (fromEl) {
+      fromEl.addEventListener('change', onLeaderboardDatesChanged)
+    }
+    if (toEl) {
+      toEl.addEventListener('change', onLeaderboardDatesChanged)
+    }
+    const last30 = document.getElementById('lbLast30')
+    const month = document.getElementById('lbThisMonth')
+    const year = document.getElementById('lbThisYear')
+    if (last30) {
+      last30.addEventListener('click', function () {
+        fillLeaderboardPreset('30')
+      })
+    }
+    if (month) {
+      month.addEventListener('click', function () {
+        fillLeaderboardPreset('month')
+      })
+    }
+    if (year) {
+      year.addEventListener('click', function () {
+        fillLeaderboardPreset('year')
+      })
+    }
+    const myTeam = document.getElementById('lbMyTeam')
+    if (myTeam) {
+      myTeam.addEventListener('click', function () {
+        if (lbScanning) {
+          return
+        }
+        openLbConfirm(
+          t('leaderboard.confirmTeam'),
+          lbTeamEmails.map(function (email) {
+            return { label: email, path: '' }
+          }),
+          lbTeamEmails.length === 0 ? t('leaderboard.teamEmpty') : '',
+          function () {
+            applyLeaderboardTeam()
+          },
+        )
+      })
+    }
+    const myRepos = document.getElementById('lbMyRepos')
+    if (myRepos) {
+      myRepos.addEventListener('click', function () {
+        if (lbScanning) {
+          return
+        }
+        vscode.postMessage({ type: 'previewLeaderboardMyRepos' })
+      })
+    }
+    const confirmCancel = document.getElementById('lbConfirmCancel')
+    const confirmOk = document.getElementById('lbConfirmOk')
+    const confirm = document.getElementById('lbConfirm')
+    if (confirmCancel) {
+      confirmCancel.addEventListener('click', closeLbConfirm)
+    }
+    if (confirmOk) {
+      confirmOk.addEventListener('click', function () {
+        const action = lbConfirmAction
+        closeLbConfirm()
+        if (action) {
+          action()
+        }
+      })
+    }
+    if (confirm) {
+      confirm.addEventListener('click', function (event) {
+        if (event.target === confirm) {
+          closeLbConfirm()
+        }
+      })
+    }
+    const saveTeam = document.getElementById('lbSaveTeam')
+    if (saveTeam) {
+      saveTeam.addEventListener('click', function () {
+        const emails = selectedLeaderboardEmails()
+        if (lbScanning || emails.length === 0) {
+          return
+        }
+        vscode.postMessage({ type: 'saveLeaderboardTeam', emails: emails })
+      })
+    }
+    const merge = document.getElementById('lbMerge')
+    if (merge) {
+      merge.addEventListener('click', function () {
+        if (lbScanning) {
+          return
+        }
+        mergeCheckedAuthors()
+      })
+    }
+    if (load) {
+      load.addEventListener('click', function () {
+        const range = lbRange()
+        if (!lbRangeOk(range)) {
+          return
+        }
+        vscode.postMessage({
+          type: 'loadLeaderboardAuthors',
+          from: range.from,
+          to: range.to,
+        })
+      })
+    }
+    if (scan) {
+      scan.addEventListener('click', function () {
+        const range = lbRange()
+        const emails = selectedLeaderboardEmails()
+        if (!lbRangeOk(range) || emails.length === 0 || lbScanning) {
+          return
+        }
+        lbScanning = true
+        syncLeaderboardButtons()
+        vscode.postMessage({
+          type: 'runLeaderboardScan',
+          from: range.from,
+          to: range.to,
+          emails: emails,
+        })
+      })
+    }
+    if (exp) {
+      exp.addEventListener('click', function () {
+        vscode.postMessage({
+          type: 'exportLeaderboardCsv',
+          emails: lbRows.slice().sort(compareLbRows).map(function (row) {
+            return row.email
+          }),
+        })
+      })
+    }
+    const sorts = document.querySelectorAll('[data-lb-sort]')
+    for (let i = 0; i < sorts.length; i++) {
+      sorts[i].addEventListener('click', function () {
+        const key = sorts[i].getAttribute('data-lb-sort')
+        if (key === lbSortKey) {
+          lbSortDir = lbSortDir === 'asc' ? 'desc' : 'asc'
+        } else {
+          lbSortKey = key
+          lbSortDir = key === 'name' ? 'asc' : 'desc'
+        }
+        paintLeaderboardRows()
+      })
+    }
+    const toggleAuthors = document.getElementById('lbToggleAuthors')
+    if (toggleAuthors) {
+      toggleAuthors.addEventListener('click', function () {
+        lbAuthorsOpen = !lbAuthorsOpen
+        syncAuthorTools()
+      })
+    }
+    const selectAll = document.getElementById('lbSelectAll')
+    if (selectAll) {
+      selectAll.addEventListener('click', function () {
+        const boxes = document.querySelectorAll('#lbAuthors input[type="checkbox"]')
+        let allOn = boxes.length > 0
+        for (let i = 0; i < boxes.length; i++) {
+          if (!boxes[i].checked) {
+            allOn = false
+            break
+          }
+        }
+        for (let i = 0; i < boxes.length; i++) {
+          boxes[i].checked = !allOn
+        }
+        syncAuthorTools()
+        syncLeaderboardButtons()
+      })
+    }
+    const manualForm = document.getElementById('lbManualForm')
+    if (manualForm) {
+      manualForm.addEventListener('submit', function (event) {
+        event.preventDefault()
+        if (lbScanning) {
+          return
+        }
+        const input = document.getElementById('lbManualEmail')
+        addManualLeaderboardEmail(input ? input.value : '')
+        if (input && lbEmailOk(String(input.value || '').trim())) {
+          input.value = ''
+        }
+      })
+    }
+    const toggleRepos = document.getElementById('lbToggleRepos')
+    if (toggleRepos) {
+      toggleRepos.addEventListener('click', function () {
+        lbReposOpen = !lbReposOpen
+        paintLeaderboardRows()
+      })
+    }
+    const pickCatalog = document.getElementById('lbPickCatalog')
+    const scanRepos = document.getElementById('lbScanRepos')
+    const saveRepos = document.getElementById('lbSaveRepos')
+    const clearCatalog = document.getElementById('lbClearCatalog')
+    const pickRepo = document.getElementById('lbPickRepo')
+    const repoForm = document.getElementById('lbRepoForm')
+    if (pickCatalog) {
+      pickCatalog.addEventListener('click', function () {
+        vscode.postMessage({ type: 'pickLeaderboardCatalog' })
+      })
+    }
+    if (scanRepos) {
+      scanRepos.addEventListener('click', function () {
+        vscode.postMessage({ type: 'refreshLeaderboardRepos' })
+      })
+    }
+    if (saveRepos) {
+      saveRepos.addEventListener('click', function () {
+        vscode.postMessage({ type: 'saveLeaderboardRepos' })
+      })
+    }
+    if (clearCatalog) {
+      clearCatalog.addEventListener('click', function () {
+        vscode.postMessage({ type: 'clearLeaderboardCatalog' })
+      })
+    }
+    if (pickRepo) {
+      pickRepo.addEventListener('click', function () {
+        vscode.postMessage({ type: 'pickLeaderboardRepo' })
+      })
+    }
+    if (repoForm) {
+      repoForm.addEventListener('submit', function (event) {
+        event.preventDefault()
+        const input = document.getElementById('lbRepoPath')
+        const path = input ? String(input.value || '').trim() : ''
+        if (!path) {
+          return
+        }
+        vscode.postMessage({ type: 'addLeaderboardRepo', path: path })
+        if (input) {
+          input.value = ''
+        }
+      })
+    }
+    const info = document.querySelector('.lb-info')
+    if (info) {
+      document.addEventListener('click', function (event) {
+        if (!info.open || info.contains(event.target)) {
+          return
+        }
+        info.open = false
+      })
+    }
+    syncAuthorTools()
+    syncLeaderboardButtons()
+  }
+
 
   function barIcon(name, spin) {
     const wrap = el('span', 'bar-icon' + (spin ? ' is-spin' : ''))
@@ -601,15 +2142,22 @@
   }
 
   function setView(next) {
-    const tab =
+    let tab =
       next === 'stats' ||
       next === 'charts' ||
       next === 'optimize' ||
+      next === 'leaderboard' ||
       next === 'support' ||
       next === 'settings' ||
       next === 'queries'
         ? next
         : 'queries'
+    if (tab === 'leaderboard' && !leaderboardUnlocked) {
+      // The host posts openTab before the first data payload, so the flag may not be in yet.
+      pendingLeaderboardTab = true
+      tab = 'queries'
+    }
+    currentView = tab
     queriesViewEl.hidden = tab !== 'queries'
     statsViewEl.hidden = tab !== 'stats'
     if (chartsViewEl) {
@@ -617,6 +2165,9 @@
     }
     if (optimizeViewEl) {
       optimizeViewEl.hidden = tab !== 'optimize'
+    }
+    if (leaderboardViewEl) {
+      leaderboardViewEl.hidden = tab !== 'leaderboard'
     }
     if (supportViewEl) {
       supportViewEl.hidden = tab !== 'support'
@@ -629,6 +2180,9 @@
     }
     if (tabOptimizeEl) {
       tabOptimizeEl.classList.toggle('is-active', tab === 'optimize')
+    }
+    if (tabLeaderboardEl) {
+      tabLeaderboardEl.classList.toggle('is-active', tab === 'leaderboard')
     }
     if (tabSupportEl) {
       tabSupportEl.classList.toggle('is-active', tab === 'support')
@@ -653,8 +2207,8 @@
     return node
   }
 
-  function chartBarRect(x, y, barW, h, className) {
-    const radius = Math.min(2.2, barW / 2)
+  function chartBarRect(x, y, barW, h, className, flatTop) {
+    const radius = flatTop ? 0 : Math.min(2.2, barW / 2)
     return svgNode('rect', {
       class: className || 'chart-bar',
       x: String(x - barW / 2),
@@ -664,6 +2218,60 @@
       rx: String(radius),
       ry: String(radius),
     })
+  }
+
+  // Plan is that day's allowance. The column stays green up to the plan
+  // and turns red only on the part above it. No allowance → series color.
+  function appendPaceSections(svg, x, width, used, plan, maxCum, top, plotH, tone) {
+    const capped = Math.min(Math.max(0, Number(used) || 0), maxCum)
+    if (!(capped > 0)) {
+      return
+    }
+    const toneClass = tone || 'is-s0'
+    const planNum = Number(plan)
+    if (plan === null || plan === undefined || !Number.isFinite(planNum)) {
+      const y = yAt(capped, maxCum, top, plotH)
+      const h = top + plotH - y
+      if (h > 0) {
+        svg.appendChild(chartBarRect(x, y, width, h, 'chart-bar ' + toneClass))
+      }
+      return
+    }
+    const ceiling = Math.max(0, planNum)
+    const over = capped > ceiling + 0.005 ? capped - ceiling : 0
+    const under = capped - over
+    if (under > 0) {
+      const y = yAt(under, maxCum, top, plotH)
+      const h = top + plotH - y
+      if (h > 0) {
+        svg.appendChild(
+          chartBarRect(
+            x,
+            y,
+            width,
+            h,
+            'chart-bar is-pace is-under ' + toneClass,
+            over > 0,
+          ),
+        )
+      }
+    }
+    if (over > 0) {
+      const yTop = yAt(capped, maxCum, top, plotH)
+      const yJoin = yAt(Math.min(under, maxCum), maxCum, top, plotH)
+      const h = yJoin - yTop
+      if (h > 0) {
+        svg.appendChild(
+          chartBarRect(
+            x,
+            yTop,
+            width,
+            h + 0.4,
+            'chart-bar is-pace is-over ' + toneClass,
+          ),
+        )
+      }
+    }
   }
 
   function niceMax(value) {
@@ -934,15 +2542,22 @@
       return
     }
 
+    const daily = chartBarMode === 'daily'
     const cum = []
+    const dayValues = []
     let running = 0
+    let peak = 0
     for (let i = 0; i < points.length; i++) {
       const value = kind === 'tokens' ? points[i].tokens : points[i].costUsd
       const safe = Number.isFinite(value) ? Math.max(0, value) : 0
       running += safe
       cum.push(running)
+      dayValues.push(safe)
+      if (safe > peak) {
+        peak = safe
+      }
     }
-    const maxY = niceMax(running)
+    const maxY = niceMax(daily ? peak : running)
     const format = kind === 'tokens' ? compactTokens : compactCost
     const ticks = 4
     for (let t = 0; t <= ticks; t++) {
@@ -990,7 +2605,7 @@
     const barW = Math.max(2, Math.min(36, gap * 0.72))
     for (let i = 0; i < points.length; i++) {
       const x = barCenterX(i, points.length, left, plotW)
-      const y = yAt(cum[i], maxY, top, plotH)
+      const y = yAt(daily ? dayValues[i] : cum[i], maxY, top, plotH)
       const h = top + plotH - y
       if (h <= 0) {
         continue
@@ -1227,14 +2842,67 @@
     return wrap
   }
 
+  function appendMtdDayAxis(svg, points, left, plotW, axisY, width) {
+    const count = points.length
+    const gap = count <= 1 ? plotW : plotW / (count - 1)
+    // Full "30.09" labels collide when each day is only ~25px apart.
+    const stagger = count > 3 && gap < 46
+    const rowRight = [-1000, -1000]
+    for (let i = 0; i < count; i++) {
+      const x = pointX(i, count, left, plotW)
+      const row = stagger && i % 2 === 1 ? 1 : 0
+      svg.appendChild(
+        svgNode('line', {
+          class: 'chart-tick',
+          x1: String(x),
+          y1: String(axisY),
+          x2: String(x),
+          y2: String(axisY + 3),
+        }),
+      )
+      const text = String((points[i] && points[i].date) || '')
+      if (!text) {
+        continue
+      }
+      const half = Math.max(8, text.length * 2.7)
+      const isLast = i === count - 1
+      let anchor = 'middle'
+      let xText = x
+      if (isLast && x + half > width - 3) {
+        anchor = 'end'
+        xText = width - 3
+      } else if (i === 0 && x - half < 3) {
+        anchor = 'start'
+        xText = 3
+      }
+      const leftEdge = anchor === 'start' ? xText : anchor === 'end' ? xText - half * 2 : xText - half
+      if (leftEdge < rowRight[row] + 4 && !isLast) {
+        continue
+      }
+      rowRight[row] = anchor === 'end' ? xText : anchor === 'start' ? xText + half * 2 : xText + half
+      const label = svgNode('text', {
+        class: stagger ? 'chart-label is-day' : 'chart-label',
+        x: String(Math.round(xText * 10) / 10),
+        y: String(axisY + 13 + row * 12),
+        'text-anchor': anchor,
+      })
+      setText(label, text)
+      svg.appendChild(label)
+    }
+  }
+
   function drawMtdForecastChart(svg, points, series, max) {
     clearSvg(svg)
     const width = 800
     const height = 280
     const left = 52
-    const right = 16
+    const right = 20
     const top = 16
-    const bottom = 36
+    const count = points && points.length ? points.length : 0
+    const axisGap =
+      count <= 1 ? width - left - right : (width - left - right) / (count - 1)
+    const stagger = count > 3 && axisGap < 46
+    const bottom = stagger ? 48 : 36
     const plotW = width - left - right
     const plotH = height - top - bottom
     svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
@@ -1292,17 +2960,12 @@
     }
 
     let dataMax = 0
-    let hasIdeal = false
     for (let i = 0; i < lines.length; i++) {
       dataMax = Math.max(
         dataMax,
         numericMax(lines[i].used),
         numericMax(lines[i].forecast),
-        numericMax(lines[i].ideal),
       )
-      if (numericMax(lines[i].ideal) > 0) {
-        hasIdeal = true
-      }
     }
     const capped = typeof max === 'number' && Number.isFinite(max) && max > 0
     const maxCum = capped ? max : niceMax(dataMax)
@@ -1329,101 +2992,38 @@
       svg.appendChild(leftLabel)
     }
 
-    const labelAt = [0, Math.floor((points.length - 1) / 2), points.length - 1]
-    if (todayIdx > 0 && todayIdx < points.length - 1) {
-      labelAt.push(todayIdx)
-    }
-    const seen = {}
-    for (let i = 0; i < labelAt.length; i++) {
-      const idx = labelAt[i]
-      if (idx < 0 || seen[idx]) {
-        continue
-      }
-      seen[idx] = true
-      const x = pointX(idx, points.length, left, plotW)
-      const label = svgNode('text', {
-        class: 'chart-label',
-        x: String(x),
-        y: String(top + plotH + 16),
-        'text-anchor': 'middle',
-      })
-      setText(label, points[idx].date)
-      svg.appendChild(label)
-    }
-
-    if (todayIdx >= 0) {
-      const x = pointX(todayIdx, points.length, left, plotW)
-      svg.appendChild(
-        svgNode('line', {
-          class: 'chart-today',
-          x1: String(x),
-          y1: String(top),
-          x2: String(x),
-          y2: String(top + plotH),
-        }),
-      )
-    }
+    appendMtdDayAxis(svg, points, left, plotW, top + plotH, width)
 
     const gap = points.length <= 1 ? plotW : plotW / (points.length - 1)
-    const groupW = Math.max(2, Math.min(18, gap * 0.6))
-    const barW = Math.max(2, groupW / Math.max(1, lines.length))
+    const groupW = Math.max(3, Math.min(22, gap * 0.64))
+    const barW = Math.max(2.4, groupW / Math.max(1, lines.length))
+    const inner = Math.max(2, barW * 0.74)
     for (let i = 0; i < points.length; i++) {
       const cx = pointX(i, points.length, left, plotW)
+      const plan =
+        points[i] && points[i].allowanceUsd !== null && points[i].allowanceUsd !== undefined
+          ? Number(points[i].allowanceUsd)
+          : null
       for (let s = 0; s < lines.length; s++) {
         const usedVal = lines[s].used[i]
         if (usedVal === null || usedVal === undefined || !(usedVal > 0)) {
           continue
         }
         const offset = (s - (lines.length - 1) / 2) * barW
-        const y = yAt(Math.min(usedVal, maxCum), maxCum, top, plotH)
-        const h = top + plotH - y
-        if (h <= 0) {
-          continue
-        }
-        svg.appendChild(
-          chartBarRect(cx + offset, y, barW * 0.9, h, 'chart-bar ' + lines[s].tone),
-        )
-      }
-    }
-
-    // Area under primary cumulative used.
-    if (lines.length >= 1) {
-      const areaPts = [left + ',' + (top + plotH)]
-      let lastUsedX = left
-      for (let i = 0; i < primary.used.length; i++) {
-        if (primary.used[i] === null) {
-          continue
-        }
-        const x = pointX(i, primary.used.length, left, plotW)
-        const y = yAt(Math.min(primary.used[i], maxCum), maxCum, top, plotH)
-        areaPts.push(x + ',' + y)
-        lastUsedX = x
-      }
-      if (areaPts.length > 1) {
-        areaPts.push(lastUsedX + ',' + (top + plotH))
-        svg.appendChild(
-          svgNode('polygon', {
-            class: 'chart-area is-s0',
-            points: areaPts.join(' '),
-          }),
-        )
-      }
-    }
-
-    if (hasIdeal) {
-      for (let i = 0; i < lines.length; i++) {
-        appendLine(
+        appendPaceSections(
           svg,
-          lines[i].ideal,
+          cx + offset,
+          inner,
+          usedVal,
+          plan,
           maxCum,
-          left,
-          plotW,
           top,
           plotH,
-          'chart-line is-ideal ' + lines[i].tone,
+          lines[s].tone,
         )
       }
     }
+
     for (let i = 0; i < lines.length; i++) {
       appendLine(
         svg,
@@ -1446,6 +3046,19 @@
         top,
         plotH,
         'chart-line ' + lines[i].tone,
+      )
+    }
+
+    if (todayIdx >= 0) {
+      const x = pointX(todayIdx, points.length, left, plotW)
+      svg.appendChild(
+        svgNode('line', {
+          class: 'chart-today',
+          x1: String(x),
+          y1: String(top),
+          x2: String(x),
+          y2: String(top + plotH),
+        }),
       )
     }
 
@@ -1563,6 +3176,60 @@
     svg.appendChild(hit)
   }
 
+  function syncDailyChartMode() {
+    const buttons = document.querySelectorAll('#dailyChartTools [data-chart-mode]')
+    for (let i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle(
+        'is-active',
+        buttons[i].getAttribute('data-chart-mode') === chartBarMode,
+      )
+    }
+    const hints = document.querySelectorAll('[data-chart-mode-hint]')
+    for (let i = 0; i < hints.length; i++) {
+      hints[i].hidden = hints[i].getAttribute('data-chart-mode-hint') !== chartBarMode
+    }
+    const daily = chartBarMode === 'daily'
+    if (chartTokensEl) {
+      chartTokensEl.setAttribute(
+        'aria-label',
+        t(daily ? 'charts.tokensAriaDaily' : 'charts.tokensAria'),
+      )
+    }
+    if (chartCostEl) {
+      chartCostEl.setAttribute(
+        'aria-label',
+        t(daily ? 'charts.costAriaDaily' : 'charts.costAria'),
+      )
+    }
+  }
+
+  function redrawUsageCharts() {
+    if (!chartPoints || chartPoints.length === 0) {
+      clearSvg(chartTokensEl)
+      clearSvg(chartCostEl)
+      return
+    }
+    if (chartTokensEl) {
+      drawChart(chartTokensEl, chartPoints, 'tokens')
+    }
+    if (chartCostEl) {
+      drawChart(chartCostEl, chartPoints, 'cost')
+    }
+  }
+
+  function setChartBarMode(mode) {
+    if (mode !== 'cumulative' && mode !== 'daily') {
+      return
+    }
+    if (chartBarMode === mode) {
+      return
+    }
+    chartBarMode = mode
+    hideChartTip()
+    syncDailyChartMode()
+    redrawUsageCharts()
+  }
+
   function drawAllCharts() {
     const emptyQueries = !chartPoints || chartPoints.length === 0
     const emptyMtd = !mtdForecastPoints || mtdForecastPoints.length === 0
@@ -1576,17 +3243,7 @@
     if (chartsEmptyEl) {
       chartsEmptyEl.hidden = !(emptyQueries && emptyMtd && emptyCodeLines)
     }
-    if (emptyQueries) {
-      clearSvg(chartTokensEl)
-      clearSvg(chartCostEl)
-    } else {
-      if (chartTokensEl) {
-        drawChart(chartTokensEl, chartPoints, 'tokens')
-      }
-      if (chartCostEl) {
-        drawChart(chartCostEl, chartPoints, 'cost')
-      }
-    }
+    redrawUsageCharts()
     const hasCodeLines = !emptyCodeLines
     if (codeLinesChartCardEl) {
       codeLinesChartCardEl.hidden = !hasCodeLines
@@ -2607,6 +4264,9 @@
       if (item.id) {
         chip.classList.add('is-' + item.id)
       }
+      if (item.tone === 'ok' || item.tone === 'over') {
+        chip.classList.add('is-' + item.tone)
+      }
       const label = el('span', 'cycle-chip-label')
       setText(label, item.label)
       const value = el('span', 'cycle-chip-value')
@@ -2846,7 +4506,7 @@
     )
     card.appendChild(hint)
     const legend = el('div', 'chart-legend')
-    const barItem = el('span', 'chart-legend-item is-bar')
+    const barItem = el('span', 'chart-legend-item is-bar is-pace')
     setText(barItem, t('mtd.cumulative'))
     legend.appendChild(barItem)
     for (let i = 0; i < series.length; i++) {
@@ -2858,16 +4518,6 @@
       setText(forecastItem, t('mtd.forecastSuffix', { label: label }))
       legend.appendChild(usedItem)
       legend.appendChild(forecastItem)
-      const hasIdeal = Array.isArray(series[i].ideal)
-        ? series[i].ideal.some(function (value) {
-            return value !== null && value !== undefined
-          })
-        : false
-      if (hasIdeal) {
-        const idealItem = el('span', 'chart-legend-item is-ideal' + tone)
-        setText(idealItem, t('mtd.idealSuffix', { label: label }))
-        legend.appendChild(idealItem)
-      }
     }
     const tools = el('div', 'mtd-chart-tools')
     tools.appendChild(legend)
@@ -2898,20 +4548,317 @@
     return pace
   }
 
-  function renderChartsMtd(mtd) {
-    if (!chartsMtdEl) {
-      return
+  let modelCatalog = null
+  let lastStatsArgs = null
+  let catalogSortKey = 'cost'
+  let catalogSortDir = 'asc'
+  let catalogActiveOnly = true
+  let catalogHideFast = true
+
+  function shareLabel(model) {
+    const n = Number(model.requestPercent)
+    if (!Number.isFinite(n) || n <= 0) {
+      return '0%'
     }
-    while (chartsMtdEl.firstChild) {
-      chartsMtdEl.removeChild(chartsMtdEl.firstChild)
+    const text = Math.round(n * 10) / 10
+    return (Number.isInteger(text) ? String(text) : text.toFixed(1)) + '%'
+  }
+
+  function moneyPair(model) {
+    return t('stats.priceInOut', {
+      input: model.input || '—',
+      output: model.output || '—',
+    })
+  }
+
+  function priceAmount(value) {
+    if (typeof value !== 'string') {
+      return null
     }
-    if (!mtd) {
-      return
+    const n = Number(value.replace(/[^0-9.]/g, ''))
+    return Number.isFinite(n) ? n : null
+  }
+
+  function sortCatalogModels(models) {
+    const rows = models.map(function (model, index) {
+      return { model: model, index: index }
+    })
+    if (
+      catalogSortKey !== 'model' &&
+      catalogSortKey !== 'cost' &&
+      catalogSortKey !== 'status' &&
+      catalogSortKey !== 'requests' &&
+      catalogSortKey !== 'percent' &&
+      catalogSortKey !== 'bench'
+    ) {
+      return rows
     }
-    chartsMtdEl.appendChild(mtdForecastSection(mtd))
+    const dir = catalogSortDir === 'desc' ? -1 : 1
+    rows.sort(function (a, b) {
+      let cmp = 0
+      if (catalogSortKey === 'model') {
+        cmp = String(a.model.name || '').localeCompare(String(b.model.name || ''))
+      } else if (catalogSortKey === 'status') {
+        cmp = (a.model.hiddenByDefault ? 1 : 0) - (b.model.hiddenByDefault ? 1 : 0)
+      } else if (catalogSortKey === 'requests') {
+        cmp = (Number(a.model.requests) || 0) - (Number(b.model.requests) || 0)
+      } else if (catalogSortKey === 'percent') {
+        cmp = (Number(a.model.requestPercent) || 0) - (Number(b.model.requestPercent) || 0)
+      } else if (catalogSortKey === 'bench') {
+        const aScore = Number(a.model.benchScore)
+        const bScore = Number(b.model.benchScore)
+        const aMissing = !Number.isFinite(aScore)
+        const bMissing = !Number.isFinite(bScore)
+        if (aMissing || bMissing) {
+          if (aMissing !== bMissing) {
+            return aMissing ? 1 : -1
+          }
+          return a.index - b.index
+        }
+        cmp = aScore - bScore
+      } else {
+        const aIn = priceAmount(a.model.input)
+        const bIn = priceAmount(b.model.input)
+        const aOut = priceAmount(a.model.output)
+        const bOut = priceAmount(b.model.output)
+        const aMissing = aIn === null
+        const bMissing = bIn === null
+        if (aMissing !== bMissing) {
+          cmp = aMissing ? 1 : -1
+        } else {
+          cmp = (aIn || 0) - (bIn || 0)
+          if (cmp === 0) {
+            cmp = (aOut || 0) - (bOut || 0)
+          }
+        }
+      }
+      if (cmp === 0) {
+        cmp = a.index - b.index
+      }
+      return cmp * dir
+    })
+    return rows
+  }
+
+  function catalogSortHeader(key, label) {
+    const th = document.createElement('th')
+    th.scope = 'col'
+    const button = document.createElement('button')
+    button.type = 'button'
+    const active = catalogSortKey === key
+    const mark = active ? (catalogSortDir === 'desc' ? ' ↓' : ' ↑') : ''
+    setText(button, label + mark)
+    th.setAttribute('aria-sort', active ? (catalogSortDir === 'desc' ? 'descending' : 'ascending') : 'none')
+    button.addEventListener('click', function () {
+      if (catalogSortKey === key) {
+        catalogSortDir = catalogSortDir === 'asc' ? 'desc' : 'asc'
+      } else {
+        catalogSortKey = key
+        catalogSortDir = 'asc'
+      }
+      if (lastStatsArgs) {
+        renderStats.apply(null, lastStatsArgs)
+      }
+    })
+    th.appendChild(button)
+    return th
+  }
+
+  function modelCatalogPanel() {
+    const panel = el('div', 'breakdown-panel model-catalog')
+    const head = el('div', 'model-catalog-head')
+    const title = el('h3', 'breakdown-title')
+    setText(title, t('stats.modelPricing'))
+    head.appendChild(title)
+    const actions = el('div', 'model-catalog-actions')
+    const settingsBtn = el('button', 'action-btn model-catalog-refresh')
+    settingsBtn.type = 'button'
+    setText(settingsBtn, t('stats.openModelSettings'))
+    settingsBtn.title = t('stats.openModelSettingsTitle')
+    settingsBtn.addEventListener('click', function () {
+      vscode.postMessage({ type: 'openModelSettings' })
+    })
+    const refresh = el('button', 'action-btn model-catalog-refresh')
+    refresh.type = 'button'
+    setText(refresh, t('stats.pricingRefresh'))
+    refresh.title = t('stats.pricingRefresh')
+    refresh.addEventListener('click', function () {
+      setText(refresh, t('stats.pricingLoading'))
+      refresh.disabled = true
+      vscode.postMessage({ type: 'refreshModelCatalog' })
+    })
+    actions.appendChild(settingsBtn)
+    actions.appendChild(refresh)
+    head.appendChild(actions)
+    panel.appendChild(head)
+
+    const note = el('p', 'model-catalog-note')
+    setText(note, t('stats.pricingNote'))
+    panel.appendChild(note)
+
+    const list = el('div', 'model-catalog-list')
+    if (!modelCatalog) {
+      const loading = el('p', 'model-catalog-note')
+      setText(loading, t('stats.pricingLoading'))
+      list.appendChild(loading)
+      panel.appendChild(list)
+      return panel
+    }
+    if (modelCatalog.error && (!modelCatalog.models || modelCatalog.models.length === 0)) {
+      const failed = el('p', 'model-catalog-note')
+      setText(failed, t('stats.pricingError'))
+      list.appendChild(failed)
+      panel.appendChild(list)
+      return panel
+    }
+
+    const defaults = el('p', 'model-catalog-defaults')
+    setText(
+      defaults,
+      t('stats.pricingDefaults', {
+        visible: modelCatalog.visibleByDefault,
+        hidden: modelCatalog.hiddenByDefault,
+        fast: modelCatalog.fast,
+      }),
+    )
+    panel.insertBefore(defaults, note)
+
+    function catalogSwitch(labelPath, titlePath, checked, onChange) {
+      const root = el('label', 'spike-switch model-catalog-fast')
+      root.title = t(titlePath)
+      const text = el('span', 'spike-switch-text')
+      setText(text, t(labelPath))
+      const control = el('span', 'spike-switch-control')
+      const input = document.createElement('input')
+      input.type = 'checkbox'
+      input.checked = checked === true
+      input.setAttribute('role', 'switch')
+      input.setAttribute('aria-checked', checked === true ? 'true' : 'false')
+      input.addEventListener('change', function () {
+        onChange(input.checked === true)
+        if (lastStatsArgs) {
+          renderStats.apply(null, lastStatsArgs)
+        }
+      })
+      const track = el('span', 'spike-switch-track')
+      track.setAttribute('aria-hidden', 'true')
+      track.appendChild(el('span', 'spike-switch-thumb'))
+      control.appendChild(input)
+      control.appendChild(track)
+      root.appendChild(text)
+      root.appendChild(control)
+      return root
+    }
+
+    const catalogFilters = el('div', 'model-catalog-filters')
+    catalogFilters.appendChild(
+      catalogSwitch('stats.activeOnly', 'stats.activeOnlyTitle', catalogActiveOnly, function (value) {
+        catalogActiveOnly = value
+      }),
+    )
+    catalogFilters.appendChild(
+      catalogSwitch('stats.hideFast', 'stats.hideFastTitle', catalogHideFast, function (value) {
+        catalogHideFast = value
+      }),
+    )
+    panel.appendChild(catalogFilters)
+
+    const models = (Array.isArray(modelCatalog.models) ? modelCatalog.models : []).filter(
+      function (model) {
+        if (catalogActiveOnly && model.hiddenByDefault === true) {
+          return false
+        }
+        return !catalogHideFast || model.fast !== true
+      },
+    )
+    const table = document.createElement('table')
+    table.className = 'model-catalog-table'
+    const thead = document.createElement('thead')
+    const headRow = document.createElement('tr')
+    headRow.appendChild(catalogSortHeader('model', t('stats.colModel')))
+    headRow.appendChild(catalogSortHeader('cost', t('stats.colCost')))
+    headRow.appendChild(catalogSortHeader('bench', t('stats.colBench')))
+    headRow.appendChild(catalogSortHeader('requests', t('stats.colRequests')))
+    headRow.appendChild(catalogSortHeader('percent', t('stats.colPercent')))
+    headRow.appendChild(catalogSortHeader('status', t('stats.colStatus')))
+    thead.appendChild(headRow)
+    table.appendChild(thead)
+    const tbody = document.createElement('tbody')
+    const sorted = sortCatalogModels(models)
+    for (let i = 0; i < sorted.length; i++) {
+      const model = sorted[i].model
+      const row = document.createElement('tr')
+      if (model.fast) {
+        row.classList.add('is-fast')
+      }
+      const nameCell = document.createElement('td')
+      const name = el('span', 'model-price-label')
+      setText(name, model.name || '')
+      name.title = model.name || ''
+      nameCell.appendChild(name)
+      if (model.provider) {
+        const provider = el('span', 'model-price-provider')
+        setText(provider, model.provider)
+        nameCell.appendChild(provider)
+      }
+      if (model.fast) {
+        const fast = el('span', 'model-price-badge is-fast')
+        setText(fast, t('stats.fastBadge'))
+        nameCell.appendChild(fast)
+      }
+      const costCell = document.createElement('td')
+      costCell.className = 'is-cost'
+      setText(costCell, moneyPair(model))
+      costCell.title = t('stats.pricePerMillion')
+      const benchCell = document.createElement('td')
+      benchCell.className = 'is-cost'
+      const benchScore = Number(model.benchScore)
+      if (Number.isFinite(benchScore)) {
+        const benchLink = document.createElement('button')
+        benchLink.type = 'button'
+        benchLink.className = 'model-bench-link'
+        setText(benchLink, benchScore.toFixed(1).replace(/\.0$/, '') + '%')
+        benchLink.title = t('stats.benchTitle')
+        benchLink.addEventListener('click', function () {
+          vscode.postMessage({ type: 'openCursorBench' })
+        })
+        benchCell.appendChild(benchLink)
+      } else {
+        setText(benchCell, '—')
+      }
+      const requestsCell = document.createElement('td')
+      requestsCell.className = 'is-cost'
+      setText(requestsCell, String(Number(model.requests) || 0))
+      const percentCell = document.createElement('td')
+      percentCell.className = 'is-cost'
+      setText(percentCell, shareLabel(model))
+      const statusCell = document.createElement('td')
+      const state = el(
+        'span',
+        'model-price-badge' + (model.hiddenByDefault ? ' is-hidden' : ' is-on'),
+      )
+      setText(
+        state,
+        model.hiddenByDefault ? t('stats.defaultHidden') : t('stats.defaultOn'),
+      )
+      state.title = t('stats.openModelSettingsTitle')
+      statusCell.appendChild(state)
+      row.appendChild(nameCell)
+      row.appendChild(costCell)
+      row.appendChild(benchCell)
+      row.appendChild(requestsCell)
+      row.appendChild(percentCell)
+      row.appendChild(statusCell)
+      tbody.appendChild(row)
+    }
+    table.appendChild(tbody)
+    list.appendChild(table)
+    panel.appendChild(list)
+    return panel
   }
 
   function renderStats(stats, mtd, burnRate, warnOn, codeLines) {
+    lastStatsArgs = [stats, mtd, burnRate, warnOn, codeLines]
     while (statsEl.firstChild) {
       statsEl.removeChild(statsEl.firstChild)
     }
@@ -2963,11 +4910,14 @@
     )
     statsEl.appendChild(sample)
 
-    if (
+    const hasBreakdown =
       (stats.byModel && stats.byModel.length > 0) ||
       (stats.byKind && stats.byKind.length > 0)
-    ) {
-      const breakdown = section(t('stats.spendBreakdown'))
+    const breakdown = section(
+      hasBreakdown ? t('stats.spendBreakdown') : t('stats.modelPricing'),
+    )
+    const layout = el('div', 'breakdown-with-catalog')
+    if (hasBreakdown) {
       const split = el('div', 'breakdown-split')
       if (stats.byModel && stats.byModel.length > 0) {
         split.appendChild(breakdownChart(stats.byModel, t('stats.byModel')))
@@ -2975,9 +4925,11 @@
       if (stats.byKind && stats.byKind.length > 0) {
         split.appendChild(breakdownChart(stats.byKind, t('stats.byKind')))
       }
-      breakdown.appendChild(split)
-      statsEl.appendChild(breakdown)
+      layout.appendChild(split)
     }
+    layout.appendChild(modelCatalogPanel())
+    breakdown.appendChild(layout)
+    statsEl.appendChild(breakdown)
   }
 
   function applyTheme(okColor, warnColor) {
@@ -3626,6 +5578,113 @@
     }
   }
 
+  function selectedSupportTopic() {
+    const picked = document.querySelector('input[name="supportTopic"]:checked')
+    return picked ? picked.value : ''
+  }
+
+  function supportExpectsReply() {
+    const picked = document.querySelector('input[name="supportReply"]:checked')
+    return !picked || picked.value !== 'no'
+  }
+
+  function supportEmailOk(email, expectsReply) {
+    if (/[\r\n]/.test(email) || email.length > 254) {
+      return false
+    }
+    if (!expectsReply) {
+      return true
+    }
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  function syncSupportComposer() {
+    const topic = selectedSupportTopic()
+    const isComment = topic === 'comment'
+    if (supportCommentNoticeEl) {
+      supportCommentNoticeEl.hidden = !isComment
+    }
+    const expectsReply = supportExpectsReply()
+    if (supportEmailEl) {
+      supportEmailEl.disabled = !expectsReply
+    }
+    if (supportReplyValueEl) {
+      setText(
+        supportReplyValueEl,
+        expectsReply ? t('support.replyYes') : t('support.replyNo'),
+      )
+    }
+    const nick = supportNicknameEl ? supportNicknameEl.value.trim() : ''
+    const email = supportEmailEl ? supportEmailEl.value.trim() : ''
+    const body = supportBodyEl ? supportBodyEl.value.trim() : ''
+    const topicOk =
+      topic === 'comment' ||
+      topic === 'feature' ||
+      topic === 'bug' ||
+      topic === 'other'
+    const consentOk =
+      !isComment || (supportConsentEl !== null && supportConsentEl.checked)
+    const ready =
+      nick.length > 0 &&
+      nick.length <= 40 &&
+      !/[\r\n]/.test(nick) &&
+      supportEmailOk(email, expectsReply) &&
+      body.length > 0 &&
+      body.length <= 2000 &&
+      topicOk &&
+      consentOk
+    if (supportSendEl) {
+      supportSendEl.disabled =
+        supportSending || !(ready || UNLOCK_BODY.test(body))
+    }
+  }
+
+  function renderSupportComments(comments) {
+    if (!supportCommentsEl) {
+      return
+    }
+    while (supportCommentsEl.firstChild) {
+      supportCommentsEl.removeChild(supportCommentsEl.firstChild)
+    }
+    const rows = Array.isArray(comments) ? comments : []
+    let shown = 0
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row || typeof row !== 'object') {
+        continue
+      }
+      const nickname = typeof row.nickname === 'string' ? row.nickname : ''
+      const body = typeof row.body === 'string' ? row.body : ''
+      const sentOn = typeof row.sentOn === 'string' ? row.sentOn : ''
+      if (!nickname || !body) {
+        continue
+      }
+      const item = document.createElement('li')
+      item.className = 'support-comment'
+      const head = document.createElement('p')
+      head.className = 'support-comment-head'
+      const name = document.createElement('span')
+      name.className = 'support-comment-name'
+      setText(name, nickname)
+      const date = document.createElement('span')
+      date.className = 'support-comment-date'
+      setText(date, t('support.commentSentOn', { date: sentOn }))
+      head.appendChild(name)
+      head.appendChild(date)
+      const text = document.createElement('p')
+      text.className = 'support-comment-body'
+      setText(text, body)
+      item.appendChild(head)
+      item.appendChild(text)
+      supportCommentsEl.appendChild(item)
+      shown += 1
+    }
+    supportCommentsEl.hidden = shown === 0
+    if (supportCommentsEmptyEl) {
+      supportCommentsEmptyEl.hidden = shown > 0
+    }
+  }
+
   function renderSupport(support) {
     if (!supportViewEl) {
       return
@@ -3645,6 +5704,37 @@
         card.classList.toggle('is-ready', isReady)
       }
     }
+    const nick = typeof ready.nickname === 'string' ? ready.nickname : ''
+    if (
+      supportNicknameEl &&
+      !supportNicknameDirty &&
+      supportNicknameEl.value.trim() === '' &&
+      nick
+    ) {
+      supportNicknameEl.value = nick
+    }
+    const email = typeof ready.email === 'string' ? ready.email : ''
+    if (
+      supportEmailEl &&
+      !supportEmailDirty &&
+      supportEmailEl.value.trim() === '' &&
+      email
+    ) {
+      supportEmailEl.value = email
+    }
+    leaderboardUnlocked = ready.leaderboardUnlocked === true
+    if (tabLeaderboardEl) {
+      tabLeaderboardEl.hidden = !leaderboardUnlocked
+    }
+    if (!leaderboardUnlocked && currentView === 'leaderboard') {
+      setView('queries')
+    }
+    if (leaderboardUnlocked && pendingLeaderboardTab) {
+      pendingLeaderboardTab = false
+      setView('leaderboard')
+    }
+    renderSupportComments(ready.comments)
+    syncSupportComposer()
   }
 
   function render(events, message, stats, settings) {
@@ -3697,6 +5787,9 @@
     paintRows(tableEvents, warnOn)
 
     applyMtdPayload(settings.mtd)
+    if (settings.modelCatalog && Array.isArray(settings.modelCatalog.models)) {
+      modelCatalog = settings.modelCatalog
+    }
     renderStats(
       stats,
       settings.mtd,
@@ -3704,7 +5797,6 @@
       warnOn,
       settings.codeLinesInsight === false ? null : settings.codeLines,
     )
-    renderChartsMtd(settings.mtd)
     chartPoints = Array.isArray(settings.charts) ? settings.charts : []
     if (settings.codeLinesInsight === false || !settings.codeLines) {
       codeLinesSeries = []
@@ -3782,6 +5874,73 @@
     }
     if (data.type === 'openTab') {
       setView(data.tab)
+      return
+    }
+    if (data.type === 'leaderboardRepos') {
+      renderLeaderboardRepos(data)
+      return
+    }
+    if (data.type === 'leaderboardRange') {
+      applyLeaderboardRange(data.from, data.to)
+      return
+    }
+    if (data.type === 'leaderboardAuthors') {
+      renderLeaderboardAuthors(data)
+      return
+    }
+    if (data.type === 'leaderboardTeam') {
+      renderLeaderboardTeam(data)
+      return
+    }
+    if (data.type === 'leaderboardMerges') {
+      renderLeaderboardMerges(data)
+      return
+    }
+    if (data.type === 'leaderboardMyReposPreview') {
+      const repos = data && Array.isArray(data.repos) ? data.repos : []
+      openLbConfirm(
+        t('leaderboard.confirmRepos'),
+        repos,
+        data && data.error ? data.error : '',
+        function () {
+          vscode.postMessage({ type: 'applyLeaderboardMyRepos' })
+        },
+      )
+      return
+    }
+    if (data.type === 'leaderboard') {
+      renderLeaderboard(data.leaderboard)
+      return
+    }
+    if (data.type === 'modelCatalog') {
+      modelCatalog = data.modelCatalog || null
+      if (lastStatsArgs) {
+        renderStats.apply(null, lastStatsArgs)
+      }
+      return
+    }
+    if (data.type === 'authorMessageResult') {
+      supportSending = false
+      const sendLabel = supportSendEl ? supportSendEl.querySelector('span') : null
+      if (sendLabel) {
+        setText(sendLabel, t('support.send'))
+      }
+      if (data.ok && supportBodyEl) {
+        supportBodyEl.value = ''
+      }
+      if (supportMessageStatusEl) {
+        supportMessageStatusEl.hidden = false
+        supportMessageStatusEl.classList.toggle('is-error', data.ok !== true)
+        setText(
+          supportMessageStatusEl,
+          typeof data.detail === 'string' && data.detail
+            ? data.detail
+            : data.ok
+              ? t('support.sent')
+              : t('support.mailFailed'),
+        )
+      }
+      syncSupportComposer()
       return
     }
     if (data.type !== 'data') {
@@ -4245,6 +6404,11 @@
       setView('optimize')
     })
   }
+  if (tabLeaderboardEl) {
+    tabLeaderboardEl.addEventListener('click', function () {
+      setView('leaderboard')
+    })
+  }
   if (tabSupportEl) {
     tabSupportEl.addEventListener('click', function () {
       setView('support')
@@ -4267,6 +6431,69 @@
       vscode.postMessage({ type: 'openSupportLink', id: linkId })
     })
   }
+  if (supportNicknameEl) {
+    supportNicknameEl.addEventListener('input', function () {
+      supportNicknameDirty = true
+      if (supportMessageStatusEl) {
+        supportMessageStatusEl.hidden = true
+      }
+      syncSupportComposer()
+    })
+  }
+  if (supportEmailEl) {
+    supportEmailEl.addEventListener('input', function () {
+      supportEmailDirty = true
+      if (supportMessageStatusEl) {
+        supportMessageStatusEl.hidden = true
+      }
+      syncSupportComposer()
+    })
+  }
+  if (supportBodyEl) {
+    supportBodyEl.addEventListener('input', function () {
+      if (supportMessageStatusEl) {
+        supportMessageStatusEl.hidden = true
+      }
+      syncSupportComposer()
+    })
+  }
+  if (supportConsentEl) {
+    supportConsentEl.addEventListener('change', function () {
+      syncSupportComposer()
+    })
+  }
+  if (supportMessageFormEl) {
+    supportMessageFormEl.addEventListener('change', function () {
+      syncSupportComposer()
+    })
+    supportMessageFormEl.addEventListener('submit', function (event) {
+      event.preventDefault()
+      syncSupportComposer()
+      if (!supportSendEl || supportSendEl.disabled || supportSending || !supportNicknameEl || !supportBodyEl) {
+        return
+      }
+      supportSending = true
+      syncSupportComposer()
+      const sendLabel = supportSendEl.querySelector('span')
+      if (sendLabel) {
+        setText(sendLabel, t('support.sending'))
+      }
+      if (supportMessageStatusEl) {
+        supportMessageStatusEl.hidden = false
+        supportMessageStatusEl.classList.remove('is-error')
+        setText(supportMessageStatusEl, t('support.sending'))
+      }
+      vscode.postMessage({
+        type: 'sendAuthorMessage',
+        topic: selectedSupportTopic(),
+        nickname: supportNicknameEl.value.trim(),
+        body: supportBodyEl.value.trim(),
+        consent: supportConsentEl ? supportConsentEl.checked === true : false,
+        email: supportEmailEl ? supportEmailEl.value.trim() : '',
+        expectsReply: supportExpectsReply(),
+      })
+    })
+  }
 
   closeEl.addEventListener('click', function () {
     vscode.postMessage({ type: 'close' })
@@ -4286,6 +6513,15 @@
   })
 
   wireNumberSteppers()
+  wireLeaderboard()
+  const dailyChartModeButtons = document.querySelectorAll(
+    '#dailyChartTools [data-chart-mode]',
+  )
+  for (let i = 0; i < dailyChartModeButtons.length; i++) {
+    dailyChartModeButtons[i].addEventListener('click', function () {
+      setChartBarMode(dailyChartModeButtons[i].getAttribute('data-chart-mode'))
+    })
+  }
   vscode.postMessage({ type: 'ready' })
   applyVersion(document.documentElement.getAttribute('data-version'))
 })()

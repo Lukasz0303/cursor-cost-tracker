@@ -153,6 +153,7 @@ describe('historyDataPayload', () => {
       'i18n',
       'language',
       'minimalMode',
+      'modelCatalog',
       'mtd',
       'okColor',
       'optimize',
@@ -178,6 +179,10 @@ describe('historyDataPayload', () => {
     expect(payload.support).toEqual({
       buyMeACoffee: true,
       githubSponsors: false,
+      nickname: '',
+      email: '',
+      comments: [],
+      leaderboardUnlocked: false,
     })
     expect(payload.optimize.empty).toBe(false)
     expect(payload.optimize.prompt).toContain('Projected savings')

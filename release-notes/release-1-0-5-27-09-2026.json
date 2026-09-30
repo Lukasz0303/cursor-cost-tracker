@@ -1,0 +1,31 @@
+{
+  "version": "1.0.5",
+  "date": "2026-09-30",
+  "gitTag": "v1.0.5",
+  "title": "Release notes — Cursor Cost Tracker (1.0.5)",
+  "intro": "Model pricing on Statistics, Support write-a-message, GitHub Pages landing site, and docs/site comparison table refresh.",
+  "sections": [
+    {
+      "name": "New features",
+      "items": [
+        "**Model pricing** — Statistics table from the public Cursor pricing docs (request counts from Last N, CursorBench score). Toolbar opens the official models page.",
+        "**Support → Write a message** — Comment / feature / bug / other to the author (FormSubmit). Nickname and email from the Cursor account; publish consent for comments.",
+        "**Landing page** — `site/` for GitHub Pages after deploy from main."
+      ]
+    },
+    {
+      "name": "Improvements / Fixes",
+      "items": [
+        "**Panel** — six tabs: Last N, Statistics, Charts, Optimize, Support, Settings.",
+        "**Pace / forecast** — Pace card and forecast bars use good/warn colors vs the month plan."
+      ]
+    },
+    {
+      "name": "Notes",
+      "items": [
+        "Pricing fetch is public docs markdown; Support mail does not include the session token.",
+        "Only blocking modal remains the last-query critical alert."
+      ]
+    }
+  ]
+}

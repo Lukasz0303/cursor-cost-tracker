@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.5 — 2026-09-30
+
+### Added
+
+- **Model pricing** — Statistics shows the latest Cursor model prices (from the public docs page, cached six hours): input/output, Active / Hidden, request counts from the Last N sample, and a CursorBench coding score (click opens the CursorBench board). Sortable table; Active only / Hide Fast filters. Toolbar **Model pricing** opens the official models page (`Cursor Cost: Open model pricing`).
+- **Support → Write a message** — send Comment / New feature / Bug report / Other to the author without opening a mail app. Nickname defaults to the Cursor mailbox local-part; email is the Cursor account address (editable while a reply is expected; grayed when no reply). Publish-consent checkbox stays on every topic; Comment still requires it. Accepted comments can appear in a later release.
+- **Landing page** — static site under `site/` for GitHub Pages (`https://lukasz0303.github.io/cursor-cost-tracker/` after the first deploy from `main`).
+
+### Changed
+
+- **Panel tabs** — six tabs: Last N · Statistics · Charts · Optimize · Support · Settings.
+- **Pace** — the Pace card is green when spend is under or on the month plan, and red when it is over.
+- **Monthly cost forecast** — bars stay green while that day’s cumulative is still on plan, and turn red only on the part above the plan.
+- **Support** — Write a message is collapsed by default; Reply options look like Topic pills and start collapsed.
+- **Docs / site** — comparison table (README + landing page) grouped like the product: Status bar, Guards, forecast, Optimize, Coding stats, panel, setup.
+
+### Notes
+
+- Model pricing fetches the public Cursor docs markdown; Support messages go to the author inbox via FormSubmit (no session token).
+- G5 unchanged: the only blocking modal remains the last-query critical alert.
+- Spike **Ignore** (persist bang dismiss after reload) remains planned; store only, UI not in this VSIX.
+
 ## 1.0.4 — 2026-09-20
 
 ### Added

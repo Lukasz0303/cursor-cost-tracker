@@ -31,6 +31,7 @@ export type HistoryTab =
   | 'stats'
   | 'charts'
   | 'optimize'
+  | 'leaderboard'
   | 'support'
   | 'settings'
 

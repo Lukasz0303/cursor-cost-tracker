@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cursor Cost Tracker — know the spend before the month ends</title>
+  <meta name="description" content="Status bar Current and Today, burn rate, model pricing, Coding stats, monthly forecast, Optimize, and Support write-a-message. Free on Open VSX.">
+  <link rel="canonical" href="https://lukasz0303.github.io/cursor-cost-tracker/">
+  <meta property="og:title" content="Cursor Cost Tracker">
+  <meta property="og:description" content="Status bar spend, forecast, burn rate, model pricing, Coding stats, and local Optimize — inside Cursor.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lukasz0303.github.io/cursor-cost-tracker/">
+  <meta property="og:image" content="https://lukasz0303.github.io/cursor-cost-tracker/screenshots/dark/monthly_cost_forecast_2.png">
+  <meta name="theme-color" content="#07090c" id="theme-color">
+  <link rel="icon" href="mark.png">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("cct-site-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+        var lang = localStorage.getItem("cct-site-lang");
+        var ok = {
+          en: "en", pl: "pl", "zh-cn": "zh-CN", ja: "ja", es: "es",
+          "pt-br": "pt-BR", ru: "ru", ko: "ko", fr: "fr", de: "de"
+        };
+        if (lang && ok[lang]) document.documentElement.lang = ok[lang];
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip" href="#product" data-i18n="skip">Skip to the product</a>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="#top">
+        <img src="mark.png" width="36" height="36" alt="">
+        <span>Cursor Cost Tracker</span>
+      </a>
+      <nav class="nav" aria-label="Page" data-i18n-aria="navAria">
+        <a href="#top" data-i18n="nav.home">Home</a>
+        <a href="#compare" data-i18n="nav.why">Why</a>
+        <a href="#product" data-i18n="nav.product">Product</a>
+        <a href="#screens" data-i18n="nav.screens">Screenshots</a>
+        <a href="#install" data-i18n="nav.install">Install</a>
+        <a href="#support" data-i18n="nav.support">Support</a>
+        <a href="#privacy" data-i18n="nav.privacy">Privacy</a>
+      </nav>
+      <label class="lang-wrap">
+        <span class="sr-only" data-i18n="langLabel">Language</span>
+        <select class="lang-select" data-lang-select aria-label="Language">
+          <option value="en">English</option>
+          <option value="pl">Polski</option>
+          <option value="zh-cn">简体中文</option>
+          <option value="ja">日本語</option>
+          <option value="es">Español</option>
+          <option value="pt-br">Português (Brasil)</option>
+          <option value="ru">Русский</option>
+          <option value="ko">한국어</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </label>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" title="Theme">
+        <span class="theme-toggle-icon theme-toggle-sun" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </span>
+        <span class="theme-toggle-icon theme-toggle-moon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/></svg>
+        </span>
+      </button>
+      <a class="btn btn-small" href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker" data-i18n="nav.install">Install</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-split">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> <span data-i18n="hero.eyebrow">Live in Cursor · Free · Unofficial</span></p>
+          <h1 class="hero-title" data-i18n-html="hero.title">What Cursor costs — <em>know before the limit runs out</em></h1>
+          <p class="hero-hook" data-i18n="hero.hook">Cursor Cost Tracker is a VS Code / Cursor extension with five jobs.</p>
+          <ul class="hero-points">
+            <li data-i18n-html="hero.p1"><strong>Status bar</strong> — Current, Today, and recent queries. Green on pace; red on a spike (<code>!</code>).</li>
+            <li data-i18n-html="hero.p2"><strong>Guards</strong> — Burn Rate toasts and a blocking critical alert. Neither stops Cursor.</li>
+            <li data-i18n-html="hero.p3"><strong>Monthly forecast</strong> — used, forecast, and ideal, plus when limits run out.</li>
+            <li data-i18n-html="hero.p4"><strong>Optimize</strong> — a ready prompt for the last red query. Never reads the chat.</li>
+            <li data-i18n-html="hero.p5"><strong>Coding stats</strong> — landed / AI = % effectiveness, plus All on Cursor by project.</li>
+          </ul>
+          <div class="cta">
+            <a class="btn" href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker" data-i18n="cta.installFree">Install for free</a>
+            <a class="btn btn-ghost" href="#product" data-i18n="cta.seeProduct">See what you get</a>
+          </div>
+        </div>
+        <div class="hero-stage">
+          <div class="hero-glow" aria-hidden="true"></div>
+          <figure class="hero-frame">
+            <button class="zoomable" type="button" data-open="hero" data-i18n-aria="enlarge.forecast" aria-label="Enlarge: Monthly cost forecast">
+              <img src="screenshots/dark/monthly_cost_forecast_2.png" alt="Monthly cost forecast: Cursor Models and Other Models meters, cumulative bars green on plan and red above plan, solid used lines, dashed forecast to the 100% limit." width="1518" height="972" fetchpriority="high">
+            </button>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="proof-band" data-i18n-aria="proof.aria" aria-label="Open VSX stats">
+      <div class="wrap proof-grid">
+        <div>
+          <strong data-downloads>1,522</strong>
+          <span data-i18n="proof.installs">installs on Open VSX</span>
+        </div>
+        <div>
+          <strong data-i18n="proof.localStrong">Local</strong>
+          <span data-i18n="proof.local">session stays on this machine</span>
+        </div>
+        <div>
+          <strong data-i18n="proof.freeStrong">Free</strong>
+          <span data-i18n="proof.free">nothing to paste, MIT</span>
+        </div>
+      </div>
+      <p class="proof-note" id="stat-note" data-i18n="proof.note">Open VSX snapshot</p>
+    </section>
+
+    <section class="compare">
+      <div class="wrap">
+        <header id="compare" class="section-head compare-head reveal">
+          <p class="eyebrow" data-i18n="compare.eyebrow">Why this extension</p>
+          <h2 data-i18n="compare.title">Why Cursor Cost Tracker?</h2>
+          <p class="lede" data-i18n="compare.lede1">Cursor’s dashboard shows totals on the website — not how much of the month or day is left, when limits run out, which query spiked, or a local way to shrink the next expensive turn.</p>
+          <p class="lede compare-lede-2" data-i18n-html="compare.lede2">This extension keeps those numbers next to Git and Problems, with a monthly forecast and Optimize savings in <code>.ai/optimize-savings.md</code> — no chat upload, no third-party analytics.</p>
+        </header>
+
+        <details class="compare-fold reveal" open data-compare-fold>
+          <summary>
+            <span data-i18n="compare.fold">Full comparison Cursor Cost Tracker vs Cursor Dashboard</span>
+            <span class="compare-fold-meta" data-i18n="compare.byJob">by job</span>
+          </summary>
+          <div class="compare-scroll">
+            <table class="compare-table">
+              <caption class="sr-only">Cursor Dashboard vs Cursor Cost Tracker, grouped by job</caption>
+              <thead>
+                <tr>
+                  <th scope="col" data-i18n="compare.cap">Capability</th>
+                  <th scope="col" data-i18n="compare.dash">Cursor Dashboard</th>
+                  <th scope="col" data-i18n="compare.cct">Cursor Cost Tracker</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="compare-group">
+                  <th scope="colgroup" colspan="3" data-i18n="group.status">Status bar</th>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="row.currentBar">Current cycle spend on the bar</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="row.todayBar">Today vs remaining daily budget on the bar</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="row.recentBar">1–10 recent queries on the bar</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n-html="row.spikeBar">Green on pace · red on a spike (<code>!</code>, default 1M)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+
+                <tr class="compare-group">
+                  <th scope="colgroup" colspan="3" data-i18n="group.guards">Guards</th>
+                </tr>
+                <tr>
+                  <th scope="row" data-i18n="row.burn">Burn Rate Guard (live $/window, banner, non-blocking toasts)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-more-row">
+                  <td colspan="3">
+                    <button class="btn btn-ghost btn-small compare-more-btn" type="button" data-compare-more data-i18n="compare.more">More</button>
+                  </td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.critical">Blocking critical alert (default 10M tokens or $5)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.neitherStops">Neither guard stops Cursor</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n-html="row.ignore">Ignore a spike <code>!</code> and keep it dismissed after reload</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-soft" data-i18n="cell.planned">Planned</span></td>
+                </tr>
+
+                <tr class="compare-group compare-extra">
+                  <th scope="colgroup" colspan="3" data-i18n="group.forecast">Monthly forecast</th>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.usedForecast">Used / forecast / ideal on one chart</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.runOut">Run-out date (Team $ or Pro included limits)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.pace">Pace by working days or all calendar days</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.range">Today / 7 days / Month range on the chart</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+
+                <tr class="compare-group compare-extra">
+                  <th scope="colgroup" colspan="3" data-i18n="group.optimize">Optimize</th>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.readyPrompt">Ready prompt for the last red (Warn at) query</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.depths">Quick / Balanced / Deep depths</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n-html="row.projected">Projected save in local <code>.ai/optimize-savings.md</code></th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.noTranscript">Never reads the chat transcript</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+
+                <tr class="compare-group compare-extra">
+                  <th scope="colgroup" colspan="3" data-i18n="group.coding">Coding stats</th>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.effectiveness">Landed / AI = % effectiveness</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.branchLanded">If this branch landed on main / master</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.allOnCursor">All on Cursor · split by project</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.aiVsMerged">AI lines vs merged on Charts</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+
+                <tr class="compare-group compare-extra">
+                  <th scope="colgroup" colspan="3" data-i18n="group.panel">Panel · queries · charts</th>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.lastN">Last N queries in the editor (100–10,000 or From date)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.perQuery">Per-query cost, tokens, model, kind</th>
+                  <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.statistics">Statistics (totals, averages, spike count)</th>
+                  <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.spendBy">Spend by model and by kind</th>
+                  <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.charts">Charts (tokens / cost over time)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.mixCards">Today / This month / All time mix cards</th>
+                  <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.pricing">Model pricing (docs + Last N counts + CursorBench)</th>
+                  <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.export">Export recent queries as CSV</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.supportMsg">Support → Write a message to the author</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+
+                <tr class="compare-group compare-extra">
+                  <th scope="colgroup" colspan="3" data-i18n="group.setup">Setup · language</th>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.uiLang">UI language (10 locales)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.zeroSetup">Zero setup (local Cursor session)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.noToken">No token pasted into Settings</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <p class="compare-note reveal" data-i18n-html="compare.note">Not in scope: payments, hosted team dashboards, other IDEs, estimating cost before you send a prompt, reading chat transcripts, or auto-rewriting your codebase. Optimize only builds metadata prompts you paste yourself; savings numbers come from the agent writing a local project file.</p>
+      </div>
+    </section>
+
+    <section id="product" class="product">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="eyebrow" data-i18n="product.eyebrow">Inside the editor</p>
+          <h2 data-i18n="product.title">It works before you change a setting.</h2>
+          <p class="lede" data-i18n="product.lede">Current and Today show up on the status bar as soon as you install. Click either for Statistics. Click a query chip for the list. Charts, Optimize, Support, and Settings stay one panel away.</p>
+        </header>
+
+        <div class="bento">
+          <article class="tile tile-wide reveal">
+            <div class="tile-copy">
+              <p class="tile-tag" data-i18n="tile.statusTag">Status bar</p>
+              <h3 data-i18n="tile.statusTitle">Spend stays visible while you type</h3>
+              <p data-i18n-html="tile.statusBody">Current is the billing cycle. Today is the daily pace. Up to ten recent queries sit beside them. Anything at or above Warn at (default 1M tokens) gets a red <strong>!</strong>.</p>
+            </div>
+            <button class="zoomable tile-shot tile-shot-bar" type="button" data-open="status" data-i18n-aria="enlarge.status" aria-label="Enlarge: Status bar">
+              <img src="screenshots/dark/status_bar.png" alt="Dark status bar: Current, Today, Refresh, and recent query chips." loading="lazy">
+            </button>
+          </article>
+
+          <article class="tile reveal">
+            <div class="tile-copy">
+              <p class="tile-tag" data-i18n="tile.statsTag">Statistics</p>
+              <h3 data-i18n="tile.statsTitle">The month, the burn, the sample</h3>
+              <p data-i18n="tile.statsBody">Meters for Current and Today, live burn rate when Guard is on, coding stats when enabled, plus the Last N totals.</p>
+            </div>
+            <button class="zoomable tile-shot" type="button" data-open="stats" data-i18n-aria="enlarge.stats" aria-label="Enlarge: Statistics">
+              <img src="screenshots/dark/statistics.png" alt="Statistics: Current and Today meters, burn rate, and coding stats." loading="lazy">
+            </button>
+          </article>
+
+          <article class="tile reveal">
+            <div class="tile-copy">
+              <p class="tile-tag" data-i18n="tile.lastNTag">Last N</p>
+              <h3 data-i18n="tile.lastNTitle">Every recent query, newest first</h3>
+              <p data-i18n="tile.lastNBody">Time, model, cost, tokens, input / output, kind. Spike rows highlight TOKENS. Export CSV from the toolbar.</p>
+            </div>
+            <button class="zoomable tile-shot" type="button" data-open="queries" data-i18n-aria="enlarge.queries" aria-label="Enlarge: Last N queries">
+              <img src="screenshots/dark/queries.png" alt="Last N queries table with time, model, cost, and tokens." loading="lazy">
+            </button>
+          </article>
+
+          <article class="tile tile-accent reveal">
+            <div class="tile-copy">
+              <p class="tile-tag" data-i18n="tile.optTag">Optimize</p>
+              <h3 data-i18n="tile.optTitle">A prompt for the last red query</h3>
+              <p data-i18n="tile.optBody">Quick, Balanced, or Deep. Run pastes into the last Agent chat — you press Start. The extension never reads the transcript.</p>
+            </div>
+            <button class="zoomable tile-shot" type="button" data-open="optimize" data-i18n-aria="enlarge.optimize" aria-label="Enlarge: Optimize">
+              <img src="screenshots/dark/optimize.png" alt="Optimize tab with Quick, Balanced, and Deep prompt cards." loading="lazy">
+            </button>
+          </article>
+
+        </div>
+        <ul class="also reveal">
+          <li data-i18n-html="also.critical"><strong>Critical alert.</strong> One dialog, only at 10M tokens or $5. Separate from the ! on the bar. Cursor keeps running.</li>
+          <li data-i18n-html="also.langs"><strong>Ten languages.</strong> English by default. Polish, Chinese, Japanese, and more switch the panel, status bar, and toasts immediately.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="screens">
+      <div class="wrap">
+        <header id="screens" class="section-head reveal">
+          <p class="eyebrow" data-i18n="screens.eyebrow">Product tour</p>
+          <h2 data-i18n="screens.title">From the status bar to the last red query.</h2>
+          <p class="lede" data-i18n="screens.lede">Screenshots from the panel. Swipe, use the arrows, or pick a thumbnail. Click a frame for full screen — click again for actual size.</p>
+        </header>
+
+        <div class="slider reveal" data-slider>
+          <div class="slider-stage">
+            <button class="slider-arrow slider-prev" type="button" data-prev data-i18n-aria="slider.prev" aria-label="Previous screenshot">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <div class="slider-track" data-track tabindex="0" data-i18n-aria="slider.aria" aria-label="Screenshots" aria-roledescription="carousel">
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.burn" aria-label="Enlarge: High burn rate">
+                  <img src="screenshots/dark/status_bar_2.png" alt="High burn rate banner and Current burn rate card in red." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.burn"><strong>High burn rate</strong> — banner and live $/window when the window is hot.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.forecast" aria-label="Enlarge: Monthly cost forecast">
+                  <img src="screenshots/dark/monthly_cost_forecast.png" alt="Monthly cost forecast: Cursor Models and Other Models meters, cumulative bars green on plan and red above plan, solid used lines, dashed forecast, dotted ideal to month end." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.forecast"><strong>Monthly forecast</strong> — used, forecast, and ideal on one chart.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.status" aria-label="Enlarge: Status bar">
+                  <img src="screenshots/dark/status_bar.png" alt="Status bar with Current, Today, and recent query chips." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.status"><strong>Status bar</strong> — Current, Today, and the latest queries.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.statusCards" aria-label="Enlarge: Status bar cards">
+                  <img src="screenshots/dark/status_bar_1.png" alt="Statistics Status bar row: burn rate, Current, Today, and Coding stats." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.statusCards"><strong>Status bar cards</strong> — burn rate, Current, Today, Coding stats.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.stats" aria-label="Enlarge: Statistics">
+                  <img src="screenshots/dark/statistics.png" alt="Statistics: Current and Today meters, burn rate, and coding stats." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.stats"><strong>Statistics</strong> — Current, Today, burn rate, and coding stats.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.billing" aria-label="Enlarge: Billing cycle summary">
+                  <img src="screenshots/dark/statistics_2.png" alt="Billing cycle plan card and From date summary totals." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.billing"><strong>Billing cycle</strong> — plan, cycle dates, and Last N summary cards.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.spend" aria-label="Enlarge: Spend breakdown">
+                  <img src="screenshots/dark/spend_breakdown.png" alt="Spend breakdown by model and by kind with token mix." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.spend"><strong>Spend breakdown</strong> — by model, by kind, busiest day, token mix.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.forecastEnd" aria-label="Enlarge: Forecast near month end">
+                  <img src="screenshots/dark/monthly_cost_forecast_2.png" alt="Monthly cost forecast near month end: Cursor Models and Other Models dashed forecasts reach the 100% limit." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.forecastEnd"><strong>Forecast near run-out</strong> — tip shows used vs allowance for a day.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.spikes" aria-label="Enlarge: Last N queries with spikes">
+                  <img src="screenshots/dark/queries.png" alt="Last N queries table with red spike tokens highlighted." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.spikes"><strong>Last N · spikes</strong> — newest first, Warn-at ! on TOKENS.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.queries" aria-label="Enlarge: Last N queries">
+                  <img src="screenshots/dark/queries_2.png" alt="Last N queries table without spike filter." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.queries"><strong>Last N queries</strong> — cost, tokens, input / output, kind.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.optimize" aria-label="Enlarge: Optimize">
+                  <img src="screenshots/dark/optimize.png" alt="Optimize tab with Quick, Balanced, and Deep prompt cards." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.optimize"><strong>Optimize</strong> — ready prompt for the last red query.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.coding" aria-label="Enlarge: Effectiveness">
+                  <img src="screenshots/dark/effectiveness.png" alt="AI vs git lines: landed over AI effectiveness chart." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.coding"><strong>Coding stats</strong> — AI lines vs what landed on the default branch.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.pricing" aria-label="Enlarge: Model pricing">
+                  <img src="screenshots/dark/model_pricing.png" alt="Model pricing table with Active, requests, and CursorBench." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.pricing"><strong>Model pricing</strong> — docs rates, Last N counts, CursorBench.</figcaption>
+              </figure>
+              <figure class="slide">
+                <button class="slide-open" type="button" data-i18n-aria="enlarge.support" aria-label="Enlarge: Support">
+                  <img src="screenshots/dark/support.png" alt="Support tab with Buy Me a Coffee and Write a message." loading="lazy">
+                </button>
+                <figcaption data-i18n-html="slide.support"><strong>Support</strong> — coffee tip and write a message to the author.</figcaption>
+              </figure>
+            </div>
+            <button class="slider-arrow slider-next" type="button" data-next data-i18n-aria="slider.next" aria-label="Next screenshot">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+          <div class="slider-bar">
+            <p class="slider-count" data-count aria-live="polite">1 / 14</p>
+            <button class="btn btn-ghost btn-small slider-zoom" type="button" data-zoom>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              <span data-i18n="screens.fullscreen">Full screen</span>
+            </button>
+          </div>
+
+          <div class="thumbs" data-thumbs data-i18n-aria="slider.thumbs" aria-label="Choose a screenshot"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="install">
+      <div class="wrap">
+        <div class="install-grid">
+          <header class="section-head install-copy reveal">
+            <p class="eyebrow" data-i18n="install.eyebrow">Install in under a minute</p>
+            <h2 data-i18n="install.title">No second login. Nothing to paste.</h2>
+            <p class="lede" data-i18n="install.lede">Cursor’s Extensions view searches Open VSX. The extension reuses the session already on this machine — no API key, no second login.</p>
+          </header>
+          <ol class="steps reveal">
+            <li>
+              <span class="step-n">01</span>
+              <div>
+                <h3 data-i18n="install.s1">Open Extensions</h3>
+                <p><kbd>Cmd</kbd><kbd>Shift</kbd><kbd>X</kbd> · <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>X</kbd></p>
+              </div>
+            </li>
+            <li>
+              <span class="step-n">02</span>
+              <div>
+                <h3 data-i18n="install.s2">Search and install</h3>
+                <p data-i18n="install.s2b">Paste the name, open Open VSX, or run the command below in a terminal.</p>
+              </div>
+            </li>
+            <li>
+              <span class="step-n">03</span>
+              <div>
+                <h3 data-i18n="install.s3">Open the dashboard</h3>
+                <p data-i18n-html="install.s3b">Click <strong>Current</strong> or <strong>Today</strong>, or run <strong>Cursor Cost: Open Dashboard</strong>.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <div class="install-actions reveal">
+          <a class="btn" href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker" data-i18n="install.openVsx">Open VSX</a>
+          <div class="copy-row">
+            <code data-copy-text>Cursor Cost Tracker</code>
+            <button class="btn btn-ghost btn-small" type="button" data-copy data-i18n="install.copyName">Copy name</button>
+          </div>
+          <div class="copy-row copy-row-cmd">
+            <code data-copy-text>cursor --install-extension lukasz0303.cursor-cost-tracker</code>
+            <button class="btn btn-ghost btn-small" type="button" data-copy data-i18n="install.copy">Copy</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h2 id="faq-title" class="reveal" data-i18n="faq.title">Before you install</h2>
+        <div class="faq-list reveal">
+          <details>
+            <summary data-i18n="faq.q1">Does Optimize read the chat?</summary>
+            <p data-i18n-html="faq.a1">No. The prompt is built from usage metadata for the last red query. The transcript stays in Cursor. A projected save shows up only after the agent writes <code>.ai/optimize-savings.md</code>.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q2">Pro, or a team plan?</summary>
+            <p data-i18n="faq.a2">Pro shows included percent for Cursor Models and Other Models. Team, Business, and Enterprise show dollars and one Spend series. The same chart draws used, forecast, and ideal either way.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q3">What do I paste?</summary>
+            <p data-i18n="faq.a3">Nothing. The extension reuses the Cursor session already on this computer. There is no API key and no second login.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q4">What if Cursor changes the usage API?</summary>
+            <p data-i18n="faq.a4">The extension is unofficial. If that API moves, the numbers can stall until a release catches up. The token never goes to the panel or the logs.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="support-page">
+      <div class="wrap">
+        <div class="support-panel reveal">
+          <header id="support" class="section-head support-head">
+            <p class="eyebrow" data-i18n="support.eyebrow">Support</p>
+            <h2 data-i18n="support.title">Fuel the tracker.</h2>
+            <p class="lede" data-i18n="support.lede">If Cursor Cost Tracker helps you catch expensive queries and save tokens, a coffee for the author goes a long way — it keeps late-night status-bar fixes and monthly forecasts brewing.</p>
+          </header>
+          <div class="support-grid">
+            <article class="support-card">
+              <p class="tile-tag" data-i18n="support.coffeeTag">Buy Me a Coffee</p>
+              <h3 data-i18n="support.coffeeTitle">Say thanks with a coffee</h3>
+              <p data-i18n="support.coffeeBody">One-time tip. Perfect when Optimize or the forecast just paid for itself. Opens in your browser.</p>
+              <a class="btn" href="https://buymeacoffee.com/lzzzielinsn" data-i18n="support.coffeeCta">Buy me a coffee</a>
+            </article>
+            <article class="support-card">
+              <p class="tile-tag" data-i18n="support.msgTag">Write a message</p>
+              <h3 data-i18n="support.msgTitle">Comment, feature, or bug</h3>
+              <p data-i18n="support.msgBody">Inside the extension Support tab you can send a note straight to the author — Comment, New feature, Bug report, or Other. Your mail app stays closed.</p>
+              <a class="btn btn-ghost" href="https://github.com/Lukasz0303/cursor-cost-tracker/issues" data-i18n="support.issues">Open GitHub Issues</a>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="privacy">
+      <div class="wrap">
+        <div class="privacy-panel reveal">
+          <header id="privacy" class="section-head privacy-head">
+            <p class="eyebrow" data-i18n="privacy.eyebrow">Privacy</p>
+            <h2 data-i18n="privacy.title">Your session stays on this machine.</h2>
+          </header>
+          <p data-i18n="privacy.p1">No pasted access token. No proxy. Usage calls go straight to cursor.com using the Cursor session that already exists locally. The panel and logs never show the token.</p>
+          <p data-i18n-html="privacy.p2">Optimize builds a prompt from usage metadata only. Projected savings appear when the agent writes <code>.ai/optimize-savings.md</code> in the project — not from a transcript scrape.</p>
+          <div class="cta">
+            <a class="btn" href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker" data-i18n="privacy.install">Install from Open VSX</a>
+            <a class="btn btn-ghost" href="https://github.com/Lukasz0303/cursor-cost-tracker#readme" data-i18n="privacy.readme">Read the README</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <p class="brand footer-brand">
+        <img src="mark.png" width="28" height="28" alt="">
+        <span>Cursor Cost Tracker</span>
+      </p>
+      <p class="links">
+        <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker">Open VSX</a>
+        <a href="https://github.com/Lukasz0303/cursor-cost-tracker">GitHub</a>
+        <a href="https://github.com/Lukasz0303/cursor-cost-tracker/issues" data-i18n="footer.issues">Issues</a>
+        <a href="https://github.com/Lukasz0303/cursor-cost-tracker/blob/main/LICENSE">MIT</a>
+        <a href="https://buymeacoffee.com/lzzzielinsn" data-i18n="support.coffeeTag">Buy Me a Coffee</a>
+      </p>
+      <p class="fine" data-i18n-html="footer.fine">Independent project · MIT · v<span data-version>1.0.5</span> · Not affiliated with Anysphere or Cursor.</p>
+    </div>
+  </footer>
+
+  <dialog class="lightbox" data-lightbox data-i18n-aria="lightbox.aria" aria-label="Screenshot viewer">
+    <div class="lightbox-top">
+      <p class="lightbox-caption" data-lb-caption></p>
+      <p class="lightbox-count" data-lb-count></p>
+      <button class="lightbox-btn" type="button" data-lb-close data-i18n-aria="lightbox.close" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="lightbox-view" data-lb-view>
+      <img data-lb-img alt="">
+    </div>
+    <button class="lightbox-btn lightbox-prev" type="button" data-lb-prev data-i18n-aria="slider.prev" aria-label="Previous screenshot">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button class="lightbox-btn lightbox-next" type="button" data-lb-next data-i18n-aria="slider.next" aria-label="Next screenshot">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </dialog>
+
+  <script src="i18n.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

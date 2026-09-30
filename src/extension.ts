@@ -2,8 +2,11 @@ import { join } from 'node:path'
 import * as vscode from 'vscode'
 import {
   CURSOR_DASHBOARD_URL,
+  CURSOR_PRICING_URL,
   EXPORT_CSV_COMMAND,
+  EXPORT_LEADERBOARD_CSV_COMMAND,
   OPEN_DASHBOARD_COMMAND,
+  OPEN_PRICING_COMMAND,
 } from './constants'
 import { readCursorCostConfig } from './config'
 import { loadPersistedSettingOverrides } from './settingsStore'
@@ -63,8 +66,14 @@ export function activate(context: vscode.ExtensionContext): void {
         readWorkspaceConfig().historyFromDate,
       )
     }),
+    vscode.commands.registerCommand(EXPORT_LEADERBOARD_CSV_COMMAND, () => {
+      HistoryPanel.exportLeaderboard()
+    }),
     vscode.commands.registerCommand(OPEN_DASHBOARD_COMMAND, () => {
       void vscode.env.openExternal(vscode.Uri.parse(CURSOR_DASHBOARD_URL))
+    }),
+    vscode.commands.registerCommand(OPEN_PRICING_COMMAND, () => {
+      void vscode.env.openExternal(vscode.Uri.parse(CURSOR_PRICING_URL))
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration('cursorCost')) {

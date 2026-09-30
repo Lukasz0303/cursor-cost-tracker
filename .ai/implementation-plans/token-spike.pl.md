@@ -16,10 +16,10 @@ Nie wplatać w fazy 0–7 MVP.
 |------|--------|--------|
 | 1 | Ustawienia `spikeTokenThreshold` (domyślnie 1e6, min 1e3), `showSpikeWarning`; Settings w **k** | `package.json`, `config.ts`, `media/history.*` |
 | 2 | `isSpike`, fingerprint | `src/spikes/threshold.ts` + Vitest |
-| 3 | `IgnoreStore` na `globalState` (`cursorCost.ignoredSpikes`) | `src/spikes/ignoreStore.ts` |
-| 4 | Belka: `$(warning)` gdy w Last 100 jest spike nieignorowany | `statusBar.ts` |
-| 5 | Tabela: kolumna `!`; **Ignore** → `{ type: 'ignore', key }` | `historyPanel.ts`, `media/history.*` |
-| 6 | Przelicz bang po ignore / zmianie ustawienia / refresh | `UsageService` albo `SpikeService` |
+| 3 | `IgnoreStore` na `globalState` (`cursorCost.ignoredSpikes`) | `src/spikes/ignoreStore.ts` | **done** |
+| 4 | Belka: `$(warning)` gdy w Last 100 jest spike nieignorowany | `statusBar.ts` | **done** |
+| 5 | Tabela: kolumna `!`; **Ignore** → `{ type: 'ignore', key }` | `historyPanel.ts`, `media/history.*` | `!` **done**; Ignore remaining |
+| 6 | Przelicz bang po ignore / zmianie ustawienia / refresh | `UsageService` albo `SpikeService` | zmiana ustawienia **done**; po ignore remaining |
 
 **Gotowe:** checklist PRD §13b.
 

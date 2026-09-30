@@ -38,15 +38,14 @@ import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
 import { toChartSeries, type ChartPoint } from './chartSeries'
 import { toPeriodCards, type PeriodCard } from './periodCards'
 import { toMtdPace, type MtdPacePayload } from './mtdPace'
+import type { ModelCatalogPayload } from '../pricing/parse'
 import {
   toOptimizePayload,
   type OptimizePayload,
 } from './optimizePayload'
 import type { LifetimeSavings } from './optimizeLifetimeSavings'
-import {
-  supportLinkReady,
-  type SupportLinkId,
-} from '../supportLinks'
+import { supportLinkReady } from '../supportLinks'
+import { PUBLISHED_COMMENTS, type PublishedComment } from '../support/comments'
 import {
   toStatusBarPreviewChips,
   type StatusBarPreviewChip,
@@ -111,6 +110,12 @@ export type HistoryRowOptions = {
   codeLines?: CodeLinesPayload | null
   nowMs?: number
   language?: Locale
+  modelCatalog?: ModelCatalogPayload | null
+  /** Nickname derived from the Cursor account email. */
+  cursorNickname?: string
+  /** Cursor account email, used only to prefill Support → Write a message. */
+  cursorEmail?: string | null
+  leaderboardUnlocked?: boolean
 }
 
 export function toHistoryRows(
@@ -198,10 +203,18 @@ export type HistoryDataPayload = {
   periods: PeriodCard[]
   mtd: MtdPacePayload
   optimize: OptimizePayload
-  support: Record<SupportLinkId, boolean>
+  support: {
+    buyMeACoffee: boolean
+    githubSponsors: boolean
+    nickname: string
+    email: string
+    comments: PublishedComment[]
+    leaderboardUnlocked: boolean
+  }
   refreshing: boolean
   language: Locale
   i18n: ReturnType<typeof catalogFor>
+  modelCatalog: ModelCatalogPayload | null
 }
 
 export function historyDataPayload(
@@ -364,10 +377,15 @@ export function historyDataPayload(
     support: {
       buyMeACoffee: supportLinkReady('buyMeACoffee'),
       githubSponsors: supportLinkReady('githubSponsors'),
+      nickname: options?.cursorNickname?.trim() ?? '',
+      email: options?.cursorEmail?.trim() ?? '',
+      comments: [...PUBLISHED_COMMENTS],
+      leaderboardUnlocked: options?.leaderboardUnlocked === true,
     },
     refreshing: options?.refreshing === true,
     language,
     i18n,
+    modelCatalog: options?.modelCatalog ?? null,
   }
   if (message !== undefined && message !== '') {
     payload.message = message

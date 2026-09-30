@@ -75,4 +75,4 @@ If you change the directory layout, update this file and `shared.mdc`.
 
 ## 4. MVP boundaries
 
-Do not add in MVP: Activity Bar, React, history TreeView, localhost calls, or a manual token in settings (v2 / Secret Storage). Ignore of spikes is a follow-up. Optimize is metadata prompts only — no transcript analysis / auto-fix.
+Do not add in MVP: Activity Bar, React, history TreeView, localhost calls, or a manual token in settings (v2 / Secret Storage). `IgnoreStore` exists; wiring table **Ignore** + bang recompute is still remaining. Optimize is metadata prompts only — no transcript analysis / auto-fix.

@@ -19,6 +19,7 @@
         <button type="button" id="tabStats" class="tab" data-i18n="tabs.stats">Statistics</button>
         <button type="button" id="tabCharts" class="tab" data-i18n="tabs.charts">Charts</button>
         <button type="button" id="tabOptimize" class="tab" data-i18n="tabs.optimize">Optimize</button>
+        <button type="button" id="tabLeaderboard" class="tab" data-i18n="tabs.leaderboard" hidden>Leaderboard</button>
         <button type="button" id="tabSupport" class="tab" data-i18n="tabs.support">Support</button>
         <button type="button" id="tabSettings" class="tab" data-i18n="tabs.settings">Settings</button>
       </nav>
@@ -35,6 +36,22 @@
             <svg viewBox="0 0 16 16">
               <path
                 d="M2 2.75A.75.75 0 0 1 2.75 2h4a.75.75 0 0 1 .75.75v3.5A.75.75 0 0 1 6.75 7h-4A.75.75 0 0 1 2 6.25v-3.5zm7.5 0A.75.75 0 0 1 10.25 2h3a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-2zM2 9.25A.75.75 0 0 1 2.75 8.5h4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-4a.75.75 0 0 1-.75-.75v-3.5zm7.5 1.5A.75.75 0 0 1 10.25 10h3a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-2.5z"
+              />
+            </svg>
+          </span>
+        </a>
+        <a
+          class="action-btn toolbar-icon-btn"
+          href="{{pricingHref}}"
+          title="Model pricing"
+          aria-label="Model pricing"
+          data-i18n-title="toolbar.pricing"
+          data-i18n-aria="toolbar.pricing"
+        >
+          <span class="bar-icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16">
+              <path
+                d="M7.22 1.72a.75.75 0 0 1 .53-.22h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-.22.53l-6.5 6.5a.75.75 0 0 1-1.06 0l-5.5-5.5a.75.75 0 0 1 0-1.06l6.5-6.5zM11.25 5.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"
               />
             </svg>
           </span>
@@ -87,7 +104,7 @@
     <section id="queriesView">
       <div class="view-actions">
         <label
-          class="spike-switch"
+          class="spike-switch spike-switch-warn"
           for="filterSpikesOnly"
           title="Show only queries at or over Warn at"
           data-i18n-title="queries.overWarnTitle"
@@ -132,11 +149,41 @@
     <section id="chartsView" hidden>
       <p id="chartsEmpty" hidden data-i18n="queries.empty">No queries yet</p>
       <div id="chartTip" class="chart-tip" hidden></div>
+      <div class="daily-charts">
+        <div class="mtd-chart-tools" id="dailyChartTools">
+          <div
+            class="mtd-range"
+            role="group"
+            aria-label="Bar height"
+            data-i18n-aria="charts.modeAria"
+          >
+            <button
+              type="button"
+              class="mtd-range-btn is-active"
+              data-chart-mode="cumulative"
+              data-i18n="charts.modeCumulative"
+            >
+              Cumulative
+            </button>
+            <button
+              type="button"
+              class="mtd-range-btn"
+              data-chart-mode="daily"
+              data-i18n="charts.modeDaily"
+            >
+              Daily
+            </button>
+          </div>
+        </div>
       <article class="chart-card">
         <h2 data-i18n="charts.tokensTitle">Tokens over time</h2>
-        <p class="chart-hint" data-i18n="charts.tokensHint">
+        <p class="chart-hint" data-chart-mode-hint="cumulative" data-i18n="charts.tokensHint">
           One bar per calendar day (oldest → newest). Height is the running
           total of tokens up to that day.
+        </p>
+        <p class="chart-hint" data-chart-mode-hint="daily" data-i18n="charts.tokensHintDaily" hidden>
+          One bar per calendar day (oldest → newest). Height is that day's
+          token usage.
         </p>
         <div class="chart-legend">
           <span class="chart-legend-item is-bar is-day" data-i18n="charts.bars">Bars</span>
@@ -155,8 +202,11 @@
       </article>
       <article class="chart-card">
         <h2 data-i18n="charts.costTitle">Cost over time</h2>
-        <p class="chart-hint" data-i18n="charts.costHint">
+        <p class="chart-hint" data-chart-mode-hint="cumulative" data-i18n="charts.costHint">
           Same days. Height is the running total of spend up to that day.
+        </p>
+        <p class="chart-hint" data-chart-mode-hint="daily" data-i18n="charts.costHintDaily" hidden>
+          Same days. Height is that day's spend.
         </p>
         <div class="chart-legend">
           <span class="chart-legend-item is-bar is-day" data-i18n="charts.bars">Bars</span>
@@ -173,6 +223,7 @@
           ></svg>
         </div>
       </article>
+      </div>
       <article class="chart-card" id="codeLinesChartCard">
         <h2 data-i18n="charts.codeLinesTitle">AI vs git lines</h2>
         <p class="chart-hint" id="codeLinesChartHint" data-i18n="charts.codeLinesHint">
@@ -198,7 +249,6 @@
           ></svg>
         </div>
       </article>
-      <div id="chartsMtd"></div>
       <p class="chart-hint period-cards-note" data-i18n="charts.periodNote">
         Today, this month, and all time are from the Last N loaded queries —
         not the full Cursor dashboard.
@@ -383,6 +433,131 @@
         </div>
       </div>
     </section>
+    <section id="leaderboardView" hidden>
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <h2 data-i18n="leaderboard.sectionRange">Range</h2>
+        </div>
+        <div class="lb-row">
+          <label class="lb-field">
+            <span data-i18n="leaderboard.from">From</span>
+            <input id="lbFrom" type="date" />
+          </label>
+          <label class="lb-field">
+            <span data-i18n="leaderboard.to">To</span>
+            <input id="lbTo" type="date" />
+          </label>
+          <div class="lb-seg" role="group">
+            <button type="button" class="action-btn" id="lbLast30" data-i18n="leaderboard.last30">Last 30 days</button>
+            <button type="button" class="action-btn" id="lbThisMonth" data-i18n="leaderboard.thisMonth">This month</button>
+            <button type="button" class="action-btn" id="lbThisYear" data-i18n="leaderboard.thisYear">This year</button>
+          </div>
+          <details class="lb-info">
+            <summary class="lb-info-btn" data-i18n-aria="leaderboard.info" aria-label="Info"><span aria-hidden="true">i</span></summary>
+            <div class="lb-info-pop">
+              <p data-i18n="leaderboard.hint">Pick a date range and programmers, then start the scan. Opening this tab does not scan git.</p>
+              <p data-i18n="leaderboard.branchNote">Default branch (main or master). Repositories come from the scan folder when it is set, otherwise from git checkouts beside this workspace. Repositories added by hand are always included. GitHub CLI adds clones it can see and does not drop the rest.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <h2 data-i18n="leaderboard.sectionRepos">Repositories</h2>
+        </div>
+        <div class="lb-sources">
+          <label class="lb-field lb-catalog">
+            <span data-i18n="leaderboard.catalog">Scan folder</span>
+            <span class="lb-source-line">
+              <input id="lbCatalog" type="text" readonly spellcheck="false" data-i18n-placeholder="leaderboard.catalogPlaceholder" placeholder="Folder with git repositories" />
+              <button type="button" class="action-btn" id="lbPickCatalog" data-i18n="leaderboard.browse">Browse…</button>
+              <button type="button" class="action-btn action-btn-accent" id="lbScanRepos" data-i18n="leaderboard.scanRepos">Scan repositories</button>
+              <button type="button" class="action-btn" id="lbSaveRepos" data-i18n="leaderboard.save">Save</button>
+              <button type="button" class="action-btn" id="lbClearCatalog" data-i18n="leaderboard.clearCatalog">Clear</button>
+            </span>
+          </label>
+          <form class="lb-field lb-catalog" id="lbRepoForm">
+            <span data-i18n="leaderboard.addRepo">Add repository</span>
+            <span class="lb-source-line">
+              <input id="lbRepoPath" type="text" spellcheck="false" autocomplete="off" data-i18n-placeholder="leaderboard.repoPlaceholder" placeholder="/path/to/repo" data-i18n-aria="leaderboard.addRepo" aria-label="Add repository" />
+              <button type="button" class="action-btn" id="lbPickRepo" data-i18n="leaderboard.browse">Browse…</button>
+              <button type="submit" class="action-btn" id="lbAddRepo" data-i18n="leaderboard.addShort">Add</button>
+            </span>
+          </form>
+          <p id="lbRepoStatus" class="lb-note" hidden></p>
+          <p id="lbRepoCount" class="lb-note"></p>
+          <ul id="lbRepoList" class="lb-repo-list"></ul>
+        </div>
+      </section>
+      <section class="lb-card">
+        <div class="lb-card-head">
+          <h2 data-i18n="leaderboard.sectionProgrammers">Programmers</h2>
+        </div>
+        <div class="lb-people">
+          <button type="button" class="action-btn" id="lbLoad" data-i18n="leaderboard.load">Load programmers</button>
+          <div class="lb-author-tools" id="lbAuthorTools" hidden>
+            <button type="button" class="action-btn" id="lbSelectAll">Select all</button>
+            <button type="button" class="action-btn" id="lbMerge" data-i18n="leaderboard.mergeEmails" disabled>Merge emails</button>
+            <button type="button" class="action-btn" id="lbSaveTeam" data-i18n="leaderboard.saveTeam">Save team</button>
+          </div>
+          <form class="lb-manual" id="lbManualForm">
+            <input id="lbManualEmail" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" data-i18n-aria="leaderboard.manualEmail" aria-label="Email" />
+            <button type="submit" class="action-btn" id="lbAddEmail" data-i18n="leaderboard.addEmail">Add email</button>
+          </form>
+        </div>
+        <p id="lbAuthorStatus" class="lb-note" hidden></p>
+        <div id="lbAuthors" class="lb-authors"></div>
+      </section>
+      <section class="lb-card lb-scan-card">
+        <div class="lb-card-head">
+          <h2 data-i18n="leaderboard.sectionScan">Scan</h2>
+        </div>
+        <div class="lb-scan-row">
+          <div class="lb-scan-presets">
+            <button type="button" class="action-btn" id="lbMyTeam" data-i18n="leaderboard.myTeam">My team</button>
+            <button type="button" class="action-btn" id="lbMyRepos" data-i18n="leaderboard.myRepos">My repos</button>
+          </div>
+          <button type="button" class="action-btn action-btn-accent" id="lbScan" data-i18n="leaderboard.scan" disabled>Start scan</button>
+        </div>
+      </section>
+      <div id="lbConfirm" class="lb-confirm" hidden>
+        <div class="lb-confirm-card" role="dialog" aria-modal="true" aria-labelledby="lbConfirmTitle">
+          <h3 id="lbConfirmTitle"></h3>
+          <p id="lbConfirmNote" class="lb-note" hidden></p>
+          <ul id="lbConfirmList"></ul>
+          <div class="lb-confirm-actions">
+            <button type="button" class="action-btn" id="lbConfirmCancel" data-i18n="leaderboard.confirmCancel">Cancel</button>
+            <button type="button" class="action-btn action-btn-accent" id="lbConfirmOk" data-i18n="leaderboard.confirmUse">Use these</button>
+          </div>
+        </div>
+      </div>
+      <section class="lb-card lb-results">
+        <p id="lbMeta" class="lb-note"></p>
+        <p id="lbEmpty" class="lb-note" data-i18n="leaderboard.empty">No scan yet.</p>
+        <div class="lb-result-bar" id="lbResultBar" hidden>
+          <button type="button" class="action-btn" id="lbToggleAuthors" aria-expanded="true">Collapse</button>
+          <button type="button" class="action-btn" id="lbToggleRepos" hidden aria-expanded="false">Expand all repositories</button>
+          <button type="button" class="action-btn" id="lbExport" data-i18n="leaderboard.exportCsv" disabled>Export CSV</button>
+        </div>
+        <div id="lbChart" class="lb-chart" hidden></div>
+        <div class="table-wrap" id="lbTableWrap" hidden>
+        <table>
+          <thead>
+            <tr>
+              <th><button type="button" class="lb-sort" data-lb-sort="name" data-i18n="leaderboard.programmer">Programmer</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="linesMerged" data-i18n="leaderboard.linesMerged">Lines merged</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="commits" data-i18n="leaderboard.commits">Commits</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="linesDeleted" data-i18n="leaderboard.linesDeleted">Lines deleted</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="netLines" data-i18n="leaderboard.netLines">Net lines</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="activeDays" data-i18n="leaderboard.activeDays">Active days</button></th>
+              <th><button type="button" class="lb-sort" data-lb-sort="repositories" data-i18n="leaderboard.repositories">Repositories</button></th>
+            </tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+        </div>
+      </section>
+    </section>
     <section id="supportView" hidden>
       <article class="support-hero">
         <div class="support-hero-icons" aria-hidden="true">
@@ -449,6 +624,119 @@
       <p class="chart-hint support-footer-note" data-i18n="support.footer">
         Checkout opens in your browser.
       </p>
+
+      <h3 class="support-section-title">
+        <span data-i18n="support.commentsTitle">Comments</span>
+      </h3>
+      <p id="supportCommentsEmpty" class="chart-hint" data-i18n="support.commentsEmpty">
+        No published comments yet. An accepted comment shows up here in a later release.
+      </p>
+      <ul id="supportComments" class="support-comments" hidden></ul>
+
+      <details class="support-message-collapse" id="supportMessageCollapse">
+      <summary class="support-section-title support-message-summary">
+        <span data-i18n="support.messageTitle">Write a message</span>
+        <span class="support-message-summary-hint" data-i18n="support.messageHint">Sent straight to the author. Your mail app stays closed.</span>
+      </summary>
+      <p class="chart-hint support-message-lead" data-i18n="support.messageHint">
+        Sent straight to the author. Your mail app stays closed.
+      </p>
+      <form id="supportMessageForm" class="support-message">
+        <label class="support-field" for="supportNickname">
+          <span data-i18n="support.nickname">Nickname</span>
+          <input
+            id="supportNickname"
+            type="text"
+            name="nickname"
+            maxlength="40"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </label>
+        <p class="chart-hint" data-i18n="support.nicknameHint">
+          Filled from your Cursor account. You can change it before sending.
+        </p>
+        <label class="support-field" for="supportEmail">
+          <span data-i18n="support.email">Email</span>
+          <input
+            id="supportEmail"
+            type="email"
+            name="email"
+            maxlength="254"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <p class="chart-hint" data-i18n="support.emailHint">
+          Filled from your Cursor account. You can change it when you expect a reply.
+        </p>
+        <details class="support-reply" id="supportReply">
+          <summary class="support-reply-summary">
+            <span data-i18n="support.reply">Reply</span>
+            <span id="supportReplyValue" class="support-reply-value">I expect a reply from the author.</span>
+          </summary>
+          <div class="support-reply-options">
+            <label class="support-reply-option">
+              <input type="radio" name="supportReply" value="yes" checked />
+              <span data-i18n="support.replyYes">I expect a reply from the author.</span>
+            </label>
+            <label class="support-reply-option">
+              <input type="radio" name="supportReply" value="no" />
+              <span data-i18n="support.replyNo">I don't expect a reply. The email is still sent for reference.</span>
+            </label>
+          </div>
+        </details>
+        <fieldset class="support-topics">
+          <legend data-i18n="support.topic">Topic</legend>
+          <div class="support-topic-row">
+          <label class="support-topic">
+            <input type="radio" name="supportTopic" value="comment" />
+            <span data-i18n="support.topicComment">Comment</span>
+          </label>
+          <label class="support-topic">
+            <input type="radio" name="supportTopic" value="feature" />
+            <span data-i18n="support.topicFeature">New feature</span>
+          </label>
+          <label class="support-topic">
+            <input type="radio" name="supportTopic" value="bug" />
+            <span data-i18n="support.topicBug">Bug report</span>
+          </label>
+          <label class="support-topic">
+            <input type="radio" name="supportTopic" value="other" />
+            <span data-i18n="support.topicOther">Other</span>
+          </label>
+          </div>
+        </fieldset>
+        <p id="supportCommentNotice" class="chart-hint" hidden data-i18n="support.commentNotice">
+          If the author accepts this comment, it will be visible to everyone in the next version of the extension. The message includes the time you send it.
+        </p>
+        <label id="supportConsentRow" class="support-consent">
+          <input id="supportConsent" type="checkbox" name="consent" />
+          <span data-i18n="support.consent">
+            I allow my nickname and this message to be used as a comment in the extension.
+          </span>
+        </label>
+        <label class="support-field" for="supportBody">
+          <span data-i18n="support.body">Message</span>
+          <textarea
+            id="supportBody"
+            name="body"
+            rows="5"
+            maxlength="2000"
+            required
+            data-i18n-placeholder="support.bodyPlaceholder"
+            placeholder="Write your message…"
+          ></textarea>
+        </label>
+        <div class="support-message-actions">
+          <button type="submit" id="supportSend" disabled>
+            <span data-i18n="support.send">Send</span>
+          </button>
+          <p id="supportMessageStatus" class="chart-hint support-message-status" hidden></p>
+        </div>
+      </form>
+      </details>
     </section>
     <section id="settingsView" hidden>
       <form class="settings-form" id="settingsForm">

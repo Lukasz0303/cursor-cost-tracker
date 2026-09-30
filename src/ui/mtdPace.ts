@@ -12,6 +12,11 @@ import {
 import { catalogFor, interpolate, EN } from '../i18n'
 import { DEFAULT_LOCALE, type Locale } from '../locale'
 import {
+  includedPoolForModel,
+  includedPoolForQuotaName,
+  type IncludedModelPool,
+} from '../includedPool/modelPool'
+import {
   budgetDaysAfterToday,
   budgetDaysElapsedInMonth,
   budgetDaysInMonth,
@@ -130,9 +135,17 @@ function dayLabel(day: number, month: number): string {
   return `${day}.${pad2(month + 1)}`
 }
 
-function spendByDay(queries: UsageQuery[]): Map<string, number> {
+function spendByDay(
+  queries: UsageQuery[],
+  pool?: IncludedModelPool | null,
+): Map<string, number> {
   const byDay = new Map<string, number>()
   for (const query of queries) {
+    if (pool !== undefined && pool !== null) {
+      if (includedPoolForModel(query.model) !== pool) {
+        continue
+      }
+    }
     const key = queryDayKey(query.timestamp)
     byDay.set(key, (byDay.get(key) ?? 0) + query.costUsd)
   }
@@ -148,6 +161,26 @@ function dailyBudget(snapshot: UsageSnapshot): number | null {
     return null
   }
   return value
+}
+
+/**
+ * Cycle dollar cap. `dailyBudgetUsd` is remaining ÷ days left (it moves every
+ * day and jumps when the admin raises the limit), so it must not be multiplied
+ * back into a month total.
+ */
+function monthCapUsd(snapshot: UsageSnapshot): number | null {
+  if (snapshot.status !== 'ready' || snapshot.data.isUnlimited) {
+    return null
+  }
+  const { limitUsd, usedUsd, remainingUsd } = snapshot.data
+  if (limitUsd !== null && limitUsd > 0) {
+    return limitUsd
+  }
+  if (remainingUsd !== null && Number.isFinite(remainingUsd)) {
+    const cap = usedUsd + remainingUsd
+    return cap > 0 ? cap : null
+  }
+  return null
 }
 
 function remainingDaysHint(
@@ -325,12 +358,13 @@ export function toMonthFrames(
   queries: UsageQuery[],
   now: Date,
   basis: BudgetDayBasis = DEFAULT_BUDGET_DAY_BASIS,
+  pool?: IncludedModelPool | null,
 ): DayFrame[] {
   const year = now.getFullYear()
   const month = now.getMonth()
   const today = now.getDate()
   const last = lastDateOfMonth(now)
-  const byDay = spendByDay(queries)
+  const byDay = spendByDay(queries, pool)
   const frames: DayFrame[] = []
   let workingCount = 0
   for (let day = 1; day <= last; day++) {
@@ -378,8 +412,8 @@ function todayIndex(frames: DayFrame[]): number {
 
 /**
  * Spreads a cycle total (dollars or included percent) over the month. Days are
- * weighted by their dollar spend, because the usage API reports quota percent
- * per cycle only — never per day.
+ * weighted by that series' dollar spend (Pro: per included pool via model id).
+ * The usage API reports quota percent per cycle only — never per day.
  */
 export function toMtdSeries(
   id: string,
@@ -399,6 +433,18 @@ export function toMtdSeries(
   const perWorkingDay = elapsed > 0 ? total / elapsed : null
   const remaining = Math.max(0, weekdayTotal - elapsed)
   const left = ceiling === null ? null : Math.max(0, ceiling - total)
+  const paceEnd =
+    perWorkingDay === null || weekdayTotal <= 0
+      ? null
+      : perWorkingDay * weekdayTotal
+  // Pace that finishes under the cap is drawn up to the limit. A pace that
+  // already crosses the cap stays put so the run-out day is still visible.
+  const finishAtCeiling =
+    ceiling !== null &&
+    left !== null &&
+    left > 0.005 &&
+    paceEnd !== null &&
+    paceEnd < ceiling - 0.005
   const day: (number | null)[] = []
   const used: (number | null)[] = []
   const forecast: (number | null)[] = []
@@ -424,14 +470,31 @@ export function toMtdSeries(
       day.push(value)
       used.push(running)
     }
-    forecast.push(
-      perWorkingDay === null ? null : frame.workingCount * perWorkingDay,
-    )
+    const pace =
+      perWorkingDay === null ? null : frame.workingCount * perWorkingDay
+    if (!finishAtCeiling || pace === null || today < 0 || i < today) {
+      forecast.push(pace)
+    } else if (remaining <= 0) {
+      forecast.push(ceiling)
+    } else {
+      forecast.push(
+        total + ((left ?? 0) * (frame.workingCount - elapsed)) / remaining,
+      )
+    }
     // Ideal from today: burn the leftover ceiling evenly over remaining
     // pace days so you land on the limit at month end. Past days stay
-    // null so each quota keeps its own visible slope.
-    if (ceiling === null || left === null || today < 0 || i < today) {
+    // null so each quota keeps its own visible slope. On the last pace
+    // day there is no later point, so the previous day anchors current
+    // spend and today itself sits on the ceiling.
+    const landOnCeiling = left !== null && left > 0.005 && remaining <= 0
+    if (ceiling === null || left === null || today < 0) {
       ideal.push(null)
+    } else if (landOnCeiling && today > 0 && i === today - 1) {
+      ideal.push(total)
+    } else if (i < today) {
+      ideal.push(null)
+    } else if (landOnCeiling) {
+      ideal.push(ceiling)
     } else if (i === today) {
       ideal.push(total)
     } else if (remaining <= 0) {
@@ -697,15 +760,17 @@ function buildPaceMetrics(args: {
     })
   }
   if (args.allowance !== null) {
+    const over = args.overPace
     metrics.push({
       id: 'mtdPace',
       label: copy.pace,
-      value: args.overPace
+      value: over
         ? copy.over
         : args.used < args.allowance - 0.005
           ? copy.under
           : copy.onPace,
       hint: paceHint(args.used, args.allowance, args.unit, locale),
+      tone: over ? 'over' : 'ok',
     })
   }
   metrics.push(toRunOutMetric(args.series, args.basis, locale))
@@ -829,7 +894,7 @@ export function toMtdPace(
         quotaSeriesId(quota.name, index),
         quota.name,
         Math.max(0, quota.percent),
-        frames,
+        toMonthFrames(sample, now, basis, includedPoolForQuotaName(quota.name)),
         elapsed,
         MTD_PERCENT_MAX,
         weekdayTotal,
@@ -900,13 +965,14 @@ export function toMtdPace(
 
   const used = sumMonthUsedUsd(sample, now)
   const budget = dailyBudget(snapshot)
-  const allowance = budget === null || elapsed <= 0 ? null : elapsed * budget
+  const monthCap = weekdayTotal <= 0 ? null : monthCapUsd(snapshot)
+  const paceBudget = monthCap === null ? null : monthCap / weekdayTotal
+  const allowance =
+    paceBudget === null || elapsed <= 0 ? null : elapsed * paceBudget
   const overPace = allowance !== null && used > allowance + 0.005
   const avg = elapsed > 0 ? used / elapsed : null
   const forecastEom =
     avg === null || weekdayTotal <= 0 ? null : avg * weekdayTotal
-  const monthCap =
-    budget === null || weekdayTotal <= 0 ? null : budget * weekdayTotal
   const series = [
     toMtdSeries(
       'spend',
@@ -919,13 +985,14 @@ export function toMtdPace(
       locale,
     ),
   ]
+  const todayBudget = budget ?? paceBudget
   const answer =
-    budget === null || elapsed <= 0
+    paceBudget === null || elapsed <= 0
       ? {
           verdict: 'ok' as const,
           body: mtdBody(
             elapsed,
-            budget,
+            paceBudget,
             historyLimit,
             forecastEom,
             basis,
@@ -936,13 +1003,13 @@ export function toMtdPace(
       : usdVerdict(overPace, forecastEom, monthCap, series, frames, basis, locale)
   const today = todayIndex(frames)
   const bars: PeriodBar[] =
-    budget === null || elapsed <= 0
+    todayBudget === null || paceBudget === null || elapsed <= 0
       ? []
       : series.map((line) => {
           const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
           const todayText = interpolate(copy.todayChunk, {
             today: formatDollars(todayUsed),
-            budget: formatDollars(budget),
+            budget: formatDollars(todayBudget),
           })
           return {
             label: line.label,
@@ -983,8 +1050,8 @@ export function toMtdPace(
     verdict: answer.verdict,
     unit: 'usd',
     max: null,
-    chart: toMtdChart(sample, budget, now, basis),
-    forecast: toMtdDays(frames, budget),
+    chart: toMtdChart(sample, paceBudget, now, basis),
+    forecast: toMtdDays(frames, paceBudget),
     series,
   }
 }

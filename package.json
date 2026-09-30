@@ -1,8 +1,8 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar spend + Today. Statistics: burn rate, Pro meters, Coding stats (AI vs git). Blocking critical alert on huge queries. Monthly forecast, Optimize locally, 10 UI languages.",
-  "version": "1.0.4",
+  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Critical alert, Optimize, Support message, Charts, CSV, 10 UI languages.",
+  "version": "1.0.5",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",
@@ -21,6 +21,7 @@
     "burn rate",
     "critical alert",
     "generated lines",
+    "pricing",
     "optimize",
     "charts",
     "statistics"
@@ -68,6 +69,11 @@
       {
         "command": "cursorCost.openDashboard",
         "title": "Open Dashboard",
+        "category": "Cursor Cost"
+      },
+      {
+        "command": "cursorCost.openPricing",
+        "title": "Open model pricing",
         "category": "Cursor Cost"
       },
       {

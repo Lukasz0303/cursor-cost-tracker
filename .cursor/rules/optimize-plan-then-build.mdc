@@ -1,0 +1,26 @@
+---
+description: After a Plan chat, build one phase — not core, webview, all locales, and VSIX together
+alwaysApply: true
+---
+# Plan, then one build phase
+
+This chat burned **~4.5M tokens / 3.21 $** (`grok-4.7-high`, cache **89%**) by planning a Leaderboard in one thread, then shipping core + webview + every locale catalog, then a VSIX, then pasting **Optimize Deep here**. Volume was **context**, not cold cache.
+
+## When the ask is “implement the plan” / “stwórz funkcjonalność”
+
+- The plan file is the handoff. The next Agent message is **one phase**, not the whole plan.
+- **Phase 1:** `src/<feature>/` + its Vitest files only.
+- **Phase 2:** host + `media/history.*` only when that message names those paths. Do not also rewrite every catalog.
+- **Locales:** `en` + `pl` in the wire turn. Other catalogs are the **next** message. A `UiCatalog` type error is not permission to script-patch every locale in the same turn.
+- **VSIX / version / CHANGELOG** stay a later short message. Do not bundle them with the first build.
+
+## After a red Warn-at (`!`) in this chat
+
+- Do **not** paste Optimize (Deep) here.
+- Do **not** start phase 2, docs, or another feature in this thread.
+- Next build slice: **new chat**, goal + ≤5 paths.
+
+## Still allowed
+
+- One phase whose paths are in the user message.
+- A later message that is only `npm run package` (one Shell).

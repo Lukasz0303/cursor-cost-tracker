@@ -88,6 +88,8 @@ export type PeriodMetric = {
   detail?: string
   percent?: number
   shares?: PeriodShare[]
+  /** Pace chip: under / on plan is ok (green), over plan is over (red). */
+  tone?: 'ok' | 'over'
 }
 
 export type PeriodBreakdownRow = {

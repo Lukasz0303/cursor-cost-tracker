@@ -1,0 +1,16 @@
+# Repo-root files copied next to index.html when the site is published.
+# Paths must match the src attributes in index.html.
+screenshots/dark/status_bar_2.png
+screenshots/dark/monthly_cost_forecast.png
+screenshots/dark/monthly_cost_forecast_2.png
+screenshots/dark/status_bar.png
+screenshots/dark/status_bar_1.png
+screenshots/dark/statistics.png
+screenshots/dark/statistics_2.png
+screenshots/dark/spend_breakdown.png
+screenshots/dark/queries.png
+screenshots/dark/queries_2.png
+screenshots/dark/optimize.png
+screenshots/dark/effectiveness.png
+screenshots/dark/model_pricing.png
+screenshots/dark/support.png
