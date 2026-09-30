@@ -12,7 +12,7 @@
 
 <p align="center">
   Always-on <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong> on the
-  status bar. <strong>Statistics</strong> shows live <strong>burn rate</strong>, Pro meters, and
+  status bar. <strong>Statistics</strong> shows live <strong>burn rate</strong>, <strong>model pricing</strong>, Pro meters, and
   <strong>Coding stats</strong> (AI vs what landed). A <strong>blocking critical alert</strong> fires when one
   query blows past your token or dollar ceiling. <strong>Monthly cost forecast</strong> and
   <strong>Optimize</strong> stay in the editor — savings in <code>.ai/optimize-savings.md</code> only.
@@ -22,7 +22,7 @@
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.4-blue.svg" alt="Version 1.0.4">
+  <img src="https://img.shields.io/badge/version-1.0.5-blue.svg" alt="Version 1.0.5">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
   <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
@@ -37,15 +37,15 @@
 4. **Optimize** — ready prompts for the last red (**Warn at**) query. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 
-Click **Current** or **Today** for Statistics (burn rate, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the last chat — savings appear after you press Start.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the last chat — savings appear after you press Start.
 
 The panel has six tabs:
 
-- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From date** (e.g. start of month). **Export CSV**.
-- **Statistics** — **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast**, Last N totals, spend by model and by kind.
+- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From date** (e.g. start of month). **Export CSV**. Toolbar **Model pricing** opens the official Cursor models page.
+- **Statistics** — **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast**, Last N totals, spend by model and by kind, **model pricing** table (Active / Fast filters, Last N request counts, CursorBench scores).
 - **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
 - **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
-- **Support** — Buy Me a Coffee if the tracker paid for itself.
+- **Support** — Buy Me a Coffee; **Write a message** to the author (Comment / feature / bug / other).
 - **Settings** — **Language** (10 locales); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); Optimize depth; Show last / From date; Auto-refresh.
 
 If you are already signed in to Cursor, there is nothing to configure.
@@ -58,7 +58,7 @@ If you are already signed in to Cursor, there is nothing to configure.
 
 ## Screenshots
 
-Captures from **1.0.4**.
+Captures from **1.0.4** / **1.0.5** (including model pricing and Support in `screenshots/dark/` on the landing page).
 
 ### 1. Statistics — high burn rate
 
@@ -175,38 +175,65 @@ Live sample of the bar (example spend, not your totals), Show status bar, Show T
 
 <img src="screenshots/reqest_on_bar.png" alt="Settings content: Show Today, Minimal mode, recent requests on the bar 1–10" width="100%">
 
+### 15. Model pricing (1.0.5)
+
+On **Statistics**, a sortable table of Cursor model prices from the public docs page (cached six hours): input/output, Active or Hidden, Last N request counts, CursorBench score. Active only / Hide Fast filters. Toolbar **Model pricing** opens [cursor.com/docs/models-and-pricing](https://cursor.com/docs/models-and-pricing).
+
+### 16. Support — Write a message (1.0.5)
+
+Comment, New feature, Bug report, or Other. Nickname and email come from the Cursor account (editable). Expect a reply or send without one. Publish consent stays visible; Comment requires it. The mail app stays closed.
+
 ---
 
 ## Why Cursor Cost Tracker?
 
 Cursor’s built-in dashboard shows aggregated totals on the website. While you code, you do not see how much of the monthly limit is used, how much of the daily budget is left, **when money or included quota runs out**, which recent query blew a token spike, or a **local** way to shrink the next similar expensive turn.
 
-This extension keeps those numbers next to Git and Problems, adds a **monthly forecast**, and an **Optimize** tab whose savings file stays in the project (`.ai/optimize-savings.md`) — no chat transcript upload, no third-party analytics.
+This extension keeps those numbers next to Git and Problems, adds a **monthly forecast**, **model pricing** and **Coding stats** on Statistics, **Support → Write a message**, and an **Optimize** tab whose savings file stays in the project (`.ai/optimize-savings.md`) — no chat transcript upload, no third-party analytics.
 
 | Capability | Cursor Dashboard | Cursor Cost Tracker |
 |------------|:----------------:|:-------------------:|
-| Current cycle spend on the **status bar** | — | Yes |
+| **Status bar** | | |
+| Current cycle spend on the bar | — | Yes |
 | Today vs remaining daily budget on the bar | — | Yes |
-| **Monthly cost forecast** (used / forecast / ideal / run-out) | — | Yes |
-| **Optimize** last red query (local projected save) | — | Yes |
-| Last N queries inside the editor (100–10,000) | — | Yes |
-| Per-query cost, tokens, model, kind | Website only | Yes |
+| 1–10 recent queries on the bar | — | Yes |
+| Green on pace · red on a spike (`!`, default 1M) | — | Yes |
+| **Guards** | | |
+| Burn Rate Guard (live $/window, banner, non-blocking toasts) | — | Yes |
+| Blocking critical alert (default 10M tokens or $5) | — | Yes |
+| Neither guard stops Cursor | — | Yes |
+| Ignore a spike `!` and keep it dismissed after reload | — | Planned |
+| **Monthly forecast** | | |
+| Used / forecast / ideal on one chart | — | Yes |
+| Run-out date (Team $ or Pro included limits) | — | Yes |
+| Pace by working days or all calendar days | — | Yes |
+| Today / 7 days / Month range on the chart | — | Yes |
+| **Optimize** | | |
+| Ready prompt for the last red (Warn at) query | — | Yes |
+| Quick / Balanced / Deep depths | — | Yes |
+| Projected save in local `.ai/optimize-savings.md` | — | Yes |
+| Never reads the chat transcript | — | Yes |
+| **Coding stats** | | |
+| Landed / AI = % effectiveness | — | Yes |
+| If this branch landed on main / master | — | Yes |
+| All on Cursor · split by project | — | Yes |
+| AI lines vs merged on Charts | — | Yes |
+| **Panel · queries · charts** | | |
+| Last N queries in the editor (100–10,000 or From date) | — | Yes |
+| Per-query cost, tokens, model, kind | Website | Yes |
 | Statistics (totals, averages, spike count) | Website | Yes |
 | Spend by model and by kind | Website | Yes |
-| Charts (tokens/cost over time) | — | Yes |
+| Charts (tokens / cost over time) | — | Yes |
 | Today / This month / All time mix cards | Website | Yes |
-| 1–10 recent queries on the status bar | — | Yes |
-| Token-spike warning (`!`, default 1M) | — | Yes |
-| Burn Rate Guard (live $/window, banner, non-blocking toasts) | — | Yes |
-| Coding stats (landed / AI · All on Cursor) | — | Yes |
-| Blocking alert on last query (default 10M tokens or $5) | — | Yes |
+| Model pricing (docs + Last N counts + CursorBench) | Website | Yes |
 | Export recent queries as CSV | — | Yes |
-| Ignore a spike and keep it dismissed | — | Planned |
-| UI language (10 locales, Settings → Language) | — | Yes |
+| Support → Write a message to the author | — | Yes |
+| **Setup · language** | | |
+| UI language (10 locales) | — | Yes |
 | Zero setup (local Cursor session) | — | Yes |
 | No token pasted into Settings | — | Yes |
 
-Not in scope: payments, team dashboards, other IDEs, estimating cost *before* you send a prompt, reading chat transcripts, or auto-rewriting your codebase. **Optimize** only builds metadata prompts you paste yourself; savings numbers come from the agent writing a **local** project file.
+Not in scope: payments, hosted team dashboards, other IDEs, estimating cost *before* you send a prompt, reading chat transcripts, or auto-rewriting your codebase. **Optimize** only builds metadata prompts you paste yourself; savings numbers come from the agent writing a **local** project file.
 
 ---
 
@@ -242,11 +269,11 @@ Click a **recent-query chip** (or Command Palette **Show Usage History**) to ope
 
 `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
-Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. No intermediate menu.
+Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. **Model pricing** on the Last N toolbar. No intermediate menu.
 
 ### Statistics
 
-Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars.
+Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars. **Model pricing** — latest Cursor prices (public docs), Active / Hidden, Last N request counts, CursorBench scores; Active only / Hide Fast filters.
 
 ### Charts
 
@@ -255,9 +282,11 @@ Last N sample totals (not the Current pool): total spend, average and median per
 - **Monthly cost forecast** — same control as Statistics: cycle meters, Today / 7 days / Month range, cumulative bars + used line on one scale, dashed forecast, and dotted leftover-budget lines.
 - **Today / This month / All time** cards — API-equivalent cost, messages, cache hit, input / output / cache write / cache read, and a mix bar. Figures come from the Last N loaded queries, not the full Cursor website dashboard.
 
+Opening the tab does not scan git until you ask.
+
 ### Token-spike warning
 
-A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**). Settings: **Warn at** in **k**, plus Show warnings.
+A `!` on that recent-query chip and on the matching **TOKENS** cell when a query is at or above your token threshold (default **1,000,000**). Settings: **Warn at** in **k**, plus Show warnings. Dismissing a spike so the bang stays gone after reload is still **Planned** (persist via `globalState`; table **Ignore** not wired yet).
 
 ### Critical last-query alert
 
@@ -283,6 +312,10 @@ AI totals come from local composer headers, not the usage API. Not line-level bl
 
 Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German. Independent of the VS Code / Cursor display language.
 
+### Support message
+
+On the **Support** tab, **Write a message** sends Comment / New feature / Bug report / Other to the author without opening a mail app. Nickname defaults to the Cursor mailbox local-part; email is the Cursor account address (editable while a reply is expected). Publish consent stays on every topic; Comment requires it. Accepted comments may appear in a later release. Buy Me a Coffee stays on the same tab.
+
 ### Zero setup
 
 The extension reads the local Cursor session from `state.vscdb` — the same login Cursor already uses. No API key, no cookie to copy from the browser, no `.env`.
@@ -293,7 +326,7 @@ Polling every 1 minute by default (configurable). Manual **Refresh** on the stat
 
 ### Local and private
 
-The session token stays in the extension host. It is never sent to the history panel, never written to logs, and never stored in Settings. Requests go only to Cursor’s usage APIs. No analytics and no third-party telemetry.
+The session token stays in the extension host. It is never sent to the history panel, never written to logs, and never stored in Settings. Usage requests go to Cursor’s usage APIs. Model pricing loads the public docs page. Support messages go to the author inbox (FormSubmit) without the session token. No analytics SDK.
 
 ---
 
@@ -327,7 +360,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.4.vsix
+cursor --install-extension cursor-cost-tracker-1.0.5.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -368,6 +401,7 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | Close | Panel **X** |
 | Refresh | Status-bar sync, Last N **Refresh**, or **Cursor Cost: Refresh** |
 | Export CSV | Last N **Export CSV**, or **Cursor Cost: Export recent queries CSV** |
+| Model pricing page | Last N toolbar **Model pricing**, or **Cursor Cost: Open model pricing** |
 
 ---
 
@@ -378,6 +412,7 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `Cursor Cost: Show Usage History` | Opens the recent-queries panel |
 | `Cursor Cost: Refresh` | Fetches latest usage |
 | `Cursor Cost: Open Dashboard` | Opens cursor.com/dashboard |
+| `Cursor Cost: Open model pricing` | Opens the official Cursor models and pricing page |
 | `Cursor Cost: Export recent queries CSV` | Save-as dialog for the recent-queries table |
 
 ---
@@ -463,9 +498,9 @@ This project aims to follow Cursor plan and API changes quickly. Display or tota
 ## Privacy
 
 - Session token: extension host only. Never in the webview, logs, or Settings.
-- Network: `cursor.com` usage APIs only.
-- Storage: local Cursor session only. No cloud database.
-- No analytics, no third-party telemetry.
+- Network: Cursor usage APIs; public model-pricing docs; optional Support message via FormSubmit (no session token). Git history stays on your machine.
+- Storage: local Cursor session plus extension `globalState` (e.g. Optimize credits). No cloud database.
+- No analytics SDK.
 
 This is **not** an official Cursor product.
 
@@ -488,7 +523,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.4.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.5.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).
@@ -500,6 +535,8 @@ Private / team only: skip stores, ship the VSIX, **Install from VSIX**.
 ## Support
 
 Cursor Cost Tracker is free and open source (**MIT**). If it helped you catch an expensive query before it ate the budget — or if the monthly forecast paid for itself — you can buy me a coffee. Tips keep the tracker in step with Cursor’s usage APIs and fund the next forecast / Optimize fix. No paywall, no extra features behind a tip.
+
+In the extension **Support** tab you can also **Write a message** (Comment, New feature, Bug report, Other) without opening a mail app.
 
 <p align="center">
   <a href="https://buymeacoffee.com/lzzzielinsn">

@@ -1,3 +1,4 @@
+import type { LeaderboardRow } from '../leaderboard/types'
 import { formatDateTime, formatKind } from '../format'
 import { DEFAULT_HISTORY_LIMIT, sampleSizeLimit } from '../historyLimit'
 import { stripModelPrefix } from '../usage/parse'
@@ -48,4 +49,32 @@ export function buildQueriesCsv(
       .join(','),
   )
   return [header.join(','), ...rows].join('\n')
+}
+
+export function buildLeaderboardCsv(rows: readonly LeaderboardRow[]): string {
+  const header = [
+    'name',
+    'email',
+    'linesMerged',
+    'commits',
+    'linesDeleted',
+    'netLines',
+    'activeDays',
+    'repositories',
+  ]
+  const body = rows.map((row) =>
+    [
+      row.name,
+      (row.emails.length > 0 ? row.emails : [row.email]).join(' | '),
+      String(row.linesMerged),
+      String(row.commits),
+      String(row.linesDeleted),
+      String(row.netLines),
+      String(row.activeDays),
+      row.repositories.map((repo) => repo.label).join(' | '),
+    ]
+      .map(csvCell)
+      .join(','),
+  )
+  return [header.join(','), ...body].join('\n')
 }

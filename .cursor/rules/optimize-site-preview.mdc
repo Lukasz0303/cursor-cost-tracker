@@ -1,0 +1,24 @@
+---
+description: Landing-page follow-ups — no screenshot reads, no preview-server loops in the fat thread
+alwaysApply: true
+---
+# Site preview / “looks bad” after the page exists
+
+This chat burned **~2.0M tokens / 1.06 $** (`grok-4.7-high`, cache **99%**) on a landing page: competitor fetch + full `site/`, then “wygląda słabo” in the **same** thread (PNG reads, headless screenshots, CSS rewrite), then `site/preview.sh` restarted after each aborted shell. Volume was **cached context**, not cold cache.
+
+## After `site/` exists in this chat
+
+- “Wygląda słabo” / type / spacing → **new chat**, **≤2 paths**: `site/index.html` + `site/styles.css`. Do not Read `screenshots/*.png` or headless captures. The user has the browser.
+- Preview is **one** `sh site/preview.sh`. If that process dies, give the command. Do not kill, rebind, or reopen it in a loop.
+- Do **not** paste Optimize Deep into this thread.
+
+## Still allowed
+
+- The first message that creates `site/` when the user asks for the page and names that folder.
+- The user runs `sh site/preview.sh` in their own terminal.
+
+## Checklist (user)
+
+- [ ] New Composer chat for a visual pass
+- [ ] Goal + `site/index.html` / `site/styles.css` only — no PNG reads
+- [ ] Server restart is their shell, not another Agent turn

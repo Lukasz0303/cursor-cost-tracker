@@ -97,6 +97,7 @@ describe('toMtdPace', () => {
       '10.00 $',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Under')
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.tone).toBe('ok')
     expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toBe(
       'Lasts the month',
     )
@@ -115,6 +116,38 @@ describe('toMtdPace', () => {
     )
     expect(stats.forecast).toHaveLength(30)
     expect(JSON.stringify(stats).includes('secret@example.com')).toBe(false)
+  })
+
+  it('caps the month at the cycle limit after the admin raises it mid-month', () => {
+    // Limit 250 → 350 late in Sep; remaining ÷ 3 days left = 32.84 $/day.
+    const now = new Date(2026, 8, 28, 18, 0, 0)
+    const queries = Array.from({ length: 20 }, (_, index) =>
+      query({
+        timestamp: new Date(2026, 8, index + 1, 9, 0, 0).getTime(),
+        costUsd: 12.5,
+      }),
+    )
+    const stats = toMtdPace(
+      ready({
+        usedUsd: 250,
+        limitUsd: 350,
+        remainingUsd: 100,
+        dailyBudgetUsd: 100 / 3,
+      }),
+      queries,
+      { now },
+    )
+    const ideal = stats.series[0]?.ideal ?? []
+    expect(ideal[29]).toBeCloseTo(350)
+    expect(stats.forecast[29]?.allowanceUsd).toBeCloseTo(350)
+    // 28 Sep 2026 = 20th weekday → 20 × 350 / 22.
+    expect(stats.chart[27]?.allowanceUsd).toBeCloseTo((20 * 350) / 22)
+    expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe(
+      '100.00 $',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdDaily')?.value).toBe(
+      '33.33 $',
+    )
   })
 
   it('keeps Business / Enterprise on dollar axes even when Pro-style quotas leak in', () => {
@@ -159,6 +192,7 @@ describe('toMtdPace', () => {
     expect(stats.overPace).toBe(true)
     expect(stats.bars[0]?.percent).toBe(135)
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Over')
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.tone).toBe('over')
   })
 
   it('paces Pro included percent against 100% ÷ working days this month', () => {
@@ -206,6 +240,7 @@ describe('toMtdPace', () => {
       '154%',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Over')
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.tone).toBe('over')
     expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toContain(
       'Cursor Models',
     )
@@ -227,7 +262,8 @@ describe('toMtdPace', () => {
     expect(stats.series[0]?.forecast[29]).toBeCloseTo((21 / 3) * 22)
     expect(stats.series[0]?.runOutDate).not.toBeNull()
     expect(stats.series[1]?.used[2]).toBe(0)
-    expect(stats.series[1]?.forecast[29]).toBe(0)
+    expect(stats.series[1]?.forecast[2]).toBe(0)
+    expect(stats.series[1]?.forecast[29]).toBeCloseTo(100)
     expect(stats.series[1]?.runOutDate).toBeNull()
     // Ideal from today: leftover 79% / 19 remaining weekdays.
     expect(stats.series[0]?.ideal[2]).toBe(21)
@@ -242,7 +278,7 @@ describe('toMtdPace', () => {
   it('uses a working-day forecast as the second figure when there is no daily budget', () => {
     const now = new Date(2026, 8, 2, 12, 0, 0)
     const stats = toMtdPace(
-      ready({ dailyBudgetUsd: 0 }),
+      ready({ dailyBudgetUsd: 0, limitUsd: null, remainingUsd: null }),
       [query({ timestamp: now.getTime(), costUsd: 4 })],
       { now },
     )
@@ -273,7 +309,7 @@ describe('toMtdPace', () => {
   it('keeps a dash when there is no budget and no weekday yet', () => {
     const now = new Date(2025, 1, 1, 12, 0, 0)
     const stats = toMtdPace(
-      ready({ dailyBudgetUsd: 0 }),
+      ready({ dailyBudgetUsd: 0, limitUsd: null, remainingUsd: null }),
       [query({ timestamp: now.getTime(), costUsd: 3 })],
       { now },
     )
@@ -333,11 +369,11 @@ describe('calendar day budget basis', () => {
   it('paces month spend across all calendar days', () => {
     const now = new Date(2026, 8, 5, 12, 0, 0)
     const stats = toMtdPace(
-      ready({ dailyBudgetUsd: 10, remainingUsd: 200 }),
+      ready({ dailyBudgetUsd: 10, limitUsd: 300, remainingUsd: 200 }),
       [query({ timestamp: now.getTime(), costUsd: 20 })],
       { now, budgetDayBasis: 'calendarDays' },
     )
-    // 5 calendar days so far × $10 daily budget.
+    // 5 calendar days so far × ($300 ÷ 30 days).
     expect(stats.metrics.find((row) => row.id === 'mtdDays')?.label).toBe(
       'Days so far',
     )
@@ -398,19 +434,69 @@ describe('toMtdSeries', () => {
     expect(line.forecast.every((value) => value === null)).toBe(true)
   })
 
-  it('spreads a cycle percent over each day by its dollar share', () => {
+  it('spreads a cycle percent over each day by its pool dollar share', () => {
     const now = new Date(2026, 8, 3, 18, 0, 0)
     const frames = toMonthFrames(
       [
-        query({ timestamp: new Date(2026, 8, 1, 9, 0, 0).getTime(), costUsd: 3 }),
-        query({ timestamp: new Date(2026, 8, 3, 11, 0, 0).getTime(), costUsd: 1 }),
+        query({
+          timestamp: new Date(2026, 8, 1, 9, 0, 0).getTime(),
+          costUsd: 3,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 8, 3, 11, 0, 0).getTime(),
+          costUsd: 1,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 8, 2, 10, 0, 0).getTime(),
+          costUsd: 50,
+          model: 'claude-opus-5-high',
+        }),
       ],
       now,
+      undefined,
+      'cursor',
     )
     const line = toMtdSeries('cursor-models', 'Cursor Models', 20, frames, 3)
     expect(line.day[0]).toBeCloseTo(15)
     expect(line.day[2]).toBeCloseTo(5)
     expect(line.used[2]).toBeCloseTo(20)
+  })
+
+  it('plots Pro quotas from separate pool spend, not one shared timeline', () => {
+    const now = new Date(2026, 8, 3, 18, 0, 0)
+    const queries = [
+      query({
+        timestamp: new Date(2026, 8, 1, 9, 0, 0).getTime(),
+        costUsd: 10,
+        model: 'cursor-default',
+      }),
+      query({
+        timestamp: new Date(2026, 8, 3, 11, 0, 0).getTime(),
+        costUsd: 30,
+        model: 'claude-opus-5-high',
+      }),
+    ]
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        includedQuotas: [
+          { name: 'Cursor Models', used: 40, limit: 100, percent: 40 },
+          { name: 'Other Models', used: 60, limit: 100, percent: 60 },
+        ],
+      }),
+      queries,
+      { now },
+    )
+    expect(stats.series[0]?.used[2]).toBeCloseTo(40)
+    expect(stats.series[1]?.used[2]).toBeCloseTo(60)
+    expect(stats.series[0]?.day[0]).toBeCloseTo(40)
+    expect(stats.series[0]?.day[2]).toBeCloseTo(0)
+    expect(stats.series[1]?.day[0]).toBeCloseTo(0)
+    expect(stats.series[1]?.day[2]).toBeCloseTo(60)
   })
 
   it('spreads leftover ceiling from today as the ideal budget line', () => {
@@ -431,5 +517,33 @@ describe('toMtdSeries', () => {
     expect(line.ideal[0]).toBeNull()
     expect(line.ideal[2]).toBe(21)
     expect(line.ideal[29]).toBeCloseTo(100)
+  })
+
+  it('lifts an under-ceiling forecast onto the limit at month end', () => {
+    const now = new Date(2026, 8, 30, 18, 0, 0)
+    const frames = toMonthFrames([], now)
+    const line = toMtdSeries(
+      'cursor-models',
+      'Cursor Models',
+      94,
+      frames,
+      22,
+      100,
+      22,
+    )
+    const prior = frames[28]
+    expect(prior?.workingCount).toBeGreaterThan(0)
+    expect(line.forecast[28]).toBeCloseTo((prior?.workingCount ?? 0) * (94 / 22))
+    expect(line.forecast[29]).toBeCloseTo(100)
+    expect(line.runOutDate).toBeNull()
+  })
+
+  it('lands the ideal line on the ceiling when today is the last day', () => {
+    const now = new Date(2026, 8, 30, 18, 0, 0)
+    const frames = toMonthFrames([], now)
+    const line = toMtdSeries('spend', 'Spend', 306.62, frames, 22, 350, 22)
+    expect(line.ideal[27]).toBeNull()
+    expect(line.ideal[28]).toBeCloseTo(306.62)
+    expect(line.ideal[29]).toBeCloseTo(350)
   })
 })

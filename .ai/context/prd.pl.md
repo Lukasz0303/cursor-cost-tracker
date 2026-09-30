@@ -83,7 +83,7 @@ Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cu
 
 Kolory: przy włączonych ostrzeżeniach dobry stan to `cursorCost.okColor` (domyślnie zieleń `#89D185` na ciemnym motywie, `#18794E` na jasnym). **Team:** przy/ponad miesięcznym lub dziennym capie dolarowym — `cursorCost.warnColor` (domyślnie czerwień `#F14C4C` na ciemnym, `#C50F1F` na jasnym). Własny hex zostaje bez zmian. **Pro / Pro+:** Current (procenty included) i Today (suma zapytań, często bez dziennego capu) zostają w kolorze dobrym — to nie jest overage puli dolarowej. Spike `!` przy ostatnim zapytaniu używa warnColor. Ładowanie/błąd — domyślny. Gdy `cursorCost.showSpikeWarning` jest wyłączone, nie ma `!` ani kolorów na belce. Warn at, kolory i przełącznik ostrzeżeń są w zakładce **Settings**.
 
-Puste sloty ostatnich zapytań są ukryte. Ignore spike’ów (`globalState`) zostaje na później w v1.1.
+Puste sloty ostatnich zapytań są ukryte. Store Ignore spike’ów (`cursorCost.ignoredSpikes`) jest; przycisk w tabeli + przeliczenie bangu zostają na później w v1.1.
 
 ### 5.2 Klik → panel historii
 
@@ -105,7 +105,7 @@ Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts**
 |-------|--------|
 | **Ignore** | Fingerprint w `globalState`. Bang znika na wierszu i z belki, jeśli nie ma innych spike’ów. |
 
-Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Ignore przeżywa reload. Opcjonalnie: „Show ignored” w tabeli.
+Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Store Ignore jest; przycisk w tabeli + zniknięcie bangu po reloadzie — leftover. Opcjonalnie: „Show ignored” w tabeli.
 
 **Krytyczny alert ostatniego zapytania:** gdy **najnowsze** zapytanie osiągnie `cursorCost.criticalTokenThreshold` (domyślnie **10 000 000** tokenów) **lub** `cursorCost.criticalCostUsdThreshold` (domyślnie **5 $**), host pokazuje blokujący dialog. Niezależnie od `!` na belce (`showSpikeWarning`). Każdy fingerprint najnowszego zapytania raz (`globalState` `cursorCost.lastCriticalSeenKey`). Historyczne ostatnie zapytanie starsze niż pięć minut jest zapamiętane przy pierwszym załadowaniu — bez modala — żeby restart nie blokował pracy. Świeżo skończone zapytanie nadal alertuje. **Open History** otwiera Last N. Przełącznik: `showCriticalAlert`.
 
@@ -309,4 +309,4 @@ UI marketplace po angielsku. Brak skrótu ostatniego zapytania na belce w MVP. N
 
 ## 15. Podsumowanie
 
-Wtyczka Cursor/VS Code. Belka: Current + Today + sync + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: Last N. Wiersze spike można **Ignore** (później). Bez Advise / auto-naprawy. Stack: TypeScript, esbuild, sql.js, Vitest. Logika usage w `src/usage/`.
+Wtyczka Cursor/VS Code. Belka: Current + Today + sync + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: Last N. Wiersze spike można **Ignore** (store jest; UI później). Bez Advise / auto-naprawy. Stack: TypeScript, esbuild, sql.js, Vitest. Logika usage w `src/usage/`.

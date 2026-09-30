@@ -36,3 +36,4 @@ screenshots/**
 
 # Social/marketplace copy lives on GitHub, not inside the extension
 docs/**
+site/**

@@ -9,6 +9,7 @@ This chat burned **~5.0M tokens / 2.73 $** (`grok-4.6-high`, cache **98%**) by c
 ## After a red `!` in this chat
 
 - **Glyph / icon / 12px CSS** (“daj inną ikonę”, spacing, `?` vs SVG) → **new chat**, **≤2 paths**: `media/history.js` + `media/history.css`. No catalogs, no CHANGELOG, no `package.json`.
+- **`site/` looks bad** (landing page, not the webview) → [optimize-site-preview.mdc](./optimize-site-preview.mdc): new chat, `site/index.html` + `site/styles.css` only. Do not Read PNGs.
 - Do **not** `npm run package` / bump version in the same turn as a visual tweak unless the user names **`package.json` + VSIX** as the goal.
 - Do **not** resume a compacted feature thread (long summary already in context) with Agent for polish — the summary is already the spike.
 - Prefer **Ask** or a cheaper model for “looks wrong”; Agent only to patch the two media files.

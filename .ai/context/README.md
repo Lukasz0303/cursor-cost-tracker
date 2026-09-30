@@ -6,7 +6,7 @@ This folder describes the **product vision** and **target stack**. Once code exi
 
 - **Title:** Cursor Cost Tracker — *See spend · forecast run-out · Optimize expensive queries locally.*
 - **Shape:** VS Code extension compatible with **Cursor** (primary target).
-- **Value (three goals):** (1) **Status bar** — Current, Today, 1–10 recent queries; (2) **Monthly cost forecast** — when Team money / Pro included limits run out; (3) **Optimize** — last red query prompts + local `.ai/optimize-savings.md` only. `!` on a query ≥ token threshold (default 1M). Blocking dialog if the newest query hits 10M tokens or $5. Ignore of spikes is a follow-up.
+- **Value (three goals):** (1) **Status bar** — Current, Today, 1–10 recent queries; (2) **Monthly cost forecast** — when Team money / Pro included limits run out; (3) **Optimize** — last red query prompts + local `.ai/optimize-savings.md` only. `!` on a query ≥ token threshold (default 1M). Blocking dialog if the newest query hits 10M tokens or $5. Spike **Ignore** persist store is in `src/spikes/ignoreStore.ts`; UI wire is still remaining.
 - **Zero setup:** read the local Cursor session (`state.vscdb`); no `.env` and no API key in settings (MVP).
 - **Full requirements:** [prd.md](./prd.md) (English, canonical) · [prd.pl.md](./prd.pl.md) (Polish).
 

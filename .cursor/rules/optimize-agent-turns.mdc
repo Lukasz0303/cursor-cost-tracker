@@ -14,7 +14,9 @@ For this repo, multi-million-token turns usually come from **volume** (long Agen
 - After Warn-at: prefer a **new chat** for Optimize or the next feature slice; do not keep pasting Deep Optimize into the same growing thread.
 - After Warn-at, **another** coding-stats / git / polyrepo / account-picker feature is not “one more Agent turn here” — [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc) (new chat, ≤5 paths).
 - After Warn-at, **icon/CSS polish** is not “one more Agent turn here” — [optimize-cosmetic-after-warn.mdc](./optimize-cosmetic-after-warn.mdc) (new chat, ≤2 media paths, no VSIX unless named).
+- Landing page already in this chat (“wygląda słabo”, preview died) is not another Agent loop — [optimize-site-preview.mdc](./optimize-site-preview.mdc) (new chat, ≤2 `site/` files, no PNG reads, no server restarts).
 - “Continue” / “kontynuj” after `!` is **not** a full leftover pass — follow [optimize-continue-after-warn.mdc](./optimize-continue-after-warn.mdc) (new chat or ≤5 paths / one section).
 - For MINOR “implement the plan” asks: follow [optimize-split-minor-features.mdc](./optimize-split-minor-features.mdc) — core+tests → UI wire → docs in separate turns.
+- Plan chat then “build the feature”: one phase per message — [optimize-plan-then-build.mdc](./optimize-plan-then-build.mdc). Do not ship all locales or VSIX in that same turn.
 - For “did the alarm fire?” / burn-rate “stuck at $0” triage: follow [optimize-bug-triage.mdc](./optimize-bug-triage.mdc) — Ask first; Agent only on named hot-path files.
 - For `npm run package` / `vsce`: one Shell with `all` permissions first — do not diagnose sandbox (`cpus=0`) with extra reads/help loops.

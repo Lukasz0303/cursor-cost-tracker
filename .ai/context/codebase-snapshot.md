@@ -91,4 +91,4 @@ Verdict: **safe to package VSIX**.
 
 ## Next
 
-Ignore of token spikes (`globalState`) is still a follow-up. Optimize is metadata prompts only — no transcript analysis / auto-fix.
+`IgnoreStore` (`src/spikes/ignoreStore.ts`, `cursorCost.ignoredSpikes`) is landed with Vitest; table **Ignore** + status-bar recompute still remaining. Optimize is metadata prompts only — no transcript analysis / auto-fix.

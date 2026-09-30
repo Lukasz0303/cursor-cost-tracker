@@ -1,0 +1,58 @@
+# Publish the static landing page to GitHub Pages (free for public repos).
+# One-time: GitHub → Settings → Pages → Build and deployment → Source: GitHub Actions.
+# Live URL: https://lukasz0303.github.io/cursor-cost-tracker/
+
+name: Deploy landing page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "screenshots/**"
+      - "icon.png"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          set -eu
+          mkdir -p _site/screenshots
+          cp site/index.html site/styles.css site/main.js site/i18n.js site/mark.png _site/
+          while IFS= read -r line || [ -n "$line" ]; do
+            case "$line" in
+              ""|\#*) continue ;;
+            esac
+            mkdir -p "_site/$(dirname "$line")"
+            cp "$line" "_site/$line"
+          done < site/pages-assets.txt
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -82,7 +82,7 @@ Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCo
 
 Colors: when warnings are on, good state uses `cursorCost.okColor` (default green `#89D185` on dark themes, `#18794E` on light). **Team:** at/over monthly or daily dollar cap uses `cursorCost.warnColor` (default red `#F14C4C` on dark, `#C50F1F` on light). Custom hex is used as-is. **Pro / Pro+:** Current (included percents) and Today (query sum, often no daily cap) stay the good color — they are not a dollar-pool overage — **unless Burn Rate Guard** is on and the live window is at warning/critical, in which case **Today** uses warnColor. A `!` spike on a recent query uses warnColor. Loading/error — default. When `cursorCost.showSpikeWarning` is off, there is no `!` and no status color. Warn at, colors, and the warning toggle live on the **Settings** tab.
 
-Empty recent slots are hidden. Ignore of spikes (persist in `globalState`) remains v1.1 follow-up.
+Empty recent slots are hidden. Spike **Ignore** store (`cursorCost.ignoredSpikes`) exists; table button + bang recompute remain v1.1 follow-up.
 
 ### 5.2 Click → history panel
 
@@ -104,7 +104,7 @@ Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** 
 |--------|--------|
 | **Ignore** | Persist fingerprint in `globalState`. Bang hidden on that row and dropped from the status-bar spike set. |
 
-No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignore (persist in `globalState`) remains v1.1 follow-up. Un-ignore (optional): small “Show ignored” control in the table.
+No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignore store is landed; UI dismiss + status-bar drop remain v1.1 follow-up. Un-ignore (optional): small “Show ignored” control in the table.
 
 **Critical last-query alert:** when the **newest** query is at or above `cursorCost.criticalTokenThreshold` (default **10,000,000** tokens) **or** `cursorCost.criticalCostUsdThreshold` (default **$5**), the extension host shows a blocking error dialog. Independent of the status-bar `!` (`showSpikeWarning`). Each newest-query fingerprint is processed once (`globalState` `cursorCost.lastCriticalSeenKey`). A historical last query older than five minutes is remembered on first load — no modal — so a restart does not block work. A query that just completed still alerts. **Open History** opens Last N. Toggle: `showCriticalAlert`.
 
@@ -307,4 +307,4 @@ Marketplace UI in English. No last-query shortcut on the bar in MVP. Ship a loca
 
 ## 15. Summary
 
-Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (follow-up). Optimize tab: metadata prompts only (no transcript). No auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.
+Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (store landed; UI follow-up). Optimize tab: metadata prompts only (no transcript). No auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.

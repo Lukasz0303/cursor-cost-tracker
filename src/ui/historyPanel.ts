@@ -5,8 +5,14 @@ import { join } from 'node:path'
 import * as vscode from 'vscode'
 import {
   EXPORT_CSV_COMMAND,
+  EXPORT_LEADERBOARD_CSV_COMMAND,
   OPEN_DASHBOARD_COMMAND,
+  OPEN_PRICING_COMMAND,
 } from '../constants'
+import { loadModelCatalog } from '../pricing/load'
+import type { ModelCatalogPayload } from '../pricing/parse'
+import { withRequestCounts } from '../pricing/usageMatch'
+import { stripModelPrefix } from '../usage/parse'
 import {
   clampRecentQueryCount,
   colorSchemeFromKind,
@@ -53,6 +59,14 @@ import {
   parseStoredAuthorChoice,
 } from '../codeLines/authorChoice'
 import { readCursorSession } from '../usage/session'
+import {
+  isLeaderboardUnlocked,
+  LEADERBOARD_UNLOCK_STATE_KEY,
+  parseUnlockRequest,
+  unlockStateFor,
+  verifyUnlockToken,
+} from '../unlock/leaderboardUnlock'
+import { unlockSecret } from '../unlock/secret'
 import { clampSpikeTokenThreshold } from '../spikes/threshold'
 import type { UsageQuery } from '../usage/types'
 import {
@@ -61,7 +75,31 @@ import {
 } from '../usage/service'
 import { resolveExtensionVersion } from '../version'
 import { resolveSupportUrl } from '../supportLinks'
-import { buildQueriesCsv } from './exportCsv'
+import {
+  parseAuthorMessage,
+  postAuthorMessage,
+} from '../support/authorMessage'
+import { nicknameFromCursorEmail } from '../support/nickname'
+import { aggregateLeaderboard, leaderboardDailyChart } from '../leaderboard/aggregate'
+import { isValidLeaderboardRange } from '../leaderboard/dates'
+import {
+  listCatalogGitRepos,
+  listLeaderboardAuthors,
+  previewLeaderboardRepos,
+  scanLeaderboardRepos,
+} from '../leaderboard/scan'
+import {
+  appendSavedRepos,
+  parseLeaderboardSources,
+  withExtraPath,
+  setRepoIncluded,
+  withoutExtraPath,
+  type LeaderboardSources,
+} from '../leaderboard/sources'
+import { normalizeLeaderboardMerges } from '../leaderboard/merges'
+import { normalizeTeamEmails } from '../leaderboard/team'
+import type { LeaderboardPayload, LeaderboardRow } from '../leaderboard/types'
+import { buildLeaderboardCsv, buildQueriesCsv } from './exportCsv'
 import { payloadForSnapshot } from './historyRows'
 import { openOptimizeChat } from './openOptimizeChat'
 import {
@@ -81,11 +119,17 @@ import {
 import type { HistoryTab } from './statusBarView'
 
 const VIEW_TYPE = 'cursorCost.history'
+const LEADERBOARD_RANGE_KEY = 'cursorCost.leaderboardRange'
+const LEADERBOARD_SOURCES_KEY = 'cursorCost.leaderboardSources'
+const LEADERBOARD_MY_REPOS_KEY = 'cursorCost.leaderboardMyRepos'
+const LEADERBOARD_TEAM_KEY = 'cursorCost.leaderboardTeam'
+const LEADERBOARD_MERGES_KEY = 'cursorCost.leaderboardMerges'
 const HISTORY_TABS: HistoryTab[] = [
   'queries',
   'stats',
   'charts',
   'optimize',
+  'leaderboard',
   'support',
   'settings',
 ]
@@ -151,6 +195,14 @@ function asConfigPatch(
 export class HistoryPanel {
   private static current: HistoryPanel | undefined
 
+  static exportLeaderboard(): void {
+    const panel = HistoryPanel.current
+    if (!panel?.leaderboardUnlocked()) {
+      return
+    }
+    void panel.saveLeaderboardCsv()
+  }
+
   static show(
     context: vscode.ExtensionContext,
     service: UsageService,
@@ -182,6 +234,11 @@ export class HistoryPanel {
   private optimizeSavingsMarkdown: string | null = null
   private postDataSeq = 0
   private collectAbort: AbortController | undefined
+  private leaderboardSeq = 0
+  private leaderboardRows: LeaderboardRow[] = []
+  private leaderboardExportFrom = ''
+  private leaderboardExportTo = ''
+  private modelCatalog: ModelCatalogPayload | null = null
 
   private constructor(
     context: vscode.ExtensionContext,
@@ -201,7 +258,12 @@ export class HistoryPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        enableCommandUris: [EXPORT_CSV_COMMAND, OPEN_DASHBOARD_COMMAND],
+        enableCommandUris: [
+          EXPORT_CSV_COMMAND,
+          EXPORT_LEADERBOARD_CSV_COMMAND,
+          OPEN_DASHBOARD_COMMAND,
+          OPEN_PRICING_COMMAND,
+        ],
         localResourceRoots: [mediaRoot],
       },
     )
@@ -231,9 +293,17 @@ export class HistoryPanel {
     )
   }
 
+  private leaderboardUnlocked(): boolean {
+    return isLeaderboardUnlocked(
+      this.globalState.get(LEADERBOARD_UNLOCK_STATE_KEY),
+    )
+  }
+
   private openTab(tab: HistoryTab): void {
-    this.pendingTab = tab
-    void this.panel.webview.postMessage({ type: 'openTab', tab })
+    const target =
+      tab === 'leaderboard' && !this.leaderboardUnlocked() ? 'queries' : tab
+    this.pendingTab = target
+    void this.panel.webview.postMessage({ type: 'openTab', tab: target })
   }
 
   private onMessage(message: unknown): void {
@@ -241,9 +311,96 @@ export class HistoryPanel {
       return
     }
     const type = (message as { type?: unknown }).type
+    if (
+      typeof type === 'string' &&
+      type.toLowerCase().includes('leaderboard') &&
+      !this.leaderboardUnlocked()
+    ) {
+      return
+    }
     if (type === 'ready') {
       this.postData()
+      this.publishModelCatalog(false)
+      if (this.leaderboardUnlocked()) {
+        this.postLeaderboardRange()
+        this.postLeaderboardTeam(null, true)
+        this.postLeaderboardMerges()
+        void this.postLeaderboardRepos()
+      }
       this.openTab(this.pendingTab)
+      return
+    }
+    if (type === 'saveLeaderboardMerges') {
+      void this.saveLeaderboardMerges((message as { groups?: unknown }).groups)
+      return
+    }
+    if (type === 'saveLeaderboardTeam') {
+      void this.saveLeaderboardTeam(stringListField(message, 'emails'))
+      return
+    }
+    if (type === 'loadLeaderboardAuthors') {
+      const from = stringField(message, 'from')
+      const to = stringField(message, 'to')
+      void this.loadLeaderboardAuthors(from, to)
+      return
+    }
+    if (type === 'runLeaderboardScan') {
+      const from = stringField(message, 'from')
+      const to = stringField(message, 'to')
+      const emails = stringListField(message, 'emails')
+      void this.runLeaderboardScan(from, to, emails)
+      return
+    }
+    if (type === 'refreshLeaderboardRepos') {
+      void this.mergeCatalogRepos(this.readLeaderboardSources().catalog)
+      return
+    }
+    if (type === 'saveLeaderboardRepos') {
+      void this.saveLeaderboardRepos()
+      return
+    }
+    if (type === 'applyLeaderboardMyRepos') {
+      void this.applyLeaderboardMyRepos()
+      return
+    }
+    if (type === 'previewLeaderboardMyRepos') {
+      void this.previewLeaderboardMyRepos()
+      return
+    }
+    if (type === 'pickLeaderboardCatalog') {
+      void this.pickLeaderboardCatalog()
+      return
+    }
+    if (type === 'clearLeaderboardCatalog') {
+      const sources = this.readLeaderboardSources()
+      void this.writeLeaderboardSources({ ...sources, catalog: '' })
+      return
+    }
+    if (type === 'addLeaderboardRepo') {
+      void this.addLeaderboardRepo(stringField(message, 'path'))
+      return
+    }
+    if (type === 'pickLeaderboardRepo') {
+      void this.pickLeaderboardRepo()
+      return
+    }
+    if (type === 'setLeaderboardRepoIncluded') {
+      const included = (message as { included?: unknown }).included === true
+      void this.writeLeaderboardSources(
+        setRepoIncluded(this.readLeaderboardSources(), stringField(message, 'path'), included),
+      )
+      return
+    }
+    if (type === 'removeLeaderboardRepo') {
+      const sources = withoutExtraPath(
+        this.readLeaderboardSources(),
+        stringField(message, 'path'),
+      )
+      void this.writeLeaderboardSources(sources)
+      return
+    }
+    if (type === 'exportLeaderboardCsv') {
+      void this.saveLeaderboardCsv(stringListField(message, 'emails'))
       return
     }
     if (type === 'close') {
@@ -252,6 +409,24 @@ export class HistoryPanel {
     }
     if (type === 'refresh') {
       void this.service.refresh()
+      return
+    }
+    if (type === 'refreshModelCatalog') {
+      this.publishModelCatalog(true)
+      return
+    }
+    if (type === 'openModelSettings') {
+      void vscode.commands
+        .executeCommand('aiSettings.action.open', 'models')
+        .then(undefined, () => {
+          void vscode.commands.executeCommand('cursor.openCursorSettings')
+        })
+      return
+    }
+    if (type === 'openCursorBench') {
+      void vscode.env.openExternal(
+        vscode.Uri.parse('https://cursor.com/cursorbench'),
+      )
       return
     }
     if (type === 'exportCsv') {
@@ -275,6 +450,10 @@ export class HistoryPanel {
         return
       }
       void vscode.env.openExternal(vscode.Uri.parse(url))
+      return
+    }
+    if (type === 'sendAuthorMessage') {
+      this.deliverAuthorMessage(message)
       return
     }
     if (type === 'setSpikeThreshold') {
@@ -800,6 +979,12 @@ export class HistoryPanel {
         optimizeProjectLabel: project.label,
         optimizeLifetimeSavings: lifetime,
         refreshing: overrides?.refreshing ?? this.service.isRefreshing(),
+        modelCatalog: this.catalogForView(),
+        cursorNickname: nicknameFromCursorEmail(
+          session.ok ? session.email : null,
+        ),
+        cursorEmail: session.ok ? session.email : null,
+        leaderboardUnlocked: this.leaderboardUnlocked(),
       }),
     )
   }
@@ -818,7 +1003,528 @@ export class HistoryPanel {
       .replaceAll('{{jsUri}}', jsUri)
       .replaceAll('{{exportCsvHref}}', `command:${EXPORT_CSV_COMMAND}`)
       .replaceAll('{{dashboardHref}}', `command:${OPEN_DASHBOARD_COMMAND}`)
+      .replaceAll('{{pricingHref}}', `command:${OPEN_PRICING_COMMAND}`)
       .replaceAll('__EXTENSION_VERSION__', this.panelVersion)
+  }
+
+  private postLeaderboardRange(): void {
+    const raw = this.globalState.get(LEADERBOARD_RANGE_KEY)
+    const from =
+      typeof raw === 'object' && raw !== null && typeof (raw as { from?: unknown }).from === 'string'
+        ? (raw as { from: string }).from
+        : ''
+    const to =
+      typeof raw === 'object' && raw !== null && typeof (raw as { to?: unknown }).to === 'string'
+        ? (raw as { to: string }).to
+        : ''
+    void this.panel.webview.postMessage({ type: 'leaderboardRange', from, to })
+  }
+
+  private readLeaderboardTeam(): string[] {
+    return normalizeTeamEmails(this.globalState.get(LEADERBOARD_TEAM_KEY))
+  }
+
+  private postLeaderboardTeam(status: string | null = null, apply = false): void {
+    void this.panel.webview.postMessage({
+      type: 'leaderboardTeam',
+      emails: this.readLeaderboardTeam(),
+      status,
+      apply,
+    })
+  }
+
+  private async saveLeaderboardTeam(emails: string[]): Promise<void> {
+    const clean = normalizeTeamEmails(emails)
+    const copy = this.leaderboardCopy()
+    if (clean.length === 0) {
+      this.postLeaderboardTeam(copy.teamNeedSelection)
+      return
+    }
+    await this.globalState.update(LEADERBOARD_TEAM_KEY, clean)
+    this.postLeaderboardTeam(copy.teamSaved.replace('{n}', String(clean.length)))
+  }
+
+  private readLeaderboardMerges(): string[][] {
+    return normalizeLeaderboardMerges(this.globalState.get(LEADERBOARD_MERGES_KEY))
+  }
+
+  private postLeaderboardMerges(): void {
+    void this.panel.webview.postMessage({
+      type: 'leaderboardMerges',
+      groups: this.readLeaderboardMerges(),
+    })
+  }
+
+  private async saveLeaderboardMerges(groups: unknown): Promise<void> {
+    await this.globalState.update(LEADERBOARD_MERGES_KEY, normalizeLeaderboardMerges(groups))
+    this.postLeaderboardMerges()
+  }
+
+  private workspaceRoot(): string | null {
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null
+  }
+
+  private leaderboardCopy(): ReturnType<typeof catalogFor>['leaderboard'] {
+    return catalogFor(
+      readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost')).language,
+    ).leaderboard
+  }
+
+  private readLeaderboardSources(): LeaderboardSources {
+    return parseLeaderboardSources(this.globalState.get(LEADERBOARD_SOURCES_KEY))
+  }
+
+  private async writeLeaderboardSources(
+    sources: LeaderboardSources,
+    status: string | null = null,
+  ): Promise<void> {
+    await this.globalState.update(LEADERBOARD_SOURCES_KEY, sources)
+    await this.postLeaderboardRepos(status)
+  }
+
+  private async saveLeaderboardRepos(): Promise<void> {
+    let sources = this.readLeaderboardSources()
+    if (sources.saved.length === 0 && sources.extra.length === 0 && sources.catalog.trim() !== '') {
+      const found = await listCatalogGitRepos(sources.catalog)
+      sources = appendSavedRepos(sources, found).sources
+    }
+    await this.globalState.update(LEADERBOARD_MY_REPOS_KEY, sources.excluded)
+    await this.writeLeaderboardSources(sources, this.leaderboardCopy().savedList)
+  }
+
+  private myReposExcluded(): string[] | null {
+    const raw = this.globalState.get(LEADERBOARD_MY_REPOS_KEY)
+    if (!Array.isArray(raw)) {
+      return null
+    }
+    return raw.filter((item): item is string => typeof item === 'string')
+  }
+
+  private async previewLeaderboardMyRepos(): Promise<void> {
+    const excluded = this.myReposExcluded()
+    const copy = this.leaderboardCopy()
+    if (excluded === null) {
+      void this.panel.webview.postMessage({
+        type: 'leaderboardMyReposPreview',
+        repos: [],
+        error: copy.myReposEmpty,
+      })
+      return
+    }
+    const sources = { ...this.readLeaderboardSources(), excluded }
+    const preview = await previewLeaderboardRepos(this.workspaceRoot(), sources)
+    void this.panel.webview.postMessage({
+      type: 'leaderboardMyReposPreview',
+      repos: preview.repos
+        .filter((repo) => repo.included)
+        .map((repo) => ({ label: repo.label, path: repo.path })),
+      error: null,
+    })
+  }
+
+  private async applyLeaderboardMyRepos(): Promise<void> {
+    const excluded = this.myReposExcluded()
+    const copy = this.leaderboardCopy()
+    if (excluded === null) {
+      await this.postLeaderboardRepos(copy.myReposEmpty)
+      return
+    }
+    const sources = this.readLeaderboardSources()
+    await this.writeLeaderboardSources(
+      { ...sources, excluded },
+      copy.myReposApplied,
+    )
+  }
+
+  private async mergeCatalogRepos(catalog: string): Promise<void> {
+    const trimmed = catalog.trim()
+    if (trimmed === '') {
+      await this.postLeaderboardRepos()
+      return
+    }
+    let sources = this.readLeaderboardSources()
+    if (
+      sources.saved.length === 0 &&
+      sources.extra.length === 0 &&
+      sources.catalog.trim() !== '' &&
+      sources.catalog.trim() !== trimmed
+    ) {
+      const previous = await listCatalogGitRepos(sources.catalog)
+      sources = appendSavedRepos(sources, previous).sources
+    }
+    const found = await listCatalogGitRepos(trimmed)
+    const merged = appendSavedRepos({ ...sources, catalog: trimmed }, found)
+    const copy = this.leaderboardCopy()
+    const status =
+      merged.skipped > 0
+        ? copy.scanAdded
+            .replace('{added}', String(merged.added))
+            .replace('{skipped}', String(merged.skipped))
+        : null
+    await this.writeLeaderboardSources(merged.sources, status)
+  }
+
+  private async postLeaderboardRepos(error: string | null = null): Promise<void> {
+    const sources = this.readLeaderboardSources()
+    const preview = await previewLeaderboardRepos(this.workspaceRoot(), sources)
+    void this.panel.webview.postMessage({
+      type: 'leaderboardRepos',
+      catalog: sources.catalog,
+      catalogMissing: preview.catalogMissing,
+      repos: preview.repos,
+      error,
+    })
+  }
+
+  private async pickFolder(openLabel: string, start: string): Promise<string | null> {
+    const defaultUri =
+      start.trim() !== ''
+        ? vscode.Uri.file(start)
+        : this.workspaceRoot() !== null
+          ? vscode.Uri.file(this.workspaceRoot() as string)
+          : undefined
+    const picked = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      openLabel,
+      defaultUri,
+    })
+    return picked?.[0]?.fsPath ?? null
+  }
+
+  private async pickLeaderboardCatalog(): Promise<void> {
+    const copy = this.leaderboardCopy()
+    const sources = this.readLeaderboardSources()
+    const path = await this.pickFolder(copy.browse, sources.catalog)
+    if (path === null) {
+      return
+    }
+    await this.mergeCatalogRepos(path)
+  }
+
+  private async addLeaderboardRepo(path: string): Promise<void> {
+    const copy = this.leaderboardCopy()
+    const trimmed = path.trim()
+    if (trimmed === '') {
+      return
+    }
+    try {
+      const stat = await vscode.workspace.fs.stat(vscode.Uri.file(trimmed))
+      if (stat.type !== vscode.FileType.Directory) {
+        await this.postLeaderboardRepos(copy.invalidRepo)
+        return
+      }
+      await vscode.workspace.fs.stat(vscode.Uri.joinPath(vscode.Uri.file(trimmed), '.git'))
+    } catch {
+      await this.postLeaderboardRepos(copy.invalidRepo)
+      return
+    }
+    const sources = this.readLeaderboardSources()
+    const next = withExtraPath(sources, trimmed)
+    if (next === sources) {
+      await this.postLeaderboardRepos(copy.duplicateRepo)
+      return
+    }
+    await this.writeLeaderboardSources(next)
+  }
+
+  private async pickLeaderboardRepo(): Promise<void> {
+    const copy = this.leaderboardCopy()
+    const path = await this.pickFolder(copy.addRepo, '')
+    if (path === null) {
+      return
+    }
+    await this.addLeaderboardRepo(path)
+  }
+
+  private async rememberLeaderboardRange(from: string, to: string): Promise<void> {
+    await this.globalState.update(LEADERBOARD_RANGE_KEY, { from, to })
+  }
+
+  private async loadLeaderboardAuthors(from: string, to: string): Promise<void> {
+    const copy = this.leaderboardCopy()
+    const sources = this.readLeaderboardSources()
+    const root = this.workspaceRoot() ?? (sources.catalog.trim() || null)
+    if (root === null && sources.extra.length === 0) {
+      void this.panel.webview.postMessage({
+        type: 'leaderboardAuthors',
+        from,
+        to,
+        authors: [],
+        error: copy.noWorkspace,
+      })
+      return
+    }
+    if (!isValidLeaderboardRange(from, to)) {
+      void this.panel.webview.postMessage({
+        type: 'leaderboardAuthors',
+        from,
+        to,
+        authors: [],
+        error: copy.badRange,
+      })
+      return
+    }
+    await this.rememberLeaderboardRange(from, to)
+    const seq = ++this.leaderboardSeq
+    try {
+      const authors = await listLeaderboardAuthors(root ?? sources.extra[0] ?? '', from, to, {
+        sources,
+      })
+      if (seq !== this.leaderboardSeq) {
+        return
+      }
+      void this.panel.webview.postMessage({
+        type: 'leaderboardAuthors',
+        from,
+        to,
+        authors,
+        error: null,
+      })
+    } catch {
+      if (seq !== this.leaderboardSeq) {
+        return
+      }
+      void this.panel.webview.postMessage({
+        type: 'leaderboardAuthors',
+        from,
+        to,
+        authors: [],
+        error: copy.error,
+      })
+    }
+  }
+
+  private async runLeaderboardScan(
+    from: string,
+    to: string,
+    emails: string[],
+  ): Promise<void> {
+    const copy = this.leaderboardCopy()
+    const sources = this.readLeaderboardSources()
+    const root = this.workspaceRoot() ?? (sources.catalog.trim() || sources.extra[0] || null)
+    const empty: LeaderboardPayload = {
+      status: 'error',
+      from,
+      to,
+      rows: [],
+      chart: null,
+      reposScanned: 0,
+      reposSkipped: 0,
+      error: copy.badRange,
+    }
+    if (root === null) {
+      empty.error = copy.noWorkspace
+      this.postLeaderboard(empty)
+      return
+    }
+    if (!isValidLeaderboardRange(from, to) || emails.length === 0) {
+      this.postLeaderboard(empty)
+      return
+    }
+    await this.rememberLeaderboardRange(from, to)
+    const seq = ++this.leaderboardSeq
+    this.leaderboardRows = []
+    this.postLeaderboard({
+      status: 'scanning',
+      from,
+      to,
+      rows: [],
+      chart: null,
+      reposScanned: 0,
+      reposSkipped: 0,
+      error: null,
+    })
+    try {
+      const piece = await scanLeaderboardRepos(root ?? '', from, to, {
+        authorEmails: emails,
+        sources,
+      })
+      if (seq !== this.leaderboardSeq) {
+        return
+      }
+      const merges = this.readLeaderboardMerges()
+      const rows = aggregateLeaderboard(piece.groups, emails, merges)
+      const chart = leaderboardDailyChart(piece.groups, emails, merges, from, to)
+      this.leaderboardRows = rows
+      this.leaderboardExportFrom = from
+      this.leaderboardExportTo = to
+      this.postLeaderboard({
+        status: 'ready',
+        from,
+        to,
+        rows,
+        chart,
+        reposScanned: piece.reposScanned,
+        reposSkipped: piece.reposSkipped,
+        error: null,
+      })
+    } catch {
+      if (seq !== this.leaderboardSeq) {
+        return
+      }
+      this.postLeaderboard({
+        status: 'error',
+        from,
+        to,
+        rows: [],
+        chart: null,
+        reposScanned: 0,
+        reposSkipped: 0,
+        error: copy.error,
+      })
+    }
+  }
+
+  private postLeaderboard(payload: LeaderboardPayload): void {
+    void this.panel.webview.postMessage({ type: 'leaderboard', leaderboard: payload })
+  }
+
+  private async saveLeaderboardCsv(order: string[] = []): Promise<void> {
+    if (this.leaderboardRows.length === 0) {
+      return
+    }
+    const rows = orderLeaderboardRows(this.leaderboardRows, order)
+    await saveLeaderboardCsv(
+      rows,
+      this.leaderboardExportFrom,
+      this.leaderboardExportTo,
+    )
+  }
+
+  private catalogForView(): ModelCatalogPayload | null {
+    if (this.modelCatalog === null) {
+      return null
+    }
+    const config = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    const limit = sampleSizeLimit(config.historyLimit, config.historyFromDate)
+    const ids = [...this.service.getCachedQueries()]
+      .sort((left, right) => right.timestamp - left.timestamp)
+      .slice(0, limit)
+      .map((query) => stripModelPrefix(query.model) ?? '')
+    return withRequestCounts(this.modelCatalog, ids)
+  }
+
+  private publishModelCatalog(force: boolean): void {
+    void loadModelCatalog(force).then((catalog) => {
+      if (HistoryPanel.current !== this) {
+        return
+      }
+      this.modelCatalog = catalog
+      void this.panel.webview.postMessage({
+        type: 'modelCatalog',
+        modelCatalog: this.catalogForView(),
+      })
+    })
+  }
+
+  /**
+   * Codes are bound to the Cursor account address. The address typed in the form is only a
+   * fallback for hosts without a local session (Remote SSH), where that address is all we have.
+   */
+  private async applyUnlockCode(token: string, typedEmail: string): Promise<boolean> {
+    const session = await readCursorSession({
+      locateWasm: (file) => join(__dirname, file),
+    })
+    const accountEmail = session.ok ? (session.email ?? '') : ''
+    const email = accountEmail || typedEmail
+    const secret = unlockSecret()
+    if (!verifyUnlockToken(email, token, secret)) {
+      return false
+    }
+    await this.globalState.update(
+      LEADERBOARD_UNLOCK_STATE_KEY,
+      unlockStateFor(email, secret, Date.now()),
+    )
+    return true
+  }
+
+  private handleUnlockCode(token: string, typedEmail: string): void {
+    const copy = catalogFor(
+      readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+        .language,
+    ).support
+    void this.applyUnlockCode(token, typedEmail).then(
+      (ok) => {
+        if (HistoryPanel.current !== this) {
+          return
+        }
+        this.postAuthorMessageResult(
+          ok,
+          ok ? copy.codeApplied : copy.codeInvalid,
+        )
+        if (!ok) {
+          return
+        }
+        this.postData()
+        this.postLeaderboardRange()
+        this.postLeaderboardTeam(null, true)
+        this.postLeaderboardMerges()
+        void this.postLeaderboardRepos()
+      },
+      () => {
+        if (HistoryPanel.current !== this) {
+          return
+        }
+        this.postAuthorMessageResult(false, copy.codeInvalid)
+      },
+    )
+  }
+
+  private deliverAuthorMessage(message: unknown): void {
+    const copy = catalogFor(
+      readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+        .language,
+    ).support
+    const token = parseUnlockRequest((message as { body?: unknown }).body)
+    if (token) {
+      const typed = (message as { email?: unknown }).email
+      this.handleUnlockCode(token, typeof typed === 'string' ? typed : '')
+      return
+    }
+    const draft = parseAuthorMessage(message)
+    if (!draft) {
+      this.postAuthorMessageResult(false, copy.messageInvalid)
+      return
+    }
+    const topicLabel = {
+      comment: copy.topicComment,
+      feature: copy.topicFeature,
+      bug: copy.topicBug,
+      other: copy.topicOther,
+    }[draft.topic]
+    void postAuthorMessage(draft, new Date(), topicLabel).then(
+      (result) => {
+        if (HistoryPanel.current !== this) {
+          return
+        }
+        if (result.activation) {
+          this.postAuthorMessageResult(false, copy.mailActivate)
+          return
+        }
+        this.postAuthorMessageResult(
+          result.ok,
+          result.ok ? copy.sent : copy.mailFailed,
+        )
+      },
+      () => {
+        if (HistoryPanel.current !== this) {
+          return
+        }
+        this.postAuthorMessageResult(false, copy.mailFailed)
+      },
+    )
+  }
+
+  private postAuthorMessageResult(ok: boolean, detail: string): void {
+    void this.panel.webview.postMessage({
+      type: 'authorMessageResult',
+      ok,
+      detail,
+    })
   }
 
   private dispose(): void {
@@ -857,4 +1563,76 @@ export async function saveQueriesCsv(
     return
   }
   await vscode.workspace.fs.writeFile(uri, Buffer.from(csv, 'utf8'))
+}
+
+export async function saveLeaderboardCsv(
+  rows: readonly LeaderboardRow[],
+  from: string,
+  to: string,
+): Promise<void> {
+  if (rows.length === 0) {
+    return
+  }
+  const csv = buildLeaderboardCsv(rows)
+  const fileName =
+    from !== '' && to !== ''
+      ? `leaderboard-${from}-to-${to}.csv`
+      : 'leaderboard.csv'
+  const uri = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.joinPath(vscode.Uri.file(homedir()), fileName),
+    filters: { CSV: ['csv'] },
+    saveLabel: catalogFor(
+      readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+        .language,
+    ).alerts.export,
+  })
+  if (!uri) {
+    return
+  }
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(csv, 'utf8'))
+}
+
+function orderLeaderboardRows(
+  rows: readonly LeaderboardRow[],
+  order: readonly string[],
+): LeaderboardRow[] {
+  if (order.length === 0) {
+    return [...rows]
+  }
+  const byEmail = new Map(rows.map((row) => [row.email.toLowerCase(), row]))
+  const used = new Set<string>()
+  const sorted: LeaderboardRow[] = []
+  for (const email of order) {
+    const row = byEmail.get(email.toLowerCase())
+    if (row === undefined || used.has(row.email.toLowerCase())) {
+      continue
+    }
+    used.add(row.email.toLowerCase())
+    sorted.push(row)
+  }
+  for (const row of rows) {
+    if (!used.has(row.email.toLowerCase())) {
+      sorted.push(row)
+    }
+  }
+  return sorted
+}
+
+function stringField(message: object, key: string): string {
+  const value = (message as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function stringListField(message: object, key: string): string[] {
+  const value = (message as Record<string, unknown>)[key]
+  if (!Array.isArray(value)) {
+    return []
+  }
+  const out: string[] = []
+  for (const item of value) {
+    if (typeof item === 'string' && item.trim() !== '') {
+      out.push(item.trim())
+    }
+  }
+  return out
 }
