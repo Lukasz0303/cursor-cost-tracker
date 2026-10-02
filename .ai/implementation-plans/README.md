@@ -34,6 +34,10 @@ Start at **phase 0**. Do not mix [token-spike.md](./token-spike.md) into these p
 
 Do **not** mix this into MVP phases 0–7 or into remaining v1.1 Ignore. On conflict, [prd.md](../context/prd.md) wins.
 
+## Planned (fork / upstream)
+
+- Billing-cycle forecast alignment ([#8](https://github.com/Lukasz0303/cursor-cost-tracker/issues/8)): [billing-cycle-forecast.md](./billing-cycle-forecast.md)
+
 ## Additional / backlog
 
 Deferred spend-control notes (loop heuristic, daily cap, efficiency, model advisor, attribution). Not scheduled; re-number if picked up later.
