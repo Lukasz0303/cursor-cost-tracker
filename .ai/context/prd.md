@@ -143,7 +143,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | A7 | developer | a tooltip with plan and cycle date | I get context without the table |
 
 v1.1: token-spike bang (§5.1–5.2), Ignore, configurable threshold; 80%/90% spend alerts; Copy stats.  
-**1.0.4:** **Burn Rate Guard** (live window $/time, banner, non-modal toasts, Statistics card, Today tint), **Coding stats** (landed / AI · All on Cursor), and **10 UI languages**.
+**1.0.4:** **Burn Rate Guard** (live window $/time, banner, non-modal toasts, Statistics card, Today tint), **Coding stats** (landed / AI · All on Cursor), and **11 UI languages**.
 
 ### 7b. User stories (v1.1 — token spike)
 
@@ -249,7 +249,7 @@ Activation: `onStartupFinished`.
 |-------|--------|
 | **MVP** | session + API, status bar, Last 100 webview, polling, errors |
 | **v1.1** | spike `!` (default 1M tokens, user setting), Ignore + persist, 80/90% spend alerts, Copy stats |
-| **1.0.4** | Burn Rate Guard + Coding stats (AI vs git) + 10 UI languages |
+| **1.0.4** | Burn Rate Guard + Coding stats (AI vs git) + 11 UI languages |
 | **v1.2** | (open — sidebar / Quick Pick backlog) |
 | **v2** | Secret Storage, CSV, Open VSX |
 

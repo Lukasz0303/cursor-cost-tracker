@@ -24,7 +24,7 @@
         var lang = localStorage.getItem("cct-site-lang");
         var ok = {
           en: "en", pl: "pl", "zh-cn": "zh-CN", ja: "ja", es: "es",
-          "pt-br": "pt-BR", ru: "ru", ko: "ko", fr: "fr", de: "de"
+          "pt-br": "pt-BR", ru: "ru", ko: "ko", fr: "fr", de: "de", uk: "uk",
         };
         if (lang && ok[lang]) document.documentElement.lang = ok[lang];
       } catch (e) {}
@@ -63,6 +63,7 @@
           <option value="ko">한국어</option>
           <option value="fr">Français</option>
           <option value="de">Deutsch</option>
+          <option value="uk">Українська</option>
         </select>
       </label>
       <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" title="Theme">
@@ -328,7 +329,7 @@
                   <th scope="colgroup" colspan="3" data-i18n="group.setup">Setup · language</th>
                 </tr>
                 <tr class="compare-extra">
-                  <th scope="row" data-i18n="row.uiLang">UI language (10 locales)</th>
+                  <th scope="row" data-i18n="row.uiLang">UI language (11 locales)</th>
                   <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
                   <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
                 </tr>

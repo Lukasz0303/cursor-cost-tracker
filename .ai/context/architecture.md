@@ -45,7 +45,7 @@ The token **never** goes to the webview.
 | `src/burnRate/detect.ts` | Clamps, level, once-per-episode + snooze + grace |
 | `src/burnRate/copy.ts` | English card / toast strings + Statistics payload |
 | `src/codeLines/` | Coding stats: composer headers, git landed / this branch, dashboard Lines Edited split, effectiveness |
-| `src/i18n.ts` / `src/i18n/catalogs/` | UI catalogs (10 locales) |
+| `src/i18n.ts` / `src/i18n/catalogs/` | UI catalogs (11 locales) |
 | `src/locale.ts` | `cursorCost.language` clamp |
 | `src/spikes/threshold.ts` | token spike vs setting |
 | `src/spikes/criticalAlert.ts` | last-query critical threshold + once-per-query decision |

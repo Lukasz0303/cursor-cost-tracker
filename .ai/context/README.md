@@ -26,7 +26,7 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 | Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** Phase 7 / MVP wired. **1.0.4** Burn Rate Guard, Coding stats (AI vs git · All on Cursor), 10 UI languages. See [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired. **1.0.4** Burn Rate Guard, Coding stats (AI vs git · All on Cursor), 11 UI languages. See [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 
