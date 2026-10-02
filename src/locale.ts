@@ -10,6 +10,7 @@ export type Locale =
   | 'ko'
   | 'fr'
   | 'de'
+  | 'uk'
 
 export const DEFAULT_LOCALE: Locale = 'en'
 
@@ -24,6 +25,7 @@ export const LOCALES: Locale[] = [
   'ko',
   'fr',
   'de',
+  'uk',
 ]
 
 const LOCALE_SET = new Set<string>(LOCALES)
@@ -46,6 +48,7 @@ const BCP47: Record<Locale, string> = {
   ko: 'ko-KR',
   fr: 'fr-FR',
   de: 'de-DE',
+  uk: 'uk-UA',
 }
 
 export function localeBcp47(locale: Locale): string {

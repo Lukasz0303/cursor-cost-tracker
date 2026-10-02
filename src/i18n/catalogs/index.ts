@@ -9,6 +9,7 @@ import { RU } from './ru'
 import { KO } from './ko'
 import { FR } from './fr'
 import { DE } from './de'
+import { UK } from './uk'
 
 export type { UiCatalog }
 export { EN, PL }
@@ -24,6 +25,7 @@ const CATALOGS: Record<Locale, UiCatalog> = {
   ko: KO,
   fr: FR,
   de: DE,
+  uk: UK,
 }
 
 export function catalogForLocale(locale: Locale): UiCatalog {

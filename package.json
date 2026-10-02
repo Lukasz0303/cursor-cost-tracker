@@ -88,31 +88,33 @@
         "cursorCost.language": {
           "type": "string",
           "enum": [
-            "en",
-            "pl",
             "zh-cn",
+            "en",
+            "fr",
+            "de",
             "ja",
-            "es",
+            "ko",
+            "pl",
             "pt-br",
             "ru",
-            "ko",
-            "fr",
-            "de"
+            "es",
+            "uk"
           ],
           "default": "en",
           "scope": "window",
           "markdownDescription": "Interface language for the Last N panel, status bar, and toasts. **English** is the default. Independent of the VS Code / Cursor display language.",
           "enumDescriptions": [
-            "English (default)",
-            "Polish",
             "Chinese (Simplified)",
+            "English (default)",
+            "French",
+            "German",
             "Japanese",
-            "Spanish",
+            "Korean",
+            "Polish",
             "Portuguese (Brazil)",
             "Russian",
-            "Korean",
-            "French",
-            "German"
+            "Spanish",
+            "Ukrainian"
           ]
         },
         "cursorCost.pollIntervalMinutes": {
