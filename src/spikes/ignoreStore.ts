@@ -72,7 +72,7 @@ export function isActiveSpike(
     return false
   }
   const key = spikeFingerprint(query)
-  if (ignored instanceof Set) {
+  if ('has' in ignored) {
     return !ignored.has(key)
   }
   return !ignored.includes(key)
