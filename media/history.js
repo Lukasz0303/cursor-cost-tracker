@@ -6011,6 +6011,12 @@
       modelCatalog = data.modelCatalog || null
       if (lastStatsArgs) {
         renderStats.apply(null, lastStatsArgs)
+        if (
+          (chartsViewEl && !chartsViewEl.hidden) ||
+          (statsViewEl && !statsViewEl.hidden)
+        ) {
+          drawAllCharts()
+        }
       }
       return
     }
