@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  billingCycleRenewalDay,
   billingCycleRenewalIsMidday,
   effectiveForecastWindow,
   hasUsableBillingCycle,
@@ -44,7 +43,6 @@ describe('forecast window helpers', () => {
 
   it('exposes the local renewal day and midday marker', () => {
     const end = '2026-10-15T13:51:29.000Z'
-    expect(billingCycleRenewalDay(end)).toBe('2026-10-15')
     expect(billingCycleRenewalIsMidday(end)).toBe(true)
     expect(
       billingCycleRenewalIsMidday(new Date(2026, 9, 15).toISOString()),

@@ -600,9 +600,10 @@ describe('billing-cycle forecast windows', () => {
     expect(resetIndex).toBeGreaterThan(0)
     expect(stats.series[0]?.used[0]).toBe(9)
     expect(stats.series[0]?.used[resetIndex]).toBe(0)
-    expect(stats.series[0]?.forecast[resetIndex - 1]).toBeGreaterThan(
-      stats.series[0]?.forecast[resetIndex] ?? 0,
-    )
+    const forecastBeforeReset = stats.series[0]?.forecast[resetIndex - 1]
+    const forecastAtReset = stats.series[0]?.forecast[resetIndex]
+    const resetLow = Array.isArray(forecastAtReset) ? forecastAtReset[1] : forecastAtReset
+    expect(forecastBeforeReset).toBeGreaterThan(resetLow ?? 0)
   })
 
   it('keeps Pro day percentages scaled to the active pre-reset cycle', () => {
@@ -670,6 +671,8 @@ describe('billing-cycle forecast windows', () => {
 
     expect(resetIndex).toBeGreaterThan(0)
     expect(stats.series[0]?.forecast[resetIndex - 1]).toBeCloseTo(100)
-    expect(stats.series[0]?.forecast[resetIndex]).toBeCloseTo(3)
+    expect(stats.series[0]?.forecast[resetIndex]).toEqual([100, 0])
+    // Next pace day climbs one step from 0 (not two steps / prior day-1 pace).
+    expect(stats.series[0]?.forecast[resetIndex + 1]).toBeCloseTo(3)
   })
 })

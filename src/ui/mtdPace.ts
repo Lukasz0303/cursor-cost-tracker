@@ -3,7 +3,6 @@ import {
   type BudgetDayBasis,
 } from '../budgetDayBasis'
 import {
-  billingCycleRenewalDay,
   billingCycleRenewalIsMidday,
   effectiveForecastWindow,
   isInBillingCycle,
@@ -73,8 +72,8 @@ export type MtdSeries = {
   day: (number | null)[]
   /** Cumulative through that day. `null` after today. */
   used: (number | null)[]
-  /** Working-day pace projected across the whole month. */
-  forecast: (number | null)[]
+  /** Working-day pace projected across the whole month. At reset, `[prevCumulative, 0]`. */
+  forecast: (number | null | [number, number])[]
   /**
    * From today: leftover ceiling spread evenly over remaining working days
    * (lands on the limit at month end). `null` before today.
@@ -644,9 +643,12 @@ export function toMtdSeries(
     paceEnd < ceiling - 0.005
   const day: (number | null)[] = []
   const used: (number | null)[] = []
-  const forecast: (number | null)[] = []
+  const forecast: (number | null | [number, number])[] = []
   const ideal: (number | null)[] = []
+  const resetPaceCount =
+    resetIndex >= 0 ? (frames[resetIndex]?.paceCount ?? 0) : 0
   let running = 0
+  let prevPace: number | null = null
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i]
     if (frame === undefined) {
@@ -669,11 +671,21 @@ export function toMtdSeries(
       day.push(value)
       used.push(running)
     }
+    // Future renew branch: anchor at 0 on the reset day so the line climbs
+    // 0, 1×rate, 2×rate… After a forced [prev, 0] drop, using raw paceCount
+    // would start the next day at 2×rate and look like a knee above 0.
+    const paceFromZero =
+      !activeBranchStartsAtReset && resetIndex >= 0 && i >= resetIndex
     const pace =
-      perWorkingDay === null ? null : frame.paceCount * perWorkingDay
+      perWorkingDay === null
+        ? null
+        : paceFromZero
+          ? Math.max(0, frame.paceCount - resetPaceCount) * perWorkingDay
+          : frame.paceCount * perWorkingDay
     const inActiveBranch =
       resetIndex < 0 ||
       (activeBranchStartsAtReset ? i >= resetIndex : i < resetIndex)
+    let forecastValue: number | null | [number, number]
     if (
       !finishAtCeiling ||
       pace === null ||
@@ -681,14 +693,23 @@ export function toMtdSeries(
       i < today ||
       !inActiveBranch
     ) {
-      forecast.push(pace)
+      forecastValue = pace
     } else if (activeRemaining <= 0) {
-      forecast.push(ceiling)
+      forecastValue = ceiling
     } else {
-      forecast.push(
+      forecastValue =
         total +
-          ((left ?? 0) * (frame.paceCount - paceElapsed)) / activeRemaining,
-      )
+        ((left ?? 0) * (frame.paceCount - paceElapsed)) / activeRemaining
+    }
+    // At reset: vertical drop from the prior cumulative to 0 (new cycle).
+    if (frame.reset && prevPace !== null) {
+      forecast.push([prevPace, 0])
+      prevPace = 0
+    } else {
+      forecast.push(forecastValue)
+      if (typeof forecastValue === 'number') {
+        prevPace = forecastValue
+      }
     }
     // Ideal from today: burn the leftover ceiling evenly over remaining
     // pace days so you land on the limit at month end. Past days stay
@@ -731,13 +752,17 @@ export function toMtdSeries(
 }
 
 function firstRunOutDate(
-  forecast: (number | null)[],
+  forecast: (number | null | [number, number])[],
   frames: DayFrame[],
   ceiling: number,
 ): string | null {
   for (let i = 0; i < forecast.length; i++) {
     const value = forecast[i]
-    if (value === null || value === undefined || value < ceiling - 0.005) {
+    if (value === null || value === undefined) {
+      continue
+    }
+    const numValue = Array.isArray(value) ? value[1] : value
+    if (numValue < ceiling - 0.005) {
       continue
     }
     return frames[i]?.date ?? null

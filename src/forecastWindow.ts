@@ -66,13 +66,6 @@ export function localDayKey(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-export function billingCycleRenewalDay(
-  end: string | null | undefined,
-): string | null {
-  const date = end ? new Date(end) : null
-  return date !== null && Number.isFinite(date.getTime()) ? localDayKey(date) : null
-}
-
 export function billingCycleRenewalIsMidday(
   end: string | null | undefined,
 ): boolean {

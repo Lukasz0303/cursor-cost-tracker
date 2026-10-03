@@ -2448,7 +2448,12 @@
     if (!line || !line.forecast) {
       return null
     }
-    return line.forecast[index]
+    const raw = line.forecast[index]
+    // Handle reset array [high, low] - return the low value
+    if (Array.isArray(raw)) {
+      return raw[1]
+    }
+    return raw
   }
 
   function mtdTipValueClass(used, limit) {
@@ -2680,6 +2685,11 @@
         out.push(null)
         continue
       }
+      // Handle reset array [high, low] - keep as-is for appendLine to handle
+      if (Array.isArray(raw)) {
+        out.push(raw)
+        continue
+      }
       const n = Number(raw)
       out.push(Number.isFinite(n) ? Math.max(0, n) : 0)
     }
@@ -2693,13 +2703,17 @@
       if (raw === null || raw === undefined) {
         continue
       }
-      const n = Number(raw)
-      if (!Number.isFinite(n)) {
-        continue
+      // Handle reset array [high, low] or single value
+      const nums = Array.isArray(raw) ? raw : [raw]
+      for (let j = 0; j < nums.length; j++) {
+        const n = Number(nums[j])
+        if (!Number.isFinite(n)) {
+          continue
+        }
+        const x = pointX(i, values.length, left, plotW)
+        const y = yAt(Math.min(Math.max(0, n), max), max, top, plotH)
+        pts.push(x + ',' + y)
       }
-      const x = pointX(i, values.length, left, plotW)
-      const y = yAt(Math.min(Math.max(0, n), max), max, top, plotH)
-      pts.push(x + ',' + y)
     }
     if (pts.length === 0) {
       return
@@ -3167,7 +3181,9 @@
           svg.appendChild(label)
         }
       } else {
-        const end = line.forecast[lastIdx]
+        const raw = line.forecast[lastIdx]
+        // Handle reset array [high, low] - use the low value
+        const end = Array.isArray(raw) ? raw[1] : raw
         if (end !== null && end !== undefined && end <= maxCum) {
           svg.appendChild(
             svgNode('circle', {
