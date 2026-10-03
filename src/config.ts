@@ -4,6 +4,11 @@ import {
   type BudgetDayBasis,
 } from './budgetDayBasis'
 import {
+  DEFAULT_FORECAST_WINDOW,
+  parseForecastWindow,
+  type ForecastWindow,
+} from './forecastWindow'
+import {
   DEFAULT_OPTIMIZE_DEPTH,
   parseOptimizeDepth,
   type OptimizeDepth,
@@ -144,6 +149,7 @@ export type CursorCostConfig = {
   /** Local `YYYY-MM-DD`; `null` uses Last N (`historyLimit`). */
   historyFromDate: string | null
   budgetDayBasis: BudgetDayBasis
+  forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
   language: Locale
   okColor: string
@@ -172,6 +178,7 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   historyLimit: DEFAULT_HISTORY_LIMIT,
   historyFromDate: null,
   budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
+  forecastWindow: DEFAULT_FORECAST_WINDOW,
   optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
   language: DEFAULT_LOCALE,
   okColor: DEFAULT_OK_COLOR,
@@ -274,6 +281,9 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     historyFromDate: parseHistoryFromDate(section.get('historyFromDate', '')),
     budgetDayBasis: parseBudgetDayBasis(
       section.get('budgetDayBasis', DEFAULT_BUDGET_DAY_BASIS),
+    ),
+    forecastWindow: parseForecastWindow(
+      section.get('forecastWindow', DEFAULT_FORECAST_WINDOW),
     ),
     optimizeDepth: parseOptimizeDepth(
       section.get('optimizeDepth', DEFAULT_OPTIMIZE_DEPTH),

@@ -12,6 +12,7 @@ import {
 import { catalogFor } from '../i18n'
 import { DEFAULT_LOCALE, parseLocale, type Locale } from '../locale'
 import { parseHistoryFromDate } from '../historyFromDate'
+import type { ForecastWindow } from '../forecastWindow'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
@@ -92,6 +93,7 @@ export type HistoryRowOptions = {
   minimalMode?: boolean
   recentQueryCount?: number
   budgetDayBasis?: BudgetDayBasis
+  forecastWindow?: ForecastWindow
   optimizeDepth?: OptimizeDepth
   /** Raw `.ai/optimize-savings.md` when present (agent-written after Start). */
   optimizeSavingsMarkdown?: string | null
@@ -186,6 +188,7 @@ export type HistoryDataPayload = {
   minimalMode: boolean
   recentQueryCount: number
   budgetDayBasis: BudgetDayBasis
+  forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
   burnRateGuard: boolean
   burnRateWindowMinutes: number
@@ -246,6 +249,8 @@ export function historyDataPayload(
     options?.recentQueryCount ?? DEFAULT_RECENT_QUERY_COUNT,
   )
   const budgetDayBasis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
+  const forecastWindow =
+    options?.forecastWindow ?? DEFAULT_CURSOR_COST_CONFIG.forecastWindow
   const optimizeDepth = options?.optimizeDepth ?? DEFAULT_OPTIMIZE_DEPTH
   const burnRateGuard = options?.burnRateGuard !== false
   const burnRateWindowMinutes =
@@ -300,6 +305,7 @@ export function historyDataPayload(
     minimalMode,
     recentQueryCount,
     budgetDayBasis,
+    forecastWindow,
     optimizeDepth,
     burnRateGuard,
     burnRateWindowMinutes,
@@ -327,6 +333,7 @@ export function historyDataPayload(
     minimalMode,
     recentQueryCount,
     budgetDayBasis,
+    forecastWindow,
     optimizeDepth,
     burnRateGuard,
     burnRateWindowMinutes,
@@ -364,6 +371,7 @@ export function historyDataPayload(
       historyFromDate,
       budgetDayBasis,
       locale: language,
+      forecastWindow,
     }),
     optimize: toOptimizePayload(queries, {
       depth: optimizeDepth,

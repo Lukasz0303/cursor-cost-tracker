@@ -2,6 +2,16 @@ import {
   DEFAULT_BUDGET_DAY_BASIS,
   type BudgetDayBasis,
 } from '../budgetDayBasis'
+import {
+  billingCycleRenewalDay,
+  billingCycleRenewalIsMidday,
+  effectiveForecastWindow,
+  isInBillingCycle,
+  localDayKey as forecastLocalDayKey,
+  parseBillingCycleRange,
+  type BillingCycleRange,
+  type ForecastWindow,
+} from '../forecastWindow'
 import { formatDollars, formatPercentPoint } from '../format'
 import {
   clampHistoryLimit,
@@ -20,7 +30,6 @@ import {
   budgetDaysAfterToday,
   budgetDaysElapsedInMonth,
   budgetDaysInMonth,
-  sumMonthUsedUsd,
 } from '../usage/parse'
 import type { IncludedQuota, UsageQuery, UsageSnapshot } from '../usage/types'
 import type { PeriodBar, PeriodMetric } from './periodStats'
@@ -92,6 +101,10 @@ export type MtdPacePayload = {
   chart: MtdChartPoint[]
   forecast: MtdForecastPoint[]
   series: MtdSeries[]
+  forecastWindow: ForecastWindow
+  billingCycleAvailable: boolean
+  resetDate: string | null
+  resetMidday: boolean
 }
 
 export type MtdPaceOptions = {
@@ -99,6 +112,7 @@ export type MtdPaceOptions = {
   historyFromDate?: string | null
   now?: Date
   budgetDayBasis?: BudgetDayBasis
+  forecastWindow?: ForecastWindow
   locale?: Locale
 }
 
@@ -110,6 +124,8 @@ export type DayFrame = {
   workingCount: number
   future: boolean
   usd: number
+  reset: boolean
+  paceCount: number
 }
 
 function newestQueries(queries: UsageQuery[], limit: number): UsageQuery[] {
@@ -381,7 +397,121 @@ export function toMonthFrames(
       workingCount,
       future,
       usd: future ? 0 : (byDay.get(localDayKey(year, month, day)) ?? 0),
+      reset: false,
+      paceCount: workingCount,
     })
+  }
+  return frames
+}
+
+function toForecastFrames(
+  queries: UsageQuery[],
+  now: Date,
+  basis: BudgetDayBasis,
+  window: ForecastWindow,
+  range: BillingCycleRange | null,
+  pool?: IncludedModelPool | null,
+): DayFrame[] {
+  if (window === 'billingCycle' && range !== null) {
+    const frames: DayFrame[] = []
+    const start = new Date(
+      range.start.getFullYear(),
+      range.start.getMonth(),
+      range.start.getDate(),
+    )
+    const end = new Date(
+      range.end.getFullYear(),
+      range.end.getMonth(),
+      range.end.getDate(),
+    )
+    const lastDay =
+      range.end.getHours() !== 0 ||
+      range.end.getMinutes() !== 0 ||
+      range.end.getSeconds() !== 0 ||
+      range.end.getMilliseconds() !== 0
+        ? end
+        : new Date(end.getTime() - 24 * 60 * 60 * 1000)
+    let paceCount = 0
+    for (
+      const date = start;
+      date.getTime() <= lastDay.getTime();
+      date.setDate(date.getDate() + 1)
+    ) {
+      const weekday = !isWeekend(date.getFullYear(), date.getMonth(), date.getDate())
+      const paceDay = basis === 'calendarDays' || weekday
+      if (paceDay) {
+        paceCount += 1
+      }
+      const future = date > now
+      const dayQueries = queries.filter(
+        (query) =>
+          queryDayKey(query.timestamp) === forecastLocalDayKey(date) &&
+          isInBillingCycle(query.timestamp, range) &&
+          (pool === undefined ||
+            pool === null ||
+            includedPoolForModel(query.model) === pool),
+      )
+      frames.push({
+        date: dayLabel(date.getDate(), date.getMonth()),
+        weekday,
+        workingDayIndex: paceDay ? paceCount : null,
+        workingCount: paceCount,
+        future,
+        usd: future
+          ? 0
+          : dayQueries.reduce((sum, query) => sum + query.costUsd, 0),
+        reset: false,
+        paceCount,
+      })
+    }
+    return frames
+  }
+
+  const frames = toMonthFrames(queries, now, basis, pool)
+  if (range === null) {
+    return frames
+  }
+  const resetDateLabel = dayLabel(range.end.getDate(), range.end.getMonth());
+  const resetIndex = frames.findIndex(
+    (frame) => frame.date === resetDateLabel,
+  )
+  if (resetIndex <= 0 || resetIndex >= frames.length - 1) {
+    return frames
+  }
+  const first = frames[0]
+  if (first === undefined) {
+    return frames
+  }
+  const firstMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  const residue = queries
+    .filter(
+      (query) =>
+        query.timestamp < firstMonth &&
+        isInBillingCycle(query.timestamp, range) &&
+        (pool === undefined ||
+          pool === null ||
+          includedPoolForModel(query.model) === pool),
+    )
+    .reduce((sum, query) => sum + query.costUsd, 0)
+  first.usd += residue
+  let branchCount = 0
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index]
+    if (frame === undefined) {
+      continue
+    }
+    if (index >= resetIndex) {
+      if (index === resetIndex) {
+        branchCount = 0
+      }
+      if (frame.workingDayIndex !== null) {
+        branchCount += 1
+      }
+    } else {
+      branchCount = frame.workingCount
+    }
+    frame.reset = index === resetIndex
+    frame.paceCount = branchCount
   }
   return frames
 }
@@ -395,7 +525,7 @@ export function toMtdDays(
     weekday: frame.weekday,
     workingDayIndex: frame.workingDayIndex,
     allowanceUsd:
-      dailyAllowance === null ? null : frame.workingCount * dailyAllowance,
+      dailyAllowance === null ? null : frame.paceCount * dailyAllowance,
   }))
 }
 
@@ -408,6 +538,49 @@ function todayIndex(frames: DayFrame[]): number {
     }
   }
   return index
+}
+
+function elapsedFrameDays(frames: DayFrame[]): number {
+  const today = todayIndex(frames)
+  return today < 0 ? 0 : frames[today]?.paceCount ?? 0
+}
+
+function chartFromFrames(
+  frames: DayFrame[],
+  budget: number | null,
+): MtdChartPoint[] {
+  let used = 0
+  return frames.map((frame) => {
+    if (frame.reset) {
+      used = 0
+    }
+    used += frame.future ? 0 : frame.usd
+    return {
+      date: frame.date,
+      weekday: frame.weekday,
+      workingDayIndex: frame.workingDayIndex,
+      dayUsedUsd: frame.future ? 0 : frame.usd,
+      usedUsd: used,
+      allowanceUsd:
+        budget === null ? null : frame.paceCount * budget,
+    }
+  })
+}
+
+function resetDateForFrames(frames: DayFrame[]): string | null {
+  return frames.find((frame) => frame.reset)?.date ?? null
+}
+
+function activeFrameUsed(frames: DayFrame[]): number {
+  const today = todayIndex(frames)
+  if (today < 0) {
+    return 0
+  }
+  const reset = frames.findIndex((frame) => frame.reset)
+  const start = reset >= 0 && today >= reset ? reset : 0
+  return frames
+    .slice(start, today + 1)
+    .reduce((sum, frame) => sum + frame.usd, 0)
 }
 
 /**
@@ -429,14 +602,38 @@ export function toMtdSeries(
   for (const frame of frames) {
     spent += frame.usd
   }
-  const scale = spent > 0.000001 ? total / spent : null
-  const perWorkingDay = elapsed > 0 ? total / elapsed : null
+  const resetIndex = frames.findIndex((frame) => frame.reset)
+  const today = todayIndex(frames)
+  const activeBranchStartsAtReset = resetIndex >= 0 && today >= resetIndex
+  const activeStart = activeBranchStartsAtReset ? resetIndex : 0
+  const activeEnd =
+    resetIndex >= 0 && !activeBranchStartsAtReset ? resetIndex : frames.length
+  const activeSpent =
+    resetIndex >= 0
+      ? frames
+          .slice(activeStart, activeEnd)
+          .reduce((sum, frame) => sum + frame.usd, 0)
+      : spent
+  // Cursor's quota percent belongs to the branch containing today. A future
+  // reset has no spend yet, so scaling against its branch would expose raw USD
+  // as percent instead of distributing the current cycle percentage.
+  const scale = activeSpent > 0.000001 ? total / activeSpent : null
+  const paceElapsed =
+    resetIndex >= 0 && today >= 0 ? (frames[today]?.paceCount ?? elapsed) : elapsed
+  const perWorkingDay = paceElapsed > 0 ? total / paceElapsed : null
   const remaining = Math.max(0, weekdayTotal - elapsed)
   const left = ceiling === null ? null : Math.max(0, ceiling - total)
+  const activePaceTotal =
+    resetIndex < 0
+      ? weekdayTotal
+      : activeBranchStartsAtReset
+        ? (frames[frames.length - 1]?.paceCount ?? paceElapsed)
+        : (frames[resetIndex - 1]?.paceCount ?? paceElapsed)
+  const activeRemaining = Math.max(0, activePaceTotal - paceElapsed)
   const paceEnd =
-    perWorkingDay === null || weekdayTotal <= 0
+    perWorkingDay === null || activePaceTotal <= 0
       ? null
-      : perWorkingDay * weekdayTotal
+      : perWorkingDay * activePaceTotal
   // Pace that finishes under the cap is drawn up to the limit. A pace that
   // already crosses the cap stays put so the run-out day is still visible.
   const finishAtCeiling =
@@ -450,7 +647,6 @@ export function toMtdSeries(
   const forecast: (number | null)[] = []
   const ideal: (number | null)[] = []
   let running = 0
-  const today = todayIndex(frames)
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i]
     if (frame === undefined) {
@@ -460,6 +656,9 @@ export function toMtdSeries(
       day.push(null)
       used.push(null)
     } else {
+      if (frame.reset) {
+        running = 0
+      }
       const value =
         scale !== null
           ? frame.usd * scale
@@ -471,14 +670,24 @@ export function toMtdSeries(
       used.push(running)
     }
     const pace =
-      perWorkingDay === null ? null : frame.workingCount * perWorkingDay
-    if (!finishAtCeiling || pace === null || today < 0 || i < today) {
+      perWorkingDay === null ? null : frame.paceCount * perWorkingDay
+    const inActiveBranch =
+      resetIndex < 0 ||
+      (activeBranchStartsAtReset ? i >= resetIndex : i < resetIndex)
+    if (
+      !finishAtCeiling ||
+      pace === null ||
+      today < 0 ||
+      i < today ||
+      !inActiveBranch
+    ) {
       forecast.push(pace)
-    } else if (remaining <= 0) {
+    } else if (activeRemaining <= 0) {
       forecast.push(ceiling)
     } else {
       forecast.push(
-        total + ((left ?? 0) * (frame.workingCount - elapsed)) / remaining,
+        total +
+          ((left ?? 0) * (frame.paceCount - paceElapsed)) / activeRemaining,
       )
     }
     // Ideal from today: burn the leftover ceiling evenly over remaining
@@ -867,15 +1076,44 @@ export function toMtdPace(
   const now = options?.now ?? new Date()
   const basis = options?.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
   const locale = options?.locale ?? DEFAULT_LOCALE
+  const billingCycleStart =
+    snapshot.status === 'ready' ? snapshot.data.billingCycleStart : null
+  const billingCycleEnd =
+    snapshot.status === 'ready' ? snapshot.data.billingCycleEnd : null
+  const range = parseBillingCycleRange(billingCycleStart, billingCycleEnd)
+  const forecastWindow = effectiveForecastWindow(
+    options?.forecastWindow,
+    billingCycleStart,
+    billingCycleEnd,
+  )
+  const billingCycleAvailable = range !== null &&
+    effectiveForecastWindow('billingCycle', billingCycleStart, billingCycleEnd) ===
+      'billingCycle'
   const copy = catalogFor(locale).mtd
   const sample = newestQueries(
     queries,
     sampleSizeLimit(historyLimit, historyFromDate),
   )
-  const elapsed = budgetDaysElapsedInMonth(now, basis)
-  const weekdayTotal = budgetDaysInMonth(now, basis)
-  const remaining = budgetDaysAfterToday(now, basis)
-  const frames = toMonthFrames(sample, now, basis)
+  const frames = toForecastFrames(
+    sample,
+    now,
+    basis,
+    forecastWindow,
+    range,
+  )
+  const resetDate = resetDateForFrames(frames)
+  const elapsed =
+    forecastWindow === 'calendarMonth'
+      ? budgetDaysElapsedInMonth(now, basis)
+      : elapsedFrameDays(frames)
+  const weekdayTotal =
+    forecastWindow === 'calendarMonth'
+      ? budgetDaysInMonth(now, basis)
+      : frames[frames.length - 1]?.paceCount ?? 0
+  const remaining =
+    forecastWindow === 'calendarMonth'
+      ? budgetDaysAfterToday(now, basis)
+      : Math.max(0, weekdayTotal - elapsed)
   const quotas = includedQuotas(snapshot)
   const primary = quotas[0]
 
@@ -894,7 +1132,14 @@ export function toMtdPace(
         quotaSeriesId(quota.name, index),
         quota.name,
         Math.max(0, quota.percent),
-        toMonthFrames(sample, now, basis, includedPoolForQuotaName(quota.name)),
+        toForecastFrames(
+          sample,
+          now,
+          basis,
+          forecastWindow,
+          range,
+          includedPoolForQuotaName(quota.name),
+        ),
         elapsed,
         MTD_PERCENT_MAX,
         weekdayTotal,
@@ -957,13 +1202,19 @@ export function toMtdPace(
       verdict: answer.verdict,
       unit: 'percent',
       max: MTD_PERCENT_MAX,
-      chart: toMtdChart(sample, null, now, basis),
+      chart: chartFromFrames(frames, null),
       forecast: toMtdDays(frames, daily),
       series,
+      forecastWindow,
+      billingCycleAvailable,
+      resetDate,
+      resetMidday:
+        resetDate !== null &&
+        billingCycleRenewalIsMidday(billingCycleEnd),
     }
   }
 
-  const used = sumMonthUsedUsd(sample, now)
+  const used = activeFrameUsed(frames)
   const budget = dailyBudget(snapshot)
   const monthCap = weekdayTotal <= 0 ? null : monthCapUsd(snapshot)
   const paceBudget = monthCap === null ? null : monthCap / weekdayTotal
@@ -1050,8 +1301,14 @@ export function toMtdPace(
     verdict: answer.verdict,
     unit: 'usd',
     max: null,
-    chart: toMtdChart(sample, paceBudget, now, basis),
+    chart: chartFromFrames(frames, paceBudget),
     forecast: toMtdDays(frames, paceBudget),
     series,
+    forecastWindow,
+    billingCycleAvailable,
+    resetDate,
+    resetMidday:
+      resetDate !== null &&
+      billingCycleRenewalIsMidday(billingCycleEnd),
   }
 }

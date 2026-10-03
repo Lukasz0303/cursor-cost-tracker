@@ -148,6 +148,7 @@ describe('historyDataPayload', () => {
       'criticalTokenThreshold',
       'events',
       'extensionVersion',
+      'forecastWindow',
       'historyFromDate',
       'historyLimit',
       'i18n',
@@ -176,6 +177,7 @@ describe('historyDataPayload', () => {
     expect(payload.language).toBe('en')
     expect(payload.i18n.tabs.settings).toBe('Settings')
     expect(payload.optimizeDepth).toBe('balanced')
+    expect(payload.forecastWindow).toBe('calendarMonth')
     expect(payload.support).toEqual({
       buyMeACoffee: true,
       githubSponsors: false,
@@ -235,6 +237,37 @@ describe('historyDataPayload', () => {
       return
     }
     expect(Object.keys(row).sort()).toEqual([...HISTORY_ROW_KEYS].sort())
+  })
+
+  it('passes forecastWindow into the MTD payload', () => {
+    const payload = historyDataPayload(
+      [],
+      undefined,
+      { forecastWindow: 'billingCycle' },
+      {
+        status: 'ready',
+        data: {
+          email: null,
+          plan: 'business',
+          spendDisplay: 'usd',
+          includedQuotas: [],
+          usedUsd: 0,
+          limitUsd: 100,
+          remainingUsd: 100,
+          todayUsedUsd: 0,
+          dailyBudgetUsd: 10,
+          workingDaysLeft: 20,
+          billingCycleStart: '2026-09-26T13:51:29.000Z',
+          billingCycleEnd: '2026-10-26T13:51:29.000Z',
+          isUnlimited: false,
+          includedLine: null,
+          onDemandLine: null,
+          recentQueries: [],
+        },
+      },
+    )
+    expect(payload.forecastWindow).toBe('billingCycle')
+    expect(payload.mtd.forecastWindow).toBe('billingCycle')
   })
 })
 

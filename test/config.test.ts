@@ -197,6 +197,22 @@ describe('cursorCostConfigFrom', () => {
     expect(config.budgetDayBasis).toBe('calendarDays')
   })
 
+  it('reads forecastWindow independently from budgetDayBasis', () => {
+    const config = cursorCostConfigFrom({
+      get(key, defaultValue) {
+        if (key === 'budgetDayBasis') {
+          return 'calendarDays'
+        }
+        if (key === 'forecastWindow') {
+          return 'billingCycle'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.budgetDayBasis).toBe('calendarDays')
+    expect(config.forecastWindow).toBe('billingCycle')
+  })
+
   it('falls back to workingDays for unknown budgetDayBasis', () => {
     const config = cursorCostConfigFrom({
       get(key, defaultValue) {

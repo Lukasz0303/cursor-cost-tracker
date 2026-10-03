@@ -37,6 +37,7 @@ import {
 import { catalogFor, interpolate } from '../i18n'
 import { parseLocale } from '../locale'
 import { parseHistoryFromDate } from '../historyFromDate'
+import { parseForecastWindow, type ForecastWindow } from '../forecastWindow'
 import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
@@ -180,6 +181,8 @@ function asConfigPatch(
       return { [key]: value === true }
     case 'budgetDayBasis':
       return { budgetDayBasis: parseBudgetDayBasis(value) }
+    case 'forecastWindow':
+      return { forecastWindow: parseForecastWindow(value) }
     case 'optimizeDepth':
       return { optimizeDepth: parseOptimizeDepth(value) }
     case 'language':
@@ -625,6 +628,13 @@ export class HistoryPanel {
       )
       return
     }
+    if (type === 'setForecastWindow') {
+      void this.writeSetting(
+        'forecastWindow',
+        parseForecastWindow((message as { value?: unknown }).value),
+      )
+      return
+    }
     if (type === 'setOptimizeDepth') {
       void this.writeSetting(
         'optimizeDepth',
@@ -843,6 +853,7 @@ export class HistoryPanel {
       minimalMode: boolean
       recentQueryCount: number
       budgetDayBasis: BudgetDayBasis
+      forecastWindow: ForecastWindow
       optimizeDepth: OptimizeDepth
       burnRateGuard: boolean
       burnRateWindowMinutes: number
@@ -876,6 +887,7 @@ export class HistoryPanel {
       minimalMode: boolean
       recentQueryCount: number
       budgetDayBasis: BudgetDayBasis
+      forecastWindow: ForecastWindow
       optimizeDepth: OptimizeDepth
       burnRateGuard: boolean
       burnRateWindowMinutes: number
@@ -964,6 +976,7 @@ export class HistoryPanel {
         minimalMode: config.minimalMode,
         recentQueryCount: config.recentQueryCount,
         budgetDayBasis: config.budgetDayBasis,
+        forecastWindow: config.forecastWindow,
         optimizeDepth: config.optimizeDepth,
         burnRateGuard: config.burnRateGuard,
         burnRateWindowMinutes: config.burnRateWindowMinutes,

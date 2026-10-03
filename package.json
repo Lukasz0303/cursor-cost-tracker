@@ -266,6 +266,20 @@
             "Every calendar day in the month, including weekends."
           ]
         },
+        "cursorCost.forecastWindow": {
+          "type": "string",
+          "enum": [
+            "calendarMonth",
+            "billingCycle"
+          ],
+          "default": "calendarMonth",
+          "scope": "window",
+          "markdownDescription": "Which window powers the monthly forecast. **Calendar month** (default) uses the local calendar month. **Billing cycle** follows Cursor's monthly billing cycle when the usage summary provides a valid 26–35 day cycle.",
+          "enumDescriptions": [
+            "Local calendar month (default).",
+            "Cursor billing cycle, when a valid monthly cycle is available."
+          ]
+        },
         "cursorCost.optimizeDepth": {
           "type": "string",
           "enum": [
