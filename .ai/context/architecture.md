@@ -53,6 +53,7 @@ The token **never** goes to the webview.
 | `src/format.ts` | dollars, percents, tokens, dates, kind |
 | `src/config.ts` | `workspace.getConfiguration('cursorCost')`; light/dark default colors |
 | `src/budgetDayBasis.ts` | working days vs calendar days |
+| `src/forecastWindow.ts` | calendar-month vs valid monthly billing-cycle forecast window |
 | `src/optimizeDepth.ts` | Optimize prompt depth (`quick` / `balanced` / `deep`) |
 | `src/historyLimit.ts` | clamp Last N (100–10,000, default 1000); From date headings |
 | `src/historyFromDate.ts` | parse `YYYY-MM-DD`, start of month, local day bounds |
@@ -70,7 +71,7 @@ If you change the directory layout, update this file and `shared.mdc`.
 1. `activate` → `UsageService.start()` (fetch in the background).
 2. Snapshot: `loading` | `ready` | `error`.
 3. Status bar, the critical-alert controller, and the burn-rate controller subscribe to the snapshot.
-4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', events, stats }` (no token). Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value.
+4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', events, stats }` (no token), including the effective forecast window and renewal marker metadata. Settings also receives `statusBarPreview` (sample chips) and every `cursorCost.*` value; billing-cycle availability comes from the existing usage-summary cycle dates.
 5. Refresh (status bar, Last N toolbar, or command) → `service.refresh()`; if the panel is open it receives a new `data` message. Export CSV on the Last N toolbar saves the Last N or From-date sample.
 
 ## 4. MVP boundaries
