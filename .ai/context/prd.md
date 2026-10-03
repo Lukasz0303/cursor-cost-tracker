@@ -174,6 +174,8 @@ v1.1: token-spike bang (§5.1–5.2), Ignore, configurable threshold; 80%/90% sp
 
 **Month to date / Monthly cost forecast:** same events sample. **Unit follows the plan:** Team / Business / Enterprise use **dollars** (`unit: 'usd'`); personal Pro / Pro+ use **included percent** (`unit: 'percent'`). Team: this calendar month’s spend / (pace days so far × daily budget), one Spend series with run-out / today vs daily budget meters. Personal Pro: included quotas vs even pace (100% ÷ pace days this month). Pace days follow `budgetDayBasis`: Mon–Fri by default, or all calendar days. The same forecast chart appears on Statistics and Charts (calendar days 1st → month end: cumulative bars + used on one scale, dashed forecast, dotted leftover ideal). No daily dollar budget on Team: spend / pace-day dollar forecast. No pace day yet → spend / — without a meter.
 
+**Forecast window:** `cursorCost.forecastWindow` defaults to `calendarMonth` and may use `billingCycle` for the Monthly cost forecast only. Billing Cycle is available when `usage-summary` provides a valid monthly `[start, end)` window (26–35 days); otherwise the option is hidden and the effective window falls back to the calendar month. In calendar-month mode, an in-month renewal marks the chart and drops used/forecast at the renewal day. Status bar and Today remain calendar-month based.
+
 On Pro the block is titled **Monthly cost forecast**. Each quota meter shows cycle used vs 100% plus a run-out date (or “lasts the month”), and the 0–100% chart marks where each forecast hits the ceiling. Quota percent is only reported per cycle, so a day’s share is weighted by that day’s dollar spend.
 
 **Last N:** same events API, `pageSize=100`, extra pages until `cursorCost.historyLimit` (default **1000**, min 100, max 10_000). When `cursorCost.historyFromDate` is a local calendar day (`YYYY-MM-DD`, e.g. `2026-09-01` for the start of September), fetch from that day’s 00:00 through today instead of Last N (still capped at 10,000).
@@ -235,6 +237,7 @@ media/history.{html,css,js}
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignored when From date is set |
 | `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date** (Start of month / Today); empty = Last N |
 | `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (Mon–Fri, default) or `calendarDays` (every day in the month); Settings **Pace by** — Today daily budget, MTD meters, forecast |
+| `cursorCost.forecastWindow` | `calendarMonth` | `calendarMonth` or `billingCycle`; Billing Cycle is offered only for a valid monthly usage-summary cycle and applies to the Monthly cost forecast |
 | `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | good-state color (darker `#18794E` on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | warning color (darker `#C50F1F` on light themes) |

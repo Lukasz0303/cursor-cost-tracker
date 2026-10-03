@@ -8,6 +8,7 @@ import {
   colorSchemeFromKind,
   parseHexColor,
   resolveStatusColors,
+  type ConfigSection,
 } from '../src/config'
 
 describe('parseHexColor', () => {
@@ -40,16 +41,16 @@ describe('config overlay', () => {
       },
     }
     patchCursorCostConfigOverlay({ recentQueryCount: 1 })
-    expect(readCursorCostConfig(section).recentQueryCount).toBe(1)
+    expect(readCursorCostConfig(section as ConfigSection).recentQueryCount).toBe(1)
     reconcileCursorCostConfigOverlay({
-      get(key: string, defaultValue: unknown) {
+      get(key: string, defaultValue: any) {
         if (key === 'recentQueryCount') {
           return 1
         }
         return defaultValue
       },
     })
-    expect(readCursorCostConfig(section).recentQueryCount).toBe(6)
+    expect(readCursorCostConfig(section as ConfigSection).recentQueryCount).toBe(6)
     clearCursorCostConfigOverlay()
   })
 })
@@ -57,7 +58,7 @@ describe('config overlay', () => {
 describe('cursorCostConfigFrom', () => {
   it('reads warning colors from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'okColor') {
           return '#abc'
         }
@@ -94,7 +95,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads Burn Rate Guard settings and raises critical to warning', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'burnRateGuard') {
           return false
         }
@@ -127,7 +128,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads language from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'language') {
           return 'pl'
         }
@@ -139,7 +140,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('falls back to English for invalid language', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'language') {
           return 'hi'
         }
@@ -151,7 +152,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads Chinese Simplified language from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'language') {
           return 'zh-cn'
         }
@@ -163,7 +164,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads historyFromDate from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'historyFromDate') {
           return '2026-09-01'
         }
@@ -175,7 +176,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('clears invalid historyFromDate', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'historyFromDate') {
           return '01.09.2026'
         }
@@ -187,7 +188,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads budgetDayBasis from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'budgetDayBasis') {
           return 'calendarDays'
         }
@@ -197,9 +198,25 @@ describe('cursorCostConfigFrom', () => {
     expect(config.budgetDayBasis).toBe('calendarDays')
   })
 
+  it('reads forecastWindow independently from budgetDayBasis', () => {
+    const config = cursorCostConfigFrom({
+      get(key: string, defaultValue: any) {
+        if (key === 'budgetDayBasis') {
+          return 'calendarDays'
+        }
+        if (key === 'forecastWindow') {
+          return 'billingCycle'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.budgetDayBasis).toBe('calendarDays')
+    expect(config.forecastWindow).toBe('billingCycle')
+  })
+
   it('falls back to workingDays for unknown budgetDayBasis', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'budgetDayBasis') {
           return 'weekendsOnly'
         }
@@ -211,7 +228,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('reads optimizeDepth from settings', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'optimizeDepth') {
           return 'deep'
         }
@@ -223,7 +240,7 @@ describe('cursorCostConfigFrom', () => {
 
   it('falls back to balanced for unknown optimizeDepth', () => {
     const config = cursorCostConfigFrom({
-      get(key, defaultValue) {
+      get(key: string, defaultValue: any) {
         if (key === 'optimizeDepth') {
           return 'mega'
         }

@@ -200,6 +200,10 @@ export const EN = {
     "workingDays": "Working days (Mon–Fri)",
     "calendarDays": "All calendar days",
     "budgetHint": "How daily budget, Today, and the monthly forecast spread the remaining cycle. Working days is the default (~22 in September). Calendar days uses every day in the month (30 in September).",
+    "forecastWindow": "Forecast window",
+    "calendarMonth": "Calendar month",
+    "billingCycle": "Billing cycle",
+    "forecastWindowHint": "Use the calendar month or Cursor's available monthly billing cycle for the forecast meters and chart.",
     "optimize": "Optimize",
     "promptDepth": "Prompt depth",
     "depthQuick": "Quick",
@@ -597,4 +601,13 @@ export const EN = {
   }
 }
 
-export type UiCatalog = typeof EN
+type ForecastSettingsKeys =
+  | 'forecastWindow'
+  | 'calendarMonth'
+  | 'billingCycle'
+  | 'forecastWindowHint'
+
+export type UiCatalog = Omit<typeof EN, 'settings'> & {
+  settings: Omit<typeof EN.settings, ForecastSettingsKeys> &
+    Partial<Pick<typeof EN.settings, ForecastSettingsKeys>>
+}

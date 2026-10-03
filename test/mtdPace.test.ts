@@ -547,3 +547,132 @@ describe('toMtdSeries', () => {
     expect(line.ideal[29]).toBeCloseTo(350)
   })
 })
+
+describe('billing-cycle forecast windows', () => {
+  it('uses a continuous billing-cycle axis', () => {
+    const stats = toMtdPace(
+      ready({
+        billingCycleStart: '2026-09-01T00:00:00.000Z',
+        billingCycleEnd: '2026-10-01T00:00:00.000Z',
+      }),
+      [],
+      {
+        now: new Date(2026, 8, 15, 12, 0, 0),
+        forecastWindow: 'billingCycle',
+      },
+    )
+    expect(stats.forecastWindow).toBe('billingCycle')
+    expect(stats.billingCycleAvailable).toBe(true)
+    expect(stats.chart).toHaveLength(31)
+    expect(stats.resetDate).toBeNull()
+  })
+
+  it('drops calendar series at a mid-month renewal and marks midday resets', () => {
+    const stats = toMtdPace(
+      ready({
+        billingCycleStart: '2026-09-26T13:51:29.000Z',
+        billingCycleEnd: '2026-10-26T13:51:29.000Z',
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 28, 10, 0, 0).getTime(),
+          costUsd: 9,
+        }),
+        query({
+          timestamp: new Date(2026, 9, 5, 10, 0, 0).getTime(),
+          costUsd: 4,
+        }),
+        query({
+          timestamp: new Date(2026, 9, 28, 10, 0, 0).getTime(),
+          costUsd: 2,
+        }),
+      ],
+      { now: new Date(2026, 9, 30, 12, 0, 0) },
+    )
+    expect(stats.forecastWindow).toBe('calendarMonth')
+    expect(stats.resetDate).toBe('26.10')
+    expect(stats.resetMidday).toBe(true)
+    expect(stats.chart[0]?.usedUsd).toBe(9)
+    expect(stats.chart[25]?.usedUsd).toBe(0)
+    const resetIndex = stats.chart.findIndex(
+      (point) => point.date === stats.resetDate,
+    )
+    expect(resetIndex).toBeGreaterThan(0)
+    expect(stats.series[0]?.used[0]).toBe(9)
+    expect(stats.series[0]?.used[resetIndex]).toBe(0)
+    const forecastBeforeReset = stats.series[0]?.forecast[resetIndex - 1]
+    const forecastAtReset = stats.series[0]?.forecast[resetIndex]
+    const resetLow = Array.isArray(forecastAtReset) ? forecastAtReset[1] : forecastAtReset
+    expect(forecastBeforeReset).toBeGreaterThan(resetLow ?? 0)
+  })
+
+  it('keeps Pro day percentages scaled to the active pre-reset cycle', () => {
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: '2026-09-26T13:51:29.000Z',
+        billingCycleEnd: '2026-10-26T13:51:29.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 24, limit: 100, percent: 24 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 28, 10, 0, 0).getTime(),
+          costUsd: 75,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 3, 10, 0, 0).getTime(),
+          costUsd: 25,
+          model: 'cursor-default',
+        }),
+      ],
+      { now: new Date(2026, 9, 3, 12, 0, 0) },
+    )
+
+    expect(stats.resetDate).toBe('26.10')
+    expect(stats.series[0]?.day[2]).toBeCloseTo(6)
+    expect(stats.series[0]?.used[2]).toBeCloseTo(24)
+    expect(stats.bars[0]?.value).toContain('today 6%')
+  })
+
+  it('restarts an under-cap Pro forecast at a future calendar reset', () => {
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: '2026-09-26T13:51:29.000Z',
+        billingCycleEnd: '2026-10-26T13:51:29.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 6, limit: 100, percent: 6 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 28, 10, 0, 0).getTime(),
+          costUsd: 75,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 3, 10, 0, 0).getTime(),
+          costUsd: 25,
+          model: 'cursor-default',
+        }),
+      ],
+      { now: new Date(2026, 9, 3, 12, 0, 0) },
+    )
+    const resetIndex = stats.forecast.findIndex(
+      (point) => point.date === stats.resetDate,
+    )
+
+    expect(resetIndex).toBeGreaterThan(0)
+    expect(stats.series[0]?.forecast[resetIndex - 1]).toBeCloseTo(100)
+    expect(stats.series[0]?.forecast[resetIndex]).toEqual([100, 0])
+    // Next pace day climbs one step from 0 (not two steps / prior day-1 pace).
+    expect(stats.series[0]?.forecast[resetIndex + 1]).toBeCloseTo(3)
+  })
+})

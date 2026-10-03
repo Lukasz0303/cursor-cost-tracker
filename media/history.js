@@ -70,6 +70,7 @@
   const minimalModeEl = document.getElementById('minimalMode')
   const recentQueryCountEl = document.getElementById('recentQueryCount')
   const budgetDayBasisEl = document.getElementById('budgetDayBasis')
+  const forecastWindowEl = document.getElementById('forecastWindow')
   const optimizeDepthSettingEl = document.getElementById('optimizeDepthSetting')
   const languageSettingEl = document.getElementById('languageSetting')
   const pollIntervalEl = document.getElementById('pollInterval')
@@ -166,6 +167,9 @@
   let chartBarMode = 'cumulative'
   let mtdForecastSvgs = []
   let budgetDayBasis = 'workingDays'
+  let forecastWindow = 'calendarMonth'
+  let mtdResetDate = null
+  let mtdResetMidday = false
   let optimizeDepth = 'balanced'
   let uiLanguage = 'en'
   let ui = null
@@ -2446,7 +2450,12 @@
     if (!line || !line.forecast) {
       return null
     }
-    return line.forecast[index]
+    const raw = line.forecast[index]
+    // Handle reset array [high, low] - return the low value
+    if (Array.isArray(raw)) {
+      return raw[1]
+    }
+    return raw
   }
 
   function mtdTipValueClass(used, limit) {
@@ -2678,6 +2687,11 @@
         out.push(null)
         continue
       }
+      // Handle reset array [high, low] - keep as-is for appendLine to handle
+      if (Array.isArray(raw)) {
+        out.push(raw)
+        continue
+      }
       const n = Number(raw)
       out.push(Number.isFinite(n) ? Math.max(0, n) : 0)
     }
@@ -2691,13 +2705,17 @@
       if (raw === null || raw === undefined) {
         continue
       }
-      const n = Number(raw)
-      if (!Number.isFinite(n)) {
-        continue
+      // Handle reset array [high, low] or single value
+      const nums = Array.isArray(raw) ? raw : [raw]
+      for (let j = 0; j < nums.length; j++) {
+        const n = Number(nums[j])
+        if (!Number.isFinite(n)) {
+          continue
+        }
+        const x = pointX(i, values.length, left, plotW)
+        const y = yAt(Math.min(Math.max(0, n), max), max, top, plotH)
+        pts.push(x + ',' + y)
       }
-      const x = pointX(i, values.length, left, plotW)
-      const y = yAt(Math.min(Math.max(0, n), max), max, top, plotH)
-      pts.push(x + ',' + y)
     }
     if (pts.length === 0) {
       return
@@ -2795,6 +2813,9 @@
         visible.points,
         visible.series,
         mtdMax,
+        mtdResetDate,
+        mtdResetMidday,
+        forecastWindow,
       )
     }
   }
@@ -2893,7 +2914,15 @@
     }
   }
 
-  function drawMtdForecastChart(svg, points, series, max) {
+  function drawMtdForecastChart(
+    svg,
+    points,
+    series,
+    max,
+    resetDate,
+    resetMidday,
+    windowKind,
+  ) {
     clearSvg(svg)
     const width = 800
     const height = 280
@@ -3026,6 +3055,43 @@
       }
     }
 
+    if (windowKind === 'calendarMonth' && resetDate) {
+      let resetIdx = -1
+      for (let i = 0; i < points.length; i++) {
+        if (points[i] && points[i].date === resetDate) {
+          resetIdx = i
+          break
+        }
+      }
+      if (resetIdx >= 0) {
+        const resetX = pointX(resetIdx, points.length, left, plotW)
+        svg.appendChild(
+          svgNode('line', {
+            class: 'chart-reset',
+            x1: String(resetX),
+            y1: String(top),
+            x2: String(resetX),
+            y2: String(top + plotH),
+          }),
+        )
+        if (resetMidday) {
+          const hashWidth = Math.max(4, Math.min(18, groupW))
+          const hashGroup = svgNode('g', { class: 'chart-reset-hash' })
+          for (let x = resetX - hashWidth / 2; x < resetX + hashWidth / 2; x += 4) {
+            hashGroup.appendChild(
+              svgNode('line', {
+                x1: String(x),
+                y1: String(top + plotH),
+                x2: String(x + 7),
+                y2: String(top + plotH - 7),
+              }),
+            )
+          }
+          svg.appendChild(hashGroup)
+        }
+      }
+    }
+
     for (let i = 0; i < lines.length; i++) {
       appendLine(
         svg,
@@ -3117,7 +3183,9 @@
           svg.appendChild(label)
         }
       } else {
-        const end = line.forecast[lastIdx]
+        const raw = line.forecast[lastIdx]
+        // Handle reset array [high, low] - use the low value
+        const end = Array.isArray(raw) ? raw[1] : raw
         if (end !== null && end !== undefined && end <= maxCum) {
           svg.appendChild(
             svgNode('circle', {
@@ -4448,6 +4516,8 @@
     mtdMax = null
     mtdForecastPoints = []
     mtdForecastSeries = []
+    mtdResetDate = null
+    mtdResetMidday = false
     if (!mtd) {
       return
     }
@@ -4455,6 +4525,21 @@
     mtdMax = Number.isFinite(Number(mtd.max)) ? Number(mtd.max) : null
     mtdForecastPoints = Array.isArray(mtd.forecast) ? mtd.forecast : []
     mtdForecastSeries = Array.isArray(mtd.series) ? mtd.series : []
+    mtdResetDate = typeof mtd.resetDate === 'string' ? mtd.resetDate : null
+    mtdResetMidday = mtd.resetMidday === true
+    forecastWindow =
+      mtd.forecastWindow === 'billingCycle' ? 'billingCycle' : 'calendarMonth'
+    if (forecastWindowEl) {
+      const billingOption = forecastWindowEl.querySelector(
+        'option[value="billingCycle"]',
+      )
+      if (billingOption) {
+        billingOption.hidden = mtd.billingCycleAvailable !== true
+      }
+      if (document.activeElement !== forecastWindowEl) {
+        forecastWindowEl.value = forecastWindow
+      }
+    }
   }
 
   function mtdMetricsStrip(metrics) {
@@ -5293,6 +5378,16 @@
       budgetDayBasisEl.value = data.budgetDayBasis
     }
     if (
+      (data.forecastWindow === 'calendarMonth' ||
+        data.forecastWindow === 'billingCycle') &&
+      forecastWindowEl &&
+      document.activeElement !== forecastWindowEl &&
+      (!data.mtd || data.mtd.billingCycleAvailable === true ||
+        data.forecastWindow === 'calendarMonth')
+    ) {
+      forecastWindowEl.value = data.forecastWindow
+    }
+    if (
       (data.optimizeDepth === 'quick' ||
         data.optimizeDepth === 'balanced' ||
         data.optimizeDepth === 'deep') &&
@@ -5918,6 +6013,12 @@
       modelCatalog = data.modelCatalog || null
       if (lastStatsArgs) {
         renderStats.apply(null, lastStatsArgs)
+        if (
+          (chartsViewEl && !chartsViewEl.hidden) ||
+          (statsViewEl && !statsViewEl.hidden)
+        ) {
+          drawAllCharts()
+        }
       }
       return
     }
@@ -6295,6 +6396,17 @@
       budgetDayBasisEl.value = value
       budgetDayBasis = value
       vscode.postMessage({ type: 'setBudgetDayBasis', value: value })
+    })
+  }
+  if (forecastWindowEl) {
+    forecastWindowEl.addEventListener('change', function () {
+      const value =
+        forecastWindowEl.value === 'billingCycle'
+          ? 'billingCycle'
+          : 'calendarMonth'
+      forecastWindowEl.value = value
+      forecastWindow = value
+      vscode.postMessage({ type: 'setForecastWindow', value: value })
     })
   }
   if (optimizeDepthSettingEl) {

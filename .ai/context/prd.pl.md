@@ -176,6 +176,8 @@ v1.2: sidebar; opcjonalny Quick Pick (backlog).
 
 **Month to date / Monthly cost forecast:** ta sama próbka eventów. **Jednostka zależy od planu:** Team / Business / Enterprise → **dolary** (`unit: 'usd'`); osobisty Pro / Pro+ → **procent included** (`unit: 'percent'`). Team: zużycie w tym miesiącu / (dni robocze od 1. × dzienny budżet), jedna seria Spend z run-out / dziś vs dzienny budżet. Pro: procent included vs równe tempo (100% ÷ dni robocze w tym miesiącu). Dni robocze to pon–pt, lokalna strefa, wliczając dziś gdy dziś jest dniem roboczym. Ten sam wykres prognozy jest na Statistics i Charts (dni od 1. do końca miesiąca: skumulowane słupki + used na jednej skali, przerywana prognoza, kropkowany leftover). Brak dziennego budżetu dolarowego na Team → zużycie / prognoza dolarowa. Brak dnia roboczego → zużycie / — bez miarki.
 
+**Okno prognozy:** `cursorCost.forecastWindow` domyślnie `calendarMonth`, opcjonalnie `billingCycle`, dotyczy tylko Monthly cost forecast. Billing Cycle jest dostępny przy poprawnym miesięcznym oknie `[start, end)` z `usage-summary` (26–35 dni); w innym przypadku opcja jest ukryta, a efektywne okno wraca do miesiąca kalendarzowego. Przy odnowieniu w trakcie miesiąca wykres oznacza dzień odnowienia i zeruje used/forecast; status bar i Today pozostają oparte o miesiąc kalendarzowy.
+
 Na Pro blok nazywa się **Monthly cost forecast**. Każda miarka pokazuje zużycie cyklu vs 100% oraz datę wyczerpania (albo „lasts the month”), a wykres 0–100% oznacza miejsce, w którym prognoza uderza w sufit. API podaje procent tylko per cykl, więc udział dnia jest ważony jego kosztem dolarowym.
 
 **Last N:** ta sama API eventów, `pageSize=100`, kolejne strony aż do `cursorCost.historyLimit` (domyślnie **1000**, min 100, max 10_000). Gdy `cursorCost.historyFromDate` to lokalny dzień (`YYYY-MM-DD`, np. `2026-09-01` na początek września), pobierz od 00:00 tego dnia do dziś zamiast Last N (nadal cap 10_000).
@@ -237,6 +239,7 @@ media/history.{html,css,js}
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignorowane gdy From date jest ustawione |
 | `cursorCost.historyFromDate` | (puste) | lokalne `YYYY-MM-DD`; Settings **From date** (Start of month / Today); puste = Last N |
 | `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (pn–pt, domyślnie) albo `calendarDays`; Settings **Pace by** |
+| `cursorCost.forecastWindow` | `calendarMonth` | `calendarMonth` albo `billingCycle`; Billing Cycle tylko dla poprawnego miesięcznego cyklu z usage-summary i wyłącznie dla Monthly cost forecast |
 | `cursorCost.optimizeDepth` | `balanced` | Prompt Optimize: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | kolor dobrego stanu (ciemniejszy `#18794E` na jasnym motywie) |
 | `cursorCost.warnColor` | `#F14C4C` | kolor ostrzeżenia (ciemniejszy `#C50F1F` na jasnym motywie) |

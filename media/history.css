@@ -1312,6 +1312,19 @@ tbody tr:hover {
   opacity: 0.55;
 }
 
+.chart-reset {
+  stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground));
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  opacity: 0.8;
+}
+
+.chart-reset-hash {
+  stroke: var(--vscode-charts-orange, var(--vscode-descriptionForeground));
+  stroke-width: 1;
+  opacity: 0.75;
+}
+
 .chart-frame {
   width: 100%;
   height: 16rem;
@@ -2194,7 +2207,7 @@ tbody tr:hover {
 }
 
 .chart-runout.is-s0 {
-  stroke: var(--cost-ok, var(--vscode-charts-green, #89d185));
+  stroke: var(--vscode-charts-blue, #75beff);
 }
 
 .chart-runout.is-s1 {

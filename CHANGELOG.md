@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Billing-cycle forecast** — Monthly cost forecast can follow a valid monthly Cursor billing cycle via `cursorCost.forecastWindow`; calendar-month renewals show the reset marker and drop.
+
 ## 1.0.5 — 2026-09-30
 
 ### Added
