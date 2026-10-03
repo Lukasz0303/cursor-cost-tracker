@@ -4,13 +4,14 @@
     en: true,
     pl: true,
     'zh-cn': true,
-    ja: true,
-    es: true,
-    'pt-br': true,
-    ru: true,
-    ko: true,
     fr: true,
     de: true,
+    ja: true,
+    ko: true,
+    'pt-br': true,
+    ru: true,
+    es: true,
+    uk: true,
   }
   function isSupportedLanguage(value) {
     return typeof value === 'string' && SUPPORTED_LANGUAGES[value] === true
@@ -19,13 +20,14 @@
     en: 'en',
     pl: 'pl',
     'zh-cn': 'zh-CN',
-    ja: 'ja',
-    es: 'es',
-    'pt-br': 'pt-BR',
-    ru: 'ru',
-    ko: 'ko',
     fr: 'fr',
     de: 'de',
+    ja: 'ja',
+    ko: 'ko',
+    'pt-br': 'pt-BR',
+    ru: 'ru',
+    es: 'es',
+    uk: 'uk',
   }
   function documentLangFor(value) {
     return DOCUMENT_LANG[value] || 'en'

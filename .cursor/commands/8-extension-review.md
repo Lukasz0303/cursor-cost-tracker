@@ -10,7 +10,8 @@ Focus on:
 4. **Security** — no token in logs or `postMessage`; CSP; SQLite copy; host allowlist
 5. **Resilience** — missing session, API timeout, Today fail / Current ok, AbortController
 6. **Tests** — Vitest for parse/format; fixtures without secrets
-7. **VSIX** — `.vscodeignore`, `engines.vscode`, LICENSE and `icon.png` in the package
+7. **i18n** — if catalogs / `locale` / `package.json` language enum changed: structural locale tests pass; keys/options stay in sync
+8. **VSIX** — `.vscodeignore`, `engines.vscode`, LICENSE and `icon.png` in the package
 
 METHOD: `git fetch`, then `git diff origin/main...HEAD` or `git diff HEAD`.
 

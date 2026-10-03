@@ -46,7 +46,7 @@ The panel has six tabs:
 - **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
 - **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
 - **Support** — Buy Me a Coffee; **Write a message** to the author (Comment / feature / bug / other).
-- **Settings** — **Language** (10 locales); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); Optimize depth; Show last / From date; Auto-refresh.
+- **Settings** — **Language** (11 locales); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); Optimize depth; Show last / From date; Auto-refresh.
 
 If you are already signed in to Cursor, there is nothing to configure.
 
@@ -163,9 +163,9 @@ For the **active workspace**, in the same window as Last N / From date: **landed
 
 ### 13. Language
 
-Settings → **Language** switches the panel, status bar, and toasts immediately (English default; nine more locales including Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German, and Polish).
+Settings → **Language** switches the panel, status bar, and toasts immediately (English default; ten more locales including Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German, Ukrainian, and Polish).
 
-<img src="screenshots/language.png" alt="Settings Language dropdown with ten interface languages, English selected" width="100%">
+<img src="screenshots/language.png" alt="Settings Language dropdown with eleven interface languages, English selected" width="100%">
 
 ### 14. Settings — status bar preview and content
 
@@ -229,7 +229,7 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Export recent queries as CSV | — | Yes |
 | Support → Write a message to the author | — | Yes |
 | **Setup · language** | | |
-| UI language (10 locales) | — | Yes |
+| UI language (11 locales) | — | Yes |
 | Zero setup (local Cursor session) | — | Yes |
 | No token pasted into Settings | — | Yes |
 
@@ -310,7 +310,7 @@ AI totals come from local composer headers, not the usage API. Not line-level bl
 
 ### Language
 
-Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German. Independent of the VS Code / Cursor display language.
+Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, French, German, Japanese, Korean, Portuguese (Brazil), Russian, Spanish, Ukrainian. Independent of the VS Code / Cursor display language.
 
 ### Support message
 

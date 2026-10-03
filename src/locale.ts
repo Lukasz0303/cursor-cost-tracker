@@ -1,30 +1,21 @@
 /** UI language for Cursor Cost Tracker (independent of VS Code display language). */
-export type Locale =
-  | 'en'
-  | 'pl'
-  | 'zh-cn'
-  | 'ja'
-  | 'es'
-  | 'pt-br'
-  | 'ru'
-  | 'ko'
-  | 'fr'
-  | 'de'
+export type Locale = (typeof LOCALES)[number]
 
 export const DEFAULT_LOCALE: Locale = 'en'
 
-export const LOCALES: Locale[] = [
+export const LOCALES = [
   'en',
   'pl',
   'zh-cn',
-  'ja',
-  'es',
-  'pt-br',
-  'ru',
-  'ko',
   'fr',
   'de',
-]
+  'ja',
+  'ko',
+  'pt-br',
+  'ru',
+  'es',
+  'uk',
+] as const
 
 const LOCALE_SET = new Set<string>(LOCALES)
 
@@ -46,6 +37,7 @@ const BCP47: Record<Locale, string> = {
   ko: 'ko-KR',
   fr: 'fr-FR',
   de: 'de-DE',
+  uk: 'uk-UA',
 }
 
 export function localeBcp47(locale: Locale): string {

@@ -1,7 +1,7 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Critical alert, Optimize, Support message, Charts, CSV, 10 UI languages.",
+  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Critical alert, Optimize, Support message, Charts, CSV, 11 UI languages.",
   "version": "1.0.5",
   "publisher": "lukasz0303",
   "license": "MIT",
@@ -91,13 +91,14 @@
             "en",
             "pl",
             "zh-cn",
+            "fr",
+            "de",
             "ja",
-            "es",
+            "ko",
             "pt-br",
             "ru",
-            "ko",
-            "fr",
-            "de"
+            "es",
+            "uk"
           ],
           "default": "en",
           "scope": "window",
@@ -106,13 +107,14 @@
             "English (default)",
             "Polish",
             "Chinese (Simplified)",
+            "French",
+            "German",
             "Japanese",
-            "Spanish",
+            "Korean",
             "Portuguese (Brazil)",
             "Russian",
-            "Korean",
-            "French",
-            "German"
+            "Spanish",
+            "Ukrainian"
           ]
         },
         "cursorCost.pollIntervalMinutes": {
