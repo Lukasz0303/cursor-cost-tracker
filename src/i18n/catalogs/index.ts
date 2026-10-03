@@ -1,5 +1,5 @@
 import type { Locale } from '../../locale'
-import { EN, type UiCatalog } from './en'
+import { EN } from './en'
 import { PL } from './pl'
 import { ZH_CN } from './zh-cn'
 import { JA } from './ja'
@@ -11,10 +11,10 @@ import { FR } from './fr'
 import { DE } from './de'
 import { UK } from './uk'
 
-export type { UiCatalog }
-export { EN, PL }
+export type UiCatalog = typeof EN;
+export { EN } from './en'
 
-const CATALOGS: Record<Locale, UiCatalog> = {
+export const CATALOGS: Record<Locale, UiCatalog> = {
   en: EN,
   pl: PL,
   'zh-cn': ZH_CN,

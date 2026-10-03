@@ -320,7 +320,8 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "package": "npm run build && vsce package --no-dependencies"
+    "package": "npm run build && vsce package --no-dependencies",
+    "sync-i18n": "tsx scripts/sync-i18n.ts"
   },
   "dependencies": {
     "sql.js": "^1.13.0"
@@ -330,6 +331,7 @@
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.25.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

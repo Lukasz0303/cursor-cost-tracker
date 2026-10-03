@@ -1,8 +1,8 @@
 import { DEFAULT_LOCALE, type Locale } from './locale'
-import { catalogForLocale, EN, PL, type UiCatalog } from './i18n/catalogs'
+import { catalogForLocale, EN, type UiCatalog } from './i18n/catalogs'
 
 export type { UiCatalog }
-export { EN, PL }
+export { EN }
 
 export function interpolate(
   template: string,
