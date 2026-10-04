@@ -33,6 +33,17 @@ function sortObject(obj: Dict): Dict {
   );
 }
 
+async function loadCatalog(lang: Locale) {
+  const modulePath = join(CATALOGS_DIR, lang);
+  const targetModule: Record<string, UiCatalog> = await import(modulePath);
+  const [exportName, targetCatalog] =
+    Object.entries(targetModule).find(([, v]) => isObject(v)) ?? [];
+  if (!exportName || !targetCatalog) {
+    throw new Error(`No export name or target catalog found in ${lang}`);
+  }
+  return { exportName, targetCatalog };
+}
+
 async function writeModule(
   modulePath: string,
   exportName: string,
@@ -42,8 +53,9 @@ async function writeModule(
   const header =
     moduleName === 'en'
       ? `/**
- * This file is the source of truth for the English catalog.
+ * This file is the source of truth for the English and other catalogs.
  * It is used to generate the other catalogs.
+ * See sync-i18n.ts for more details.
  */
 `
       : `/**
@@ -57,38 +69,25 @@ async function writeModule(
   );
 }
 
-async function loadCatalog(lang: Locale) {
-  const modulePath = join(CATALOGS_DIR, lang);
-  const targetModule: Record<string, UiCatalog> = await import(modulePath);
-  const [exportName, targetCatalog] =
-    Object.entries(targetModule).find(([, v]) => isObject(v)) ?? [];
-  if (!exportName || !targetCatalog) {
-    throw new Error(`No export name or target catalog found in ${lang}`);
-  }
-  return { exportName, targetCatalog };
-}
-
 async function enToLang(lang: Locale) {
   const { exportName, targetCatalog } = await loadCatalog(lang);
   const mergedCatalog = merge(targetCatalog, CATALOGS.en);
   await writeModule(join(CATALOGS_DIR, lang), exportName, mergedCatalog);
 }
 
-async function rewriteEn() {
-  const { exportName, targetCatalog } = await loadCatalog('en');
-  await writeModule(join(CATALOGS_DIR, 'en'), exportName, targetCatalog);
-}
-
-async function main() {
-  await rewriteEn();
-
-  await Promise.all(
-    Object.keys(CATALOGS)
-      .filter((lang) => lang !== 'en')
-      .map((lang) => enToLang(lang as Locale)),
-  );
-}
-
-main().then(() => {
-  console.log('finished');
-}, console.error);
+Promise.resolve()
+  .then(async () => {
+    const { exportName, targetCatalog } = await loadCatalog('en');
+    await writeModule(join(CATALOGS_DIR, 'en'), exportName, targetCatalog);
+  })
+  .then(
+    async () =>
+      await Promise.all(
+        Object.keys(CATALOGS)
+          .filter((lang) => lang !== 'en')
+          .map((lang) => enToLang(lang as Locale)),
+      ),
+  )
+  .then(() => {
+    console.log('finished');
+  }, console.error);

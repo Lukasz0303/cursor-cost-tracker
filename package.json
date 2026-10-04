@@ -322,7 +322,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "package": "npm run build && vsce package --no-dependencies",
-    "sync-i18n": "tsx scripts/sync-i18n.ts"
+    "sync-i18n": "tsx scripts/sync-i18n.ts",
+    "sync-i18n:watch": "tsx watch --no-cache --watch-path=scripts scripts/sync-i18n.ts"
   },
   "dependencies": {
     "sql.js": "^1.13.0"
