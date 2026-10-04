@@ -1,0 +1,16 @@
+#!/bin/sh
+set -u
+
+BRANCH=$(git branch --show-current)
+
+if [ "$BRANCH" = "main" ]; then
+  echo "Error: Direct commits to main are blocked."
+  exit 1
+fi
+
+status=0
+
+npm run typecheck || status=1
+npm run test || status=1
+
+exit $status
