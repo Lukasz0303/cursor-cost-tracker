@@ -10,6 +10,23 @@
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "watch",
       "sourceMaps": true
+    },
+
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Current Test",
+      "autoAttachChildProcesses": true,
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": [
+        "run",
+        "${relativeFile}",
+        "--no-file-parallelism",
+        "--watch",
+        "--testTimeout=0"
+      ],
+      "smartStep": true,
+      "console": "integratedTerminal"
     }
   ]
 }

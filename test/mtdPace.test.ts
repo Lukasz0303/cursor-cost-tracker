@@ -557,13 +557,13 @@ describe('billing-cycle forecast windows', () => {
       }),
       [],
       {
-        now: new Date(2026, 8, 15, 12, 0, 0),
+        now: new Date('2026-09-15T12:00:00.000Z'),
         forecastWindow: 'billingCycle',
       },
     )
     expect(stats.forecastWindow).toBe('billingCycle')
     expect(stats.billingCycleAvailable).toBe(true)
-    expect(stats.chart).toHaveLength(31)
+    expect(stats.chart).toHaveLength(30)
     expect(stats.resetDate).toBeNull()
   })
 

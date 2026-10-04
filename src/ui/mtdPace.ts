@@ -413,23 +413,8 @@ function toForecastFrames(
 ): DayFrame[] {
   if (window === 'billingCycle' && range !== null) {
     const frames: DayFrame[] = []
-    const start = new Date(
-      range.start.getFullYear(),
-      range.start.getMonth(),
-      range.start.getDate(),
-    )
-    const end = new Date(
-      range.end.getFullYear(),
-      range.end.getMonth(),
-      range.end.getDate(),
-    )
-    const lastDay =
-      range.end.getHours() !== 0 ||
-      range.end.getMinutes() !== 0 ||
-      range.end.getSeconds() !== 0 ||
-      range.end.getMilliseconds() !== 0
-        ? end
-        : new Date(end.getTime() - 24 * 60 * 60 * 1000)
+    const start = new Date(range.start.getTime())
+    const lastDay = new Date(range.end.getTime() - 1)
     let paceCount = 0
     for (
       const date = start;
@@ -1111,9 +1096,7 @@ export function toMtdPace(
     billingCycleStart,
     billingCycleEnd,
   )
-  const billingCycleAvailable = range !== null &&
-    effectiveForecastWindow('billingCycle', billingCycleStart, billingCycleEnd) ===
-      'billingCycle'
+  const billingCycleAvailable = range !== null && forecastWindow === 'billingCycle'
   const copy = catalogFor(locale).mtd
   const sample = newestQueries(
     queries,

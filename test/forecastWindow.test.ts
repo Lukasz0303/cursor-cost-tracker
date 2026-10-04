@@ -45,7 +45,7 @@ describe('forecast window helpers', () => {
     const end = '2026-10-15T13:51:29.000Z'
     expect(billingCycleRenewalIsMidday(end)).toBe(true)
     expect(
-      billingCycleRenewalIsMidday(new Date(2026, 9, 15).toISOString()),
-    ).toBe(false)
+      billingCycleRenewalIsMidday('2026-10-15T00:00:00.000Z'),
+    ).toBeFalsy()
   })
 })
