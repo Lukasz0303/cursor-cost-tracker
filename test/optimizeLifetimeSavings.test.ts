@@ -151,9 +151,45 @@ describe('applyOptimizeCredit', () => {
     })
     expect(b.state.totalTokens).toBe(300_000)
     expect(b.state.totalUsd).toBe(0.3)
+    expect(b.state.history).toHaveLength(2)
+    expect(b.state.history[1]?.totalUsd).toBe(0.3)
     const payload = toLifetimePayload(b.state)
     expect(payload.empty).toBe(false)
     expect(payload.summary).toContain('Saved so far:')
     expect(payload.projects.map((p) => p.label)).toEqual(['beta', 'alpha'])
+    expect(payload.series.length).toBeGreaterThanOrEqual(2)
+    expect(payload.series[payload.series.length - 1]?.usd).toBe(0.3)
+  })
+
+  it('seeds history from legacy projects without history', () => {
+    const state = parseLifetimeSavings({
+      version: 1,
+      projects: {
+        '/a': {
+          key: '/a',
+          label: 'a',
+          tokens: 100,
+          usd: 1,
+          lastRun: 1,
+          lastTokensMid: 100,
+          lastUsdMid: 1,
+          updatedAt: 1000,
+        },
+        '/b': {
+          key: '/b',
+          label: 'b',
+          tokens: 50,
+          usd: 0.5,
+          lastRun: 1,
+          lastTokensMid: 50,
+          lastUsdMid: 0.5,
+          updatedAt: 2000,
+        },
+      },
+    })
+    expect(state.history).toEqual([
+      { at: 1000, totalUsd: 1, totalTokens: 100 },
+      { at: 2000, totalUsd: 1.5, totalTokens: 150 },
+    ])
   })
 })

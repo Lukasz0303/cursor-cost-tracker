@@ -41,6 +41,7 @@ jobs:
             mkdir -p "_site/$(dirname "$line")"
             cp "$line" "_site/$line"
           done < site/pages-assets.txt
+          sh site/copy-releases.sh _site
 
       - uses: actions/upload-pages-artifact@v3
         with:

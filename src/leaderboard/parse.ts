@@ -3,8 +3,64 @@ import type { ParsedLeaderboardCommit } from './types'
 
 const COMMIT_HEADER = /^([0-9a-f]{7,64})\t(\d+)\t([^\t]*)\t([\s\S]*)$/i
 
+const MERGE_PARENTS = /^([0-9a-f]{7,64})\t(\d+)\t([0-9a-f]{7,64}(?: [0-9a-f]{7,64})+)\s*$/i
+
+export type FirstParentMerge = {
+  hash: string
+  timestampMs: number
+  firstParent: string
+  secondParent: string
+}
+
 /**
- * Parse `git log --no-merges --numstat --format=%H%x09%ct%x09%ae%x09%an`.
+ * `git log --first-parent --merges --format=%H%x09%ct%x09%P`.
+ * Parent 1 is the default branch; parent 2 is the branch that landed.
+ */
+export function parseFirstParentMerges(raw: string): FirstParentMerge[] {
+  const merges: FirstParentMerge[] = []
+  for (const line of raw.split(/\r?\n/)) {
+    const match = MERGE_PARENTS.exec(line.trim())
+    if (match === null) {
+      continue
+    }
+    const unix = Number(match[2])
+    const parents = (match[3] ?? '').split(' ')
+    const firstParent = parents[0]
+    const secondParent = parents[1]
+    if (!Number.isFinite(unix) || firstParent === undefined || secondParent === undefined) {
+      continue
+    }
+    merges.push({
+      hash: match[1] ?? '',
+      timestampMs: unix * 1000,
+      firstParent,
+      secondParent,
+    })
+  }
+  return merges
+}
+
+/** Unique authors of `git log --format=%ae%x09%an` (first seen name wins). */
+export function parseRangeAuthors(raw: string): { email: string; name: string }[] {
+  const seen = new Map<string, { email: string; name: string }>()
+  for (const line of raw.split(/\r?\n/)) {
+    const tab = line.indexOf('\t')
+    if (tab <= 0) {
+      continue
+    }
+    const email = line.slice(0, tab).trim()
+    const name = line.slice(tab + 1).trim()
+    const key = email.toLowerCase()
+    if (!email.includes('@') || seen.has(key)) {
+      continue
+    }
+    seen.set(key, { email, name: name === '' ? email : name })
+  }
+  return [...seen.values()]
+}
+
+/**
+ * Parse `git log --numstat` (or a merge diff prefixed with the same header).
  * Binary numstat (`-`) is skipped. A commit with no text lines still counts.
  */
 export function parseLeaderboardLog(raw: string): ParsedLeaderboardCommit[] {

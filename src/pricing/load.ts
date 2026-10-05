@@ -44,13 +44,15 @@ export function loadModelCatalog(force = false): Promise<ModelCatalogPayload> {
     .then((payload) => {
       if (payload.error === null) {
         cached = { at: Date.now(), payload }
-      } else if (!force && cached && cached.payload.models.length > 0) {
+        return payload
+      }
+      if (cached && cached.payload.models.length > 0) {
         return cached.payload
       }
       return payload
     })
     .catch(() => {
-      if (!force && cached && cached.payload.models.length > 0) {
+      if (cached && cached.payload.models.length > 0) {
         return cached.payload
       }
       return emptyModelCatalog('Could not load the pricing page.')
@@ -62,4 +64,10 @@ export function loadModelCatalog(force = false): Promise<ModelCatalogPayload> {
     })
   inflight = pending
   return pending
+}
+
+/** Test hook. Production calls leave the six-hour cache in place. */
+export function clearModelCatalogCache(): void {
+  cached = null
+  inflight = null
 }

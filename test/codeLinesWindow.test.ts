@@ -22,6 +22,20 @@ describe('codeLinesWindowFromSample', () => {
     expect(start.getHours()).toBe(0)
   })
 
+  it('uses end of To when To is a past local day', () => {
+    const localNow = new Date(2026, 8, 19, 20, 0, 0)
+    const window = codeLinesWindowFromSample({
+      queries: [],
+      limit: 1000,
+      fromDate: '2026-09-01',
+      toDate: '2026-09-10',
+      nowMs: localNow.getTime(),
+    })
+    expect(window.untilMs).toBe(
+      new Date(2026, 8, 10).getTime() + 24 * 60 * 60 * 1000 - 1,
+    )
+  })
+
   it('uses oldest of last N queries when From date is empty', () => {
     const oldest = nowMs - 10 * 24 * 60 * 60 * 1000
     const window = codeLinesWindowFromSample({

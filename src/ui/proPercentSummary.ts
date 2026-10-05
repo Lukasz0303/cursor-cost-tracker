@@ -1,6 +1,6 @@
 import type { BudgetDayBasis } from '../budgetDayBasis'
 import { formatDollars, formatPercentPoint } from '../format'
-import { budgetDaysInMonth } from '../usage/parse'
+import { budgetDaysInMonth } from '../budgetDays'
 import type { IncludedQuota } from '../usage/types'
 
 /** Spread today’s dollars across the cycle included % (API has no per-day percent). */

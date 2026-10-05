@@ -1,0 +1,11 @@
+#!/bin/sh
+set -u
+
+branch=$(git branch --show-current)
+
+if [ "$branch" = "main" ]; then
+  echo "Direct commits to main are blocked. Commit on a branch and open a pull request."
+  exit 1
+fi
+
+npm run typecheck && npm run test

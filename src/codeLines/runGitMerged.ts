@@ -1,6 +1,10 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { pickDefaultBranch } from './defaultBranch'
+import {
+  createExecGit,
+  GIT_COLLECT_MAX_BUFFER,
+  GIT_COLLECT_TIMEOUT_MS,
+  type ExecGit,
+} from './execGit'
 import { parseDiffNumstatInsertions } from './effectiveness'
 import {
   gitAuthorLogArgsForEmails,
@@ -12,7 +16,10 @@ import {
   type StoredAuthorChoice,
 } from './authorChoice'
 import { parseGitConfigValue, type GitAuthorIdentity } from './gitAuthor'
-import { parseGitNumstatLog } from './gitMerged'
+import {
+  collectLandedCommits,
+  daysForAuthorEmails,
+} from './landedCommits'
 import {
   listNestedIndependentGitRepos,
   mapPool,
@@ -20,8 +27,6 @@ import {
   MIN_NESTED_GIT_REPOS,
 } from './nestedRepos'
 import type { GitNumstatDay } from './types'
-
-const execFileAsync = promisify(execFile)
 
 export type RunGitMergedOptions = {
   cwd: string
@@ -33,24 +38,13 @@ export type RunGitMergedOptions = {
   cursorEmail?: string | null
   savedAuthors?: StoredAuthorChoice | null
   listNestedGitRepos?: (cwd: string) => Promise<string[]>
-  execGit?: (
-    args: string[],
-    cwd: string,
-  ) => Promise<{ stdout: string; stderr: string }>
+  execGit?: ExecGit
 }
 
-async function defaultExecGit(
-  args: string[],
-  cwd: string,
-): Promise<{ stdout: string; stderr: string }> {
-  const result = await execFileAsync('git', args, {
-    cwd,
-    timeout: 15_000,
-    maxBuffer: 8 * 1024 * 1024,
-    encoding: 'utf8',
-  })
-  return { stdout: result.stdout, stderr: result.stderr }
-}
+const defaultExecGit = createExecGit({
+  timeoutMs: GIT_COLLECT_TIMEOUT_MS,
+  maxBuffer: GIT_COLLECT_MAX_BUFFER,
+})
 
 async function listLocalBranches(
   execGit: NonNullable<RunGitMergedOptions['execGit']>,
@@ -264,14 +258,15 @@ async function collectOneGitRepo(
     cursorEmail,
     saved: options.savedAuthors ?? null,
   })
-  const authorArgs = gitAuthorLogArgsForEmails(selectedAuthorEmails(authors))
+  const selectedEmails = selectedAuthorEmails(authors)
+  const authorArgs = gitAuthorLogArgsForEmails(selectedEmails)
   const pendingInsertions = await collectPendingInsertions(
     options.cwd,
     branchRef,
     execGit,
     authorArgs,
   )
-  if (authorArgs.length === 0) {
+  if (selectedEmails.length === 0) {
     return {
       branch,
       days: [],
@@ -282,22 +277,20 @@ async function collectOneGitRepo(
     }
   }
   try {
-    const { stdout } = await execGit(
-      [
-        'log',
-        '--first-parent',
-        '--numstat',
-        '--format=%ct',
-        `--since=${gitIsoBound(sinceMs)}`,
-        `--until=${gitIsoBound(untilMs)}`,
-        ...authorArgs,
-        branchRef,
-      ],
+    // Same landing rules as Leaderboard: first-parent non-merges plus merge
+    // diffs credited to the branch author — not the person who clicked Merge.
+    // (`git log --first-parent --numstat` would otherwise count a teammate's
+    // PR under the merger's --author.)
+    const commits = await collectLandedCommits(
       options.cwd,
+      branchRef,
+      sinceMs,
+      untilMs,
+      execGit,
     )
     return {
       branch,
-      days: parseGitNumstatLog(stdout),
+      days: daysForAuthorEmails(commits, selectedEmails),
       pendingInsertions,
       authorFiltered: true,
       authors,

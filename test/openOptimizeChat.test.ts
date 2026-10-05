@@ -38,6 +38,10 @@ function mockDeps(
     showInformationMessage,
     delayMs: 0,
     ...overrides,
+  } as OpenOptimizeChatDeps & {
+    writeClipboard: ReturnType<typeof vi.fn>
+    executeCommand: ReturnType<typeof vi.fn>
+    showInformationMessage: ReturnType<typeof vi.fn>
   }
 }
 
@@ -97,7 +101,7 @@ describe('openOptimizeChat', () => {
     await expect(openOptimizeChat('CLIP', deps)).resolves.toBe('clipboard')
     expect(deps.writeClipboard).toHaveBeenCalledWith('CLIP')
     expect(deps.showInformationMessage).toHaveBeenCalledWith(
-      'Optimize prompt copied — paste into the last Chat and press Start.',
+      'Optimize prompt copied — paste into a new Chat and press Start.',
     )
   })
 
@@ -108,6 +112,34 @@ describe('openOptimizeChat', () => {
       }),
     })
     await expect(openOptimizeChat('CLIP', deps)).resolves.toBe('clipboard')
+    expect(deps.showInformationMessage).toHaveBeenCalled()
+  })
+
+  it('target new calls composer.newAgentChat and does not focus the last chat', async () => {
+    const deps = mockDeps([
+      'composer.focusComposer',
+      'composer.openComposer',
+      'composer.newAgentChat',
+    ])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, { target: 'new' }),
+    ).resolves.toBe('composer-new')
+    expect(deps.executeCommand).toHaveBeenCalledWith('composer.newAgentChat')
+    expect(deps.executeCommand).not.toHaveBeenCalledWith('composer.focusComposer')
+    expect(deps.executeCommand).not.toHaveBeenCalledWith('composer.openComposer')
+    expect(deps.executeCommand).toHaveBeenCalledWith(
+      'editor.action.clipboardPasteAction',
+    )
+    expect(deps.writeClipboard).toHaveBeenLastCalledWith('previous-clip')
+  })
+
+  it('target new copies to the clipboard when new Agent chat is missing', async () => {
+    const deps = mockDeps(['composer.focusComposer', 'composer.openComposer'])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, { target: 'new' }),
+    ).resolves.toBe('clipboard')
+    expect(deps.executeCommand).not.toHaveBeenCalled()
+    expect(deps.writeClipboard).toHaveBeenCalledWith('BRIEF')
     expect(deps.showInformationMessage).toHaveBeenCalled()
   })
 })

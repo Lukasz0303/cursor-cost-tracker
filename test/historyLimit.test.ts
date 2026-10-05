@@ -31,6 +31,15 @@ describe('lastQueriesTitle', () => {
       'From 1.09.2026 Cursor queries',
     )
   })
+
+  it('names the panel after a closed From–To range', () => {
+    expect(lastQueriesHeading(1000, '2026-09-01', 'en', '2026-09-10')).toBe(
+      'From 1.09.2026–10.09.2026',
+    )
+    expect(lastQueriesTitle(1000, '2026-09-01', 'en', '2026-09-10')).toBe(
+      'From 1.09.2026–10.09.2026 Cursor queries',
+    )
+  })
 })
 
 describe('sampleSizeLimit', () => {

@@ -3,15 +3,17 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import initSqlJs from 'sql.js'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   SESSION_READ_ERROR,
   SIGN_IN_MESSAGE,
+  SQLJS_STALE_COPY_MS,
   buildWorkosCookie,
   decodeJwtSub,
   getStateDbPath,
   jwtFromStoredValue,
   readCursorSession,
+  staleSqlJsCopyNames,
 } from '../src/usage/session'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -98,6 +100,21 @@ describe('jwtFromStoredValue', () => {
     const jwt = fakeJwt({ sub: 'user_test' })
     expect(jwtFromStoredValue(`user_test::${jwt}`)).toBe(jwt)
     expect(jwtFromStoredValue(encodeURIComponent(`user_test::${jwt}`))).toBe(jwt)
+  })
+})
+
+describe('staleSqlJsCopyNames', () => {
+  it('removes an old cct copy and keeps a fresh copy and other names', () => {
+    const now = 1_700_000_000_000
+    const removed = staleSqlJsCopyNames(
+      [
+        { name: 'cct-old.vscdb', mtimeMs: now - SQLJS_STALE_COPY_MS - 1 },
+        { name: 'cct-new.vscdb', mtimeMs: now - 60_000 },
+        { name: 'notes.txt', mtimeMs: now - SQLJS_STALE_COPY_MS * 5 },
+      ],
+      now,
+    )
+    expect(removed).toEqual(['cct-old.vscdb'])
   })
 })
 
@@ -195,6 +212,31 @@ describe('readCursorSession', () => {
 
     const result = await readCursorSession({ dbPath, locateWasm })
     expect(result).toEqual({ ok: false, error: SIGN_IN_MESSAGE })
+  })
+
+  it('returns Sign in when node:sqlite is missing and the file has no token', async () => {
+    vi.doMock('node:sqlite', () => {
+      throw new Error('node:sqlite unavailable')
+    })
+    vi.resetModules()
+    try {
+      const { readCursorSession: readSession, SIGN_IN_MESSAGE: signIn } =
+        await import('../src/usage/session')
+      const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+      tempDirs.push(dir)
+      const dbPath = join(dir, 'state.vscdb')
+      const SQL = await initSqlJs({ locateFile: locateWasm })
+      const db = new SQL.Database()
+      db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+      await writeFile(dbPath, Buffer.from(db.export()))
+      db.close()
+
+      const result = await readSession({ dbPath, locateWasm })
+      expect(result).toEqual({ ok: false, error: signIn })
+    } finally {
+      vi.doUnmock('node:sqlite')
+      vi.resetModules()
+    }
   })
 
   it('returns Could not read Cursor session when the file is not sqlite', async () => {

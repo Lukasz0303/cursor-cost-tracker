@@ -1,9 +1,14 @@
-import { execFile } from 'node:child_process'
 import { lstat, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { promisify } from 'node:util'
 import {
+  createExecGit,
+  GIT_SCAN_MAX_BUFFER,
+  GIT_SCAN_TIMEOUT_MS,
+  type ExecGit,
+} from '../codeLines/execGit'
+import {
+  GIT_SKIP_DIRS,
   MIN_NESTED_GIT_REPOS,
   listNestedIndependentGitRepos,
   mapPool,
@@ -17,50 +22,24 @@ import {
   selectScanRoots,
   type ExecGh,
 } from './ghRepos'
-import { parseLeaderboardAuthors, parseLeaderboardLog } from './parse'
+import {
+  parseFirstParentMerges,
+  parseLeaderboardAuthors,
+  parseLeaderboardLog,
+  parseRangeAuthors,
+  type FirstParentMerge,
+} from './parse'
 import type { LeaderboardSources } from './sources'
-import type { LeaderboardRepoCommits } from './types'
+import type { LeaderboardRepoCommits, ParsedLeaderboardCommit } from './types'
 
-const execFileAsync = promisify(execFile)
+export type { ExecGit }
 
-export type ExecGit = (
-  args: string[],
-  cwd: string,
-) => Promise<{ stdout: string; stderr: string }>
-
-const GIT_TIMEOUT_MS = 60_000
-const GIT_MAX_BUFFER = 32 * 1024 * 1024
 const MAX_SIBLING_REPOS = 200
 
-const SKIP_DIR = new Set([
-  '.git',
-  '.cursor',
-  '.vscode',
-  '.next',
-  '.venv',
-  'venv',
-  'node_modules',
-  'dist',
-  'out',
-  'build',
-  'coverage',
-  'vendor',
-  'target',
-  '__pycache__',
-])
-
-async function defaultExecGit(
-  args: string[],
-  cwd: string,
-): Promise<{ stdout: string; stderr: string }> {
-  const result = await execFileAsync('git', args, {
-    cwd,
-    timeout: GIT_TIMEOUT_MS,
-    maxBuffer: GIT_MAX_BUFFER,
-    encoding: 'utf8',
-  })
-  return { stdout: result.stdout, stderr: result.stderr }
-}
+const defaultExecGit = createExecGit({
+  timeoutMs: GIT_SCAN_TIMEOUT_MS,
+  maxBuffer: GIT_SCAN_MAX_BUFFER,
+})
 
 async function isGitCheckout(dir: string): Promise<boolean> {
   try {
@@ -87,7 +66,7 @@ export async function listSiblingGitRepos(cwd: string): Promise<string[]> {
       .filter(
         (entry) =>
           entry.isDirectory() &&
-          !SKIP_DIR.has(entry.name) &&
+          !GIT_SKIP_DIRS.has(entry.name) &&
           !entry.name.startsWith('.'),
       )
       .map((entry) => entry.name)
@@ -118,7 +97,7 @@ async function listDirNames(dir: string): Promise<string[]> {
       .filter(
         (entry) =>
           entry.isDirectory() &&
-          !SKIP_DIR.has(entry.name) &&
+          !GIT_SKIP_DIRS.has(entry.name) &&
           !entry.name.startsWith('.'),
       )
       .map((entry) => entry.name)
@@ -321,20 +300,100 @@ export async function leaderboardRoots(
   return uniquePaths([...here, ...siblings])
 }
 
-function logArgs(sinceMs: number, untilMs: number, numstat: boolean): string[] {
-  const args = [
-    'log',
-    '--branches',
-    '--remotes',
-    '--no-merges',
+/**
+ * First-parent history of the default branch (`origin/main` when that
+ * ref exists, otherwise the local branch). Commits that landed on
+ * main/master, not every feature branch. GitHub merge commits stay in
+ * the walk: `--no-merges` would drop "Merge pull request #N" and hide
+ * the author whose branch actually landed.
+ */
+async function mergedBranchRef(cwd: string, execGit: ExecGit): Promise<string | null> {
+  const branch = await resolveDefaultBranch(cwd, execGit)
+  if (branch === null) {
+    return null
+  }
+  const remote = `origin/${branch}`
+  try {
+    await execGit(['rev-parse', '--verify', remote], cwd)
+    return remote
+  } catch {
+    return branch
+  }
+}
+
+function logArgs(
+  sinceMs: number,
+  untilMs: number,
+  numstat: boolean,
+  branchRef: string,
+): string[] {
+  const args = ['log', '--first-parent', '--no-merges']
+  if (numstat) {
+    args.push('--numstat')
+  }
+  args.push(
     '--format=%H%x09%ct%x09%ae%x09%an',
     `--since=${new Date(sinceMs).toISOString()}`,
     `--until=${new Date(untilMs).toISOString()}`,
-  ]
-  if (numstat) {
-    args.splice(4, 0, '--numstat')
-  }
+    branchRef,
+  )
   return args
+}
+
+function mergeListArgs(sinceMs: number, untilMs: number, branchRef: string): string[] {
+  return [
+    'log',
+    '--first-parent',
+    '--merges',
+    '--format=%H%x09%ct%x09%P',
+    `--since=${new Date(sinceMs).toISOString()}`,
+    `--until=${new Date(untilMs).toISOString()}`,
+    branchRef,
+  ]
+}
+
+/** One GitHub-style merge: the diff that landed, credited to the branch author. */
+async function commitsFromMerge(
+  cwd: string,
+  merge: FirstParentMerge,
+  execGit: ExecGit,
+  numstat: boolean,
+): Promise<ParsedLeaderboardCommit[]> {
+  const range = `${merge.firstParent}..${merge.secondParent}`
+  const { stdout: authorLog } = await execGit(
+    ['log', '--no-merges', '--format=%ae%x09%an', range],
+    cwd,
+  )
+  const authors = parseRangeAuthors(authorLog)
+  if (authors.length === 0) {
+    return []
+  }
+  if (authors.length > 1) {
+    const args = ['log', '--no-merges']
+    if (numstat) {
+      args.push('--numstat')
+    }
+    args.push('--format=%H%x09%ct%x09%ae%x09%an', range)
+    const { stdout } = await execGit(args, cwd)
+    return parseLeaderboardLog(stdout).map((commit) => ({
+      ...commit,
+      timestampMs: merge.timestampMs,
+    }))
+  }
+  const author = authors[0]
+  if (author === undefined) {
+    return []
+  }
+  const unix = Math.floor(merge.timestampMs / 1000)
+  const header = `${merge.hash}\t${unix}\t${author.email}\t${author.name}\n`
+  if (!numstat) {
+    return parseLeaderboardLog(header)
+  }
+  const { stdout } = await execGit(
+    ['diff', '--numstat', merge.firstParent, merge.hash],
+    cwd,
+  )
+  return parseLeaderboardLog(header + stdout)
 }
 
 export type LeaderboardScanPiece = {
@@ -351,11 +410,27 @@ async function scanRoot(
   numstat: boolean,
 ): Promise<LeaderboardRepoCommits | null> {
   try {
-    const { stdout } = await execGit(logArgs(sinceMs, untilMs, numstat), cwd)
+    const branchRef = await mergedBranchRef(cwd, execGit)
+    if (branchRef === null) {
+      return null
+    }
+    const { stdout } = await execGit(logArgs(sinceMs, untilMs, numstat, branchRef), cwd)
+    const direct = parseLeaderboardLog(stdout)
+    let landed: ParsedLeaderboardCommit[] = []
+    try {
+      const listed = await execGit(mergeListArgs(sinceMs, untilMs, branchRef), cwd)
+      const merges = parseFirstParentMerges(listed.stdout)
+      const parts = await mapPool(merges, 4, (merge) =>
+        commitsFromMerge(cwd, merge, execGit, numstat),
+      )
+      landed = parts.flat()
+    } catch {
+      landed = []
+    }
     return {
       path: cwd,
       label: basename(cwd),
-      commits: parseLeaderboardLog(stdout),
+      commits: [...direct, ...landed],
     }
   } catch {
     return null

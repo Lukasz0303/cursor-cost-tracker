@@ -1,8 +1,9 @@
-import { access, copyFile, readFile, rm, stat } from 'node:fs/promises'
+import { copyFile, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
+import { fileExists, openStateDb, sqlValueToString } from './stateDb'
 
 export const SIGN_IN_MESSAGE = 'Sign in to Cursor'
 export const SESSION_READ_ERROR = 'Could not read Cursor session'
@@ -12,6 +13,37 @@ const EMAIL_KEYS = ['cursorAuth/cachedEmail', 'cursorAuth/email'] as const
 
 /** Node `readFile` and sql.js both need the whole file; they fail above ~2 GiB. */
 export const SQLJS_MAX_BYTES = 1536 * 1024 * 1024
+
+/** Leftover `cct-*.vscdb` copies from a killed sql.js read. */
+export const SQLJS_STALE_COPY_MS = 60 * 60 * 1000
+
+const SQLJS_COPY_PREFIX = 'cct-'
+const SQLJS_COPY_SUFFIX = '.vscdb'
+
+export function staleSqlJsCopyNames(
+  entries: readonly { name: string; mtimeMs: number }[],
+  nowMs: number,
+): string[] {
+  const cutoff = nowMs - SQLJS_STALE_COPY_MS
+  const stale: string[] = []
+  for (const entry of entries) {
+    if (!isSqlJsCopyName(entry.name)) {
+      continue
+    }
+    if (entry.mtimeMs < cutoff) {
+      stale.push(entry.name)
+    }
+  }
+  return stale
+}
+
+function isSqlJsCopyName(name: string): boolean {
+  return (
+    name.startsWith(SQLJS_COPY_PREFIX) &&
+    name.endsWith(SQLJS_COPY_SUFFIX) &&
+    name.length > SQLJS_COPY_PREFIX.length + SQLJS_COPY_SUFFIX.length
+  )
+}
 
 export type SessionOk = {
   ok: true
@@ -141,17 +173,38 @@ function loadSqlJs(locateFile: (file: string) => string): Promise<SqlJsStatic> {
   return sqlJsPromise
 }
 
-async function fileExists(path: string): Promise<boolean> {
+async function sweepStaleSqlJsCopies(dir: string, nowMs = Date.now()): Promise<void> {
+  let names: string[]
   try {
-    await access(path)
-    return true
+    names = await readdir(dir)
   } catch {
-    return false
+    return
+  }
+  const entries: { name: string; mtimeMs: number }[] = []
+  for (const name of names) {
+    if (!isSqlJsCopyName(name)) {
+      continue
+    }
+    try {
+      const info = await stat(join(dir, name))
+      entries.push({ name, mtimeMs: info.mtimeMs })
+    } catch {
+      // skip an entry we cannot stat
+    }
+  }
+  for (const name of staleSqlJsCopyNames(entries, nowMs)) {
+    try {
+      await rm(join(dir, name), { force: true })
+    } catch {
+      // next sql.js read retries
+    }
   }
 }
 
 async function readDbCopy(dbPath: string): Promise<Uint8Array> {
-  const tmpPath = join(tmpdir(), `cct-${randomUUID()}.vscdb`)
+  const dir = tmpdir()
+  await sweepStaleSqlJsCopies(dir)
+  const tmpPath = join(dir, `${SQLJS_COPY_PREFIX}${randomUUID()}${SQLJS_COPY_SUFFIX}`)
   try {
     await copyFile(dbPath, tmpPath)
     return await readFile(tmpPath)
@@ -160,18 +213,6 @@ async function readDbCopy(dbPath: string): Promise<Uint8Array> {
   } finally {
     await rm(tmpPath, { force: true })
   }
-}
-
-function sqlValueToString(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed === '' ? null : trimmed
-  }
-  if (value instanceof Uint8Array) {
-    const text = new TextDecoder().decode(value).trim()
-    return text === '' ? null : text
-  }
-  return null
 }
 
 function sessionFromItemValues(values: ItemValues): SessionResult {
@@ -211,20 +252,11 @@ function readItemValuesFromSqlJs(db: Database): ItemValues {
 async function tryReadViaNativeSqlite(
   dbPath: string,
 ): Promise<ItemValues | null> {
-  let DatabaseSync: typeof import('node:sqlite').DatabaseSync
-  try {
-    const sqlite = await import('node:sqlite')
-    if (typeof sqlite.DatabaseSync !== 'function') {
-      return null
-    }
-    DatabaseSync = sqlite.DatabaseSync
-  } catch {
+  const db = await openStateDb(dbPath)
+  if (db === null) {
     return null
   }
-
-  let db: InstanceType<typeof DatabaseSync> | undefined
   try {
-    db = new DatabaseSync(dbPath, { readOnly: true, timeout: 5000 })
     const stmt = db.prepare('SELECT value FROM ItemTable WHERE key = ?')
     const stored = sqlValueToString(stmt.get(ACCESS_TOKEN_KEY)?.value)
     let email: string | null = null
@@ -239,9 +271,9 @@ async function tryReadViaNativeSqlite(
     return null
   } finally {
     try {
-      db?.close()
+      db.close()
     } catch {
-      // already closed or never opened
+      // already closed
     }
   }
 }

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cursor Cost Tracker — know the spend before the month ends</title>
   <meta name="description" content="Status bar Current and Today, burn rate, model pricing, Coding stats, monthly forecast, Optimize, and Support write-a-message. Free on Open VSX.">
-  <link rel="canonical" href="https://lukasz0303.github.io/cursor-cost-tracker/">
+  <link rel="canonical" href="https://cursorcosttracker.com/">
   <meta property="og:title" content="Cursor Cost Tracker">
   <meta property="og:description" content="Status bar spend, forecast, burn rate, model pricing, Coding stats, and local Optimize — inside Cursor.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://lukasz0303.github.io/cursor-cost-tracker/">
-  <meta property="og:image" content="https://lukasz0303.github.io/cursor-cost-tracker/screenshots/dark/monthly_cost_forecast_2.png">
+  <meta property="og:url" content="https://cursorcosttracker.com/">
+  <meta property="og:image" content="https://cursorcosttracker.com/screenshots/dark/monthly_cost_forecast_2.png">
   <meta name="theme-color" content="#07090c" id="theme-color">
   <link rel="icon" href="mark.png">
   <link rel="stylesheet" href="styles.css">
@@ -398,7 +398,7 @@
             <div class="tile-copy">
               <p class="tile-tag" data-i18n="tile.optTag">Optimize</p>
               <h3 data-i18n="tile.optTitle">A prompt for the last red query</h3>
-              <p data-i18n="tile.optBody">Quick, Balanced, or Deep. Run pastes into the last Agent chat — you press Start. The extension never reads the transcript.</p>
+              <p data-i18n="tile.optBody">Quick, Balanced, or Deep. Run pastes into a new Agent chat — you press Start. The extension never reads the transcript.</p>
             </div>
             <button class="zoomable tile-shot" type="button" data-open="optimize" data-i18n-aria="enlarge.optimize" aria-label="Enlarge: Optimize">
               <img src="screenshots/dark/optimize.png" alt="Optimize tab with Quick, Balanced, and Deep prompt cards." loading="lazy">
@@ -408,7 +408,7 @@
         </div>
         <ul class="also reveal">
           <li data-i18n-html="also.critical"><strong>Critical alert.</strong> One dialog, only at 10M tokens or $5. Separate from the ! on the bar. Cursor keeps running.</li>
-          <li data-i18n-html="also.langs"><strong>Ten languages.</strong> English by default. Polish, Chinese, Japanese, and more switch the panel, status bar, and toasts immediately.</li>
+          <li data-i18n-html="also.langs"><strong>Eleven languages.</strong> English by default. Polish, Chinese, Japanese, and more switch the panel, status bar, and toasts immediately.</li>
         </ul>
       </div>
     </section>
@@ -418,8 +418,13 @@
         <header id="screens" class="section-head reveal">
           <p class="eyebrow" data-i18n="screens.eyebrow">Product tour</p>
           <h2 data-i18n="screens.title">From the status bar to the last red query.</h2>
-          <p class="lede" data-i18n="screens.lede">Screenshots from the panel. Swipe, use the arrows, or pick a thumbnail. Click a frame for full screen — click again for actual size.</p>
+          <p class="lede" data-i18n="screens.lede">Pick a release, then swipe, use the arrows, or pick a thumbnail. New version folders under screenshots/releases appear here automatically. Click a frame for full screen — click again for actual size.</p>
         </header>
+
+        <div class="release-switch reveal" data-release-switch hidden>
+          <span class="release-switch-label" data-i18n="screens.releaseLabel">Release</span>
+          <div class="release-chips" data-release-chips role="tablist" data-i18n-aria="screens.releaseAria" aria-label="Choose a release"></div>
+        </div>
 
         <div class="slider reveal" data-slider>
           <div class="slider-stage">
@@ -657,7 +662,7 @@
         <a href="https://github.com/Lukasz0303/cursor-cost-tracker/blob/main/LICENSE">MIT</a>
         <a href="https://buymeacoffee.com/lzzzielinsn" data-i18n="support.coffeeTag">Buy Me a Coffee</a>
       </p>
-      <p class="fine" data-i18n-html="footer.fine">Independent project · MIT · v<span data-version>1.0.5</span> · Not affiliated with Anysphere or Cursor.</p>
+      <p class="fine" data-i18n-html="footer.fine">Independent project · MIT · v<span data-version>1.0.6</span> · Not affiliated with Anysphere or Cursor.</p>
     </div>
   </footer>
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { parseLeaderboardAuthors, parseLeaderboardLog } from '../src/leaderboard/parse'
+import {
+  parseFirstParentMerges,
+  parseLeaderboardAuthors,
+  parseLeaderboardLog,
+  parseRangeAuthors,
+} from '../src/leaderboard/parse'
 
 const LOG = [
   'aaa1111\t1700000000\tAda@Example.com\tAda',
@@ -32,6 +37,33 @@ describe('parseLeaderboardLog', () => {
     expect(commits).toEqual([
       expect.objectContaining({ insertions: 0, deletions: 0, email: 'ada@example.com' }),
     ])
+  })
+})
+
+describe('parseFirstParentMerges', () => {
+  it('keeps the default-branch parent and the branch that landed', () => {
+    const merges = parseFirstParentMerges(
+      [
+        'abc1234\t1700000000\tnot-a-hash',
+        'fff9999\t1700086400\t1111111111111111111111111111111111111111 2222222222222222222222222222222222222222',
+        'not-a-merge',
+      ].join('\n'),
+    )
+    expect(merges).toEqual([
+      {
+        hash: 'fff9999',
+        timestampMs: 1700086400 * 1000,
+        firstParent: '1111111111111111111111111111111111111111',
+        secondParent: '2222222222222222222222222222222222222222',
+      },
+    ])
+  })
+})
+
+describe('parseRangeAuthors', () => {
+  it('keeps the first name for one email', () => {
+    const authors = parseRangeAuthors('ada@example.com\tAda\nada@example.com\tAda Lovelace\n')
+    expect(authors).toEqual([{ email: 'ada@example.com', name: 'Ada' }])
   })
 })
 

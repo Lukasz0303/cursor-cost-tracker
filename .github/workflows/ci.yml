@@ -1,0 +1,72 @@
+# Typecheck, unit tests, and the esbuild bundle.
+# Landing-page deploy stays in pages.yml.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "release/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+        env:
+          TZ: UTC
+
+      - name: Build
+        run: npm run build
+
+  local-day-tz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tz:
+          - UTC
+          - America/Los_Angeles
+          - Europe/Warsaw
+          - Asia/Tokyo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Local-day tests
+        run: npx vitest run test/localDay.test.ts test/historyFromDate.test.ts test/chartSeries.test.ts
+        env:
+          TZ: ${{ matrix.tz }}

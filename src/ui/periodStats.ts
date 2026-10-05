@@ -12,10 +12,15 @@ import {
   lastQueriesHeading,
   sampleSizeLimit,
 } from '../historyLimit'
-import { budgetDaysInMonth, stripModelPrefix, sumMonthUsedUsd } from '../usage/parse'
+import { budgetDaysInMonth } from '../budgetDays'
+import { stripModelPrefix, sumMonthUsedUsd } from '../usage/parse'
 import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
 import { sharePercents, type PeriodShare } from './periodCards'
 import { todayAttributedPercent } from './proPercentSummary'
+import type { ModelCatalogPayload } from '../pricing/parse'
+import { pricePerMillion } from '../pricing/money'
+import { cacheDollarsSaved } from '../pricing/listPrice'
+import { matchPricedModel } from '../pricing/usageMatch'
 
 const BREAKDOWN_LIMIT = 8
 
@@ -32,8 +37,9 @@ export function sampleNoteForLimit(
   limit: number,
   fromDate?: string | null,
   locale: Locale = DEFAULT_LOCALE,
+  toDate?: string | null,
 ): string {
-  return `${lastQueriesHeading(limit, fromDate, locale)}${catalogFor(locale).stats.sampleNoteSuffix}`
+  return `${lastQueriesHeading(limit, fromDate, locale, toDate)}${catalogFor(locale).stats.sampleNoteSuffix}`
 }
 
 export const SAMPLE_NOTE = sampleNoteForLimit(DEFAULT_HISTORY_LIMIT)
@@ -108,15 +114,19 @@ export type PeriodStatsPayload = {
   sampleNote: string
   historyLimit: number
   queryCount: number
+  /** Null when no sample row had both input and cache-read rates. */
+  cacheSavedUsd: number | null
 }
 
 export type PeriodStatsOptions = {
   spikeTokenThreshold: number
   historyLimit?: number
   historyFromDate?: string | null
+  historyToDate?: string | null
   now?: Date
   budgetDayBasis?: BudgetDayBasis
   locale?: Locale
+  modelCatalog?: ModelCatalogPayload | null
 }
 
 function dash(value: string | null | undefined): string {
@@ -443,6 +453,7 @@ function emptyStats(
   historyLimit: number,
   fromDate?: string | null,
   locale: Locale = DEFAULT_LOCALE,
+  toDate?: string | null,
 ): PeriodStatsPayload {
   const copy = catalogFor(locale).stats
   return {
@@ -454,9 +465,10 @@ function emptyStats(
     sample: [],
     byModel: [],
     byKind: [],
-    sampleNote: sampleNoteForLimit(historyLimit, fromDate, locale),
+    sampleNote: sampleNoteForLimit(historyLimit, fromDate, locale, toDate),
     historyLimit,
     queryCount: 0,
+    cacheSavedUsd: null,
   }
 }
 
@@ -468,6 +480,7 @@ function cycleMetrics(
   basis: BudgetDayBasis,
   fromDate?: string | null,
   locale: Locale = DEFAULT_LOCALE,
+  toDate?: string | null,
 ): PeriodMetric[] {
   const copy = catalogFor(locale).stats
   const start = isoDay(data.billingCycleStart)
@@ -505,7 +518,7 @@ function cycleMetrics(
     data.workingDaysLeft === null ? '—' : String(data.workingDaysLeft)
   const daysLabel =
     basis === 'calendarDays' ? copy.calendarDaysLeft : copy.workingDaysLeft
-  const heading = lastQueriesHeading(historyLimit, fromDate, locale)
+  const heading = lastQueriesHeading(historyLimit, fromDate, locale, toDate)
 
   metrics.push(
     metric('remaining', copy.remaining, remaining),
@@ -520,15 +533,43 @@ function cycleMetrics(
   return metrics
 }
 
+function sampleCacheSavedUsd(
+  queries: UsageQuery[],
+  catalog: ModelCatalogPayload | null | undefined,
+): number | null {
+  if (catalog === null || catalog === undefined || catalog.error) {
+    return null
+  }
+  return cacheDollarsSaved(
+    queries.map((query) => {
+      const priced = matchPricedModel(query.model, catalog)
+      if (priced === null) {
+        return {
+          cacheReadTokens: query.cacheReadTokens,
+          inputPerMillion: null,
+          cacheReadPerMillion: null,
+        }
+      }
+      return {
+        cacheReadTokens: query.cacheReadTokens,
+        inputPerMillion: pricePerMillion(priced.input),
+        cacheReadPerMillion: pricePerMillion(priced.cacheRead),
+      }
+    }),
+  )
+}
+
 function sampleMetrics(
   queries: UsageQuery[],
   spikeTokenThreshold: number,
   historyLimit: number,
   fromDate?: string | null,
   locale: Locale = DEFAULT_LOCALE,
+  cacheSavedUsd: number | null = null,
+  toDate?: string | null,
 ): PeriodMetric[] {
   const copy = catalogFor(locale).stats
-  const heading = lastQueriesHeading(historyLimit, fromDate, locale)
+  const heading = lastQueriesHeading(historyLimit, fromDate, locale, toDate)
   if (queries.length === 0) {
     return [
       metric('avgTokens', copy.avgTokens, '0'),
@@ -566,6 +607,15 @@ function sampleMetrics(
     }
   }
 
+  const cacheHitExtra: Omit<PeriodMetric, 'id' | 'label' | 'value'> = {
+    hint: copy.cacheHitHint,
+  }
+  if (cacheSavedUsd !== null) {
+    cacheHitExtra.detail = interpolate(copy.cacheSaved, {
+      amount: formatDollars(cacheSavedUsd),
+    })
+  }
+
   const metrics: PeriodMetric[] = [
     metric(
       'avgTokens',
@@ -591,9 +641,7 @@ function sampleMetrics(
       String(spikes),
       { hint: interpolate(copy.spikesHint, { n: formatCompactTokens(spikeTokenThreshold) }) },
     ),
-    metric('cacheHit', copy.cacheHit, formatPercentUsed(hit), {
-      hint: copy.cacheHitHint,
-    }),
+    metric('cacheHit', copy.cacheHit, formatPercentUsed(hit), cacheHitExtra),
     metric(
       'costPerMillion',
       copy.costPerMillion,
@@ -638,6 +686,7 @@ export function toPeriodStats(
     options.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
   const historyFromDate = options.historyFromDate ?? null
+  const historyToDate = options.historyToDate ?? null
   const now = options.now ?? new Date()
   const basis = options.budgetDayBasis ?? DEFAULT_BUDGET_DAY_BASIS
   const locale = options.locale ?? DEFAULT_LOCALE
@@ -646,8 +695,9 @@ export function toPeriodStats(
     queries,
     sampleSizeLimit(historyLimit, historyFromDate),
   )
+  const cacheSavedUsd = sampleCacheSavedUsd(sample, options.modelCatalog)
   if (snapshot.status !== 'ready') {
-    const empty = emptyStats(historyLimit, historyFromDate, locale)
+    const empty = emptyStats(historyLimit, historyFromDate, locale, historyToDate)
     if (sample.length === 0) {
       return empty
     }
@@ -659,10 +709,13 @@ export function toPeriodStats(
         historyLimit,
         historyFromDate,
         locale,
+        cacheSavedUsd,
+        historyToDate,
       ),
       byModel: groupCost(sample, (query) => modelLabel(query.model)),
       byKind: groupCost(sample, (query) => formatKind(query.kind)),
       queryCount: sample.length,
+      cacheSavedUsd,
     }
   }
 
@@ -697,6 +750,7 @@ export function toPeriodStats(
       basis,
       historyFromDate,
       locale,
+      historyToDate,
     ),
     sample: sampleMetrics(
       sample,
@@ -704,12 +758,20 @@ export function toPeriodStats(
       historyLimit,
       historyFromDate,
       locale,
+      cacheSavedUsd,
+      historyToDate,
     ),
     byModel: groupCost(sample, (query) => modelLabel(query.model)),
     byKind: groupCost(sample, (query) => formatKind(query.kind)),
-    sampleNote: sampleNoteForLimit(historyLimit, historyFromDate, locale),
+    sampleNote: sampleNoteForLimit(
+      historyLimit,
+      historyFromDate,
+      locale,
+      historyToDate,
+    ),
     historyLimit,
     queryCount: sample.length,
+    cacheSavedUsd,
   }
 }
 

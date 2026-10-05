@@ -3,7 +3,9 @@ node_modules/
 
 # Build output (esbuild); keep source in src/
 dist/
+media/limits.js
 *.tsbuildinfo
+tmp/
 
 # Generated PR descriptions (command `2-pr-description`)
 .ai/reports/

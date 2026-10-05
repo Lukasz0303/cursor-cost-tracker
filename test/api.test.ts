@@ -405,4 +405,33 @@ describe('fetchUserAnalytics', () => {
     expect(header(init, 'Cookie')).toBe(cookie)
     expect(header(init, 'Authorization')).toBeNull()
   })
+
+  it('fails the whole window when a later chunk fails', async () => {
+    fetchMock()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            dailyMetrics: [
+              {
+                day: '2026-09-01',
+                acceptedLinesAdded: 10,
+                acceptedLinesDeleted: 1,
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('nope', { status: 500 }))
+      .mockResolvedValueOnce(new Response('nope', { status: 500 }))
+    const startMs = Date.UTC(2026, 8, 1)
+    const endMs = startMs + 31 * 24 * 60 * 60 * 1000
+    const result = await fetchUserAnalytics(
+      cookie,
+      new AbortController().signal,
+      { startMs, endMs },
+    )
+    expect(result.ok).toBe(false)
+    expect(fetchMock()).toHaveBeenCalledTimes(3)
+  })
 })

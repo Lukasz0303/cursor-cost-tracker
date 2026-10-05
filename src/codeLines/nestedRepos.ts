@@ -5,7 +5,8 @@ import type { GitNumstatDay } from './types'
 /** Nested git checkouts that trigger a polyrepo (stack) workspace. */
 export const MIN_NESTED_GIT_REPOS = 2
 
-const SKIP_DIR = new Set([
+/** Directory names skipped while walking sibling and nested git checkouts. */
+export const GIT_SKIP_DIRS = new Set([
   '.git',
   '.cursor',
   '.vscode',
@@ -118,7 +119,7 @@ async function listSubdirNames(cwd: string): Promise<string[]> {
       .filter(
         (entry) =>
           entry.isDirectory() &&
-          !SKIP_DIR.has(entry.name) &&
+          !GIT_SKIP_DIRS.has(entry.name) &&
           !entry.name.startsWith('.'),
       )
       .map((entry) => entry.name)

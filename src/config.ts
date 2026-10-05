@@ -18,7 +18,11 @@ import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
 } from './historyLimit'
-import { clampPollIntervalMinutes } from './usage/service'
+import {
+  clampPollIntervalMinutes,
+  clampRecentQueryCount,
+  DEFAULT_RECENT_QUERY_COUNT,
+} from './clamps'
 import {
   clampCriticalCostUsdThreshold,
   clampCriticalTokenThreshold,
@@ -44,23 +48,14 @@ export type { BudgetDayBasis, Locale, OptimizeDepth }
 export { DEFAULT_BUDGET_DAY_BASIS, parseBudgetDayBasis }
 export { DEFAULT_LOCALE, parseLocale }
 export { DEFAULT_OPTIMIZE_DEPTH, parseOptimizeDepth }
+export {
+  clampRecentQueryCount,
+  DEFAULT_RECENT_QUERY_COUNT,
+  MAX_RECENT_QUERY_COUNT,
+  MIN_RECENT_QUERY_COUNT,
+} from './clamps'
 
 const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i
-
-export const MIN_RECENT_QUERY_COUNT = 1
-export const MAX_RECENT_QUERY_COUNT = 10
-export const DEFAULT_RECENT_QUERY_COUNT = 3
-
-export function clampRecentQueryCount(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed)) {
-    return DEFAULT_RECENT_QUERY_COUNT
-  }
-  return Math.min(
-    MAX_RECENT_QUERY_COUNT,
-    Math.max(MIN_RECENT_QUERY_COUNT, Math.round(parsed)),
-  )
-}
 
 /** VS Code ColorThemeKind.Light / HighContrastLight. */
 const LIGHT_THEME_KIND = 1
@@ -145,9 +140,12 @@ export type CursorCostConfig = {
   burnRateWarningToast: boolean
   burnRateCriticalToast: boolean
   codeLinesInsight: boolean
+  groupQueriesByConversation: boolean
   historyLimit: number
   /** Local `YYYY-MM-DD`; `null` uses Last N (`historyLimit`). */
   historyFromDate: string | null
+  /** Local `YYYY-MM-DD` end of calendar sample; `null` = through today. Ignored without From. */
+  historyToDate: string | null
   budgetDayBasis: BudgetDayBasis
   forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
@@ -175,8 +173,10 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   burnRateWarningToast: true,
   burnRateCriticalToast: true,
   codeLinesInsight: true,
+  groupQueriesByConversation: false,
   historyLimit: DEFAULT_HISTORY_LIMIT,
   historyFromDate: null,
+  historyToDate: null,
   budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
   forecastWindow: DEFAULT_FORECAST_WINDOW,
   optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
@@ -275,10 +275,13 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     burnRateWarningToast: section.get('burnRateWarningToast', true) === true,
     burnRateCriticalToast: section.get('burnRateCriticalToast', true) === true,
     codeLinesInsight: section.get('codeLinesInsight', true) === true,
+    groupQueriesByConversation:
+      section.get<boolean>('groupQueriesByConversation', false) === true,
     historyLimit: clampHistoryLimit(
       section.get('historyLimit', DEFAULT_CURSOR_COST_CONFIG.historyLimit),
     ),
     historyFromDate: parseHistoryFromDate(section.get('historyFromDate', '')),
+    historyToDate: parseHistoryFromDate(section.get('historyToDate', '')),
     budgetDayBasis: parseBudgetDayBasis(
       section.get('budgetDayBasis', DEFAULT_BUDGET_DAY_BASIS),
     ),

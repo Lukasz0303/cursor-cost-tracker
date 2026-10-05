@@ -5,6 +5,7 @@ import {
 } from '../historyLimit'
 import { catalogFor, interpolate } from '../i18n'
 import { DEFAULT_LOCALE, type Locale } from '../locale'
+import { localDayKey, localMonthKey } from '../time/localDay'
 import type { UsageQuery } from '../usage/types'
 
 export const PERIOD_COST_HINT = catalogFor('en').periods.costHint
@@ -47,20 +48,6 @@ function shareMeta(locale: Locale): Array<{ key: PeriodShareKey; label: string }
     { key: 'cacheWrite', label: copy.cacheWrite },
     { key: 'cacheRead', label: copy.cacheRead },
   ]
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
-function localDayKey(ms: number): string {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
-
-function localMonthKey(ms: number): string {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`
 }
 
 function newestQueries(queries: UsageQuery[], limit: number): UsageQuery[] {

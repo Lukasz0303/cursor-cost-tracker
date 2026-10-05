@@ -8,6 +8,8 @@ export type UsageQuery = {
   outputTokens: number
   cacheWriteTokens: number
   cacheReadTokens: number
+  /** Present only when the usage event carried a conversation id. */
+  conversationId?: string
 }
 
 export type SpendDisplay = 'usd' | 'percent'

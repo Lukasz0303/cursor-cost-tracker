@@ -1,37 +1,16 @@
-import { access } from 'node:fs/promises'
 import {
   filterComposerTotalsForWorkspace,
   parseComposerHeaderValue,
 } from './composerHeaders'
 import type { ComposerLineTotals } from './types'
 import { getStateDbPath } from '../usage/session'
+import { fileExists, openStateDb, sqlValueToString } from '../usage/stateDb'
 
 export type ReadComposerHeadersOptions = {
   dbPath?: string
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
   activeWorkspacePath?: string | null
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function sqlValueToString(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed === '' ? null : trimmed
-  }
-  if (value instanceof Uint8Array) {
-    const text = new TextDecoder().decode(value).trim()
-    return text === '' ? null : text
-  }
-  return null
 }
 
 /**
@@ -50,21 +29,12 @@ export async function readComposerLineTotals(
     return []
   }
 
-  let DatabaseSync: typeof import('node:sqlite').DatabaseSync
-  try {
-    const sqlite = await import('node:sqlite')
-    if (typeof sqlite.DatabaseSync !== 'function') {
-      return []
-    }
-    DatabaseSync = sqlite.DatabaseSync
-  } catch {
+  const db = await openStateDb(dbPath)
+  if (db === null) {
     return []
   }
-
-  let db: InstanceType<typeof DatabaseSync> | undefined
   const rows: ComposerLineTotals[] = []
   try {
-    db = new DatabaseSync(dbPath, { readOnly: true, timeout: 5000 })
     type HeaderRow = {
       composerId: unknown
       createdAt: unknown

@@ -3,6 +3,7 @@ import {
   clampHistoryLimit,
   DEFAULT_HISTORY_LIMIT,
 } from '../historyLimit'
+import { localDayKey } from '../time/localDay'
 import type { UsageQuery } from '../usage/types'
 
 export type ChartPoint = {
@@ -11,15 +12,6 @@ export type ChartPoint = {
   tokens: number
   costUsd: number
   queryCount: number
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
-function localDayKey(ms: number): string {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
 /** Oldest → newest calendar days from the Last N sample (local timezone). */

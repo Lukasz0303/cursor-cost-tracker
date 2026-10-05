@@ -1,4 +1,4 @@
-import { historyFromDateStartMs, parseHistoryFromDate } from '../historyFromDate'
+import { resolveHistorySample, codeLinesUntilMs } from '../historySample'
 
 export const CODE_LINES_FALLBACK_DAYS = 90
 
@@ -19,23 +19,32 @@ function newestSample<T extends { timestamp: number }>(
 }
 
 /**
- * Same bounds as Last N / From date. Last N → oldest row in the sample.
- * From date → local midnight of that day. Empty sample without a date → 90 days.
+ * Same bounds as Last N / From–To. Last N → oldest row in the sample.
+ * Calendar → local midnight of From through now (To open/today) or end of To.
+ * Empty sample without a date → 90 days.
  */
 export function codeLinesWindowFromSample(input: {
   queries: readonly { timestamp: number }[]
   limit: number
   fromDate?: string | null
+  toDate?: string | null
   nowMs?: number
 }): CodeLinesTimeWindow {
   const nowMs = input.nowMs ?? Date.now()
-  const parsed = parseHistoryFromDate(input.fromDate ?? null)
-  const fromStart = parsed !== null ? historyFromDateStartMs(parsed) : null
-  if (fromStart !== null) {
-    return { sinceMs: fromStart, untilMs: nowMs }
+  const sample = resolveHistorySample({
+    historyLimit: input.limit,
+    historyFromDate: input.fromDate ?? null,
+    historyToDate: input.toDate ?? null,
+    now: new Date(nowMs),
+  })
+  if (sample.mode === 'calendar') {
+    return {
+      sinceMs: sample.startMs,
+      untilMs: codeLinesUntilMs(sample, nowMs),
+    }
   }
-  const sample = newestSample(input.queries, input.limit)
-  const oldest = sample[sample.length - 1]?.timestamp
+  const rows = newestSample(input.queries, sample.fetchLimit)
+  const oldest = rows[rows.length - 1]?.timestamp
   if (oldest !== undefined) {
     return { sinceMs: oldest, untilMs: nowMs }
   }

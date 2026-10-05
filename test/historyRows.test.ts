@@ -5,6 +5,7 @@ import {
   payloadForSnapshot,
   toHistoryRows,
 } from '../src/ui/historyRows'
+import { rememberOptimizedTarget, emptyOptimizedTargets } from '../src/ui/optimizedTargets'
 import type { UsageQuery } from '../src/usage/types'
 
 function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery {
@@ -78,6 +79,40 @@ describe('toHistoryRows extras', () => {
     expect(rows[0]?.spike).toBe(true)
   })
 
+  it('attaches the local conversation title when an id matches', () => {
+    const rows = toHistoryRows(
+      [
+        query({ timestamp: 2, conversationId: 'chat-1' }),
+        query({ timestamp: 1, conversationId: 'chat-2' }),
+        query({ timestamp: 0 }),
+      ],
+      {
+        conversationTitles: {
+          'chat-1': '  Fix burn-rate toast  ',
+        },
+        historyLimit: 10,
+      },
+    )
+    expect(rows[0]?.conversationTitle).toBe('Fix burn-rate toast')
+    expect(rows[1]?.conversationTitle).toBe('')
+    expect(rows[2]?.conversationTitle).toBe('')
+  })
+
+  it('marks a stored conversation and leaves other rows unmarked', () => {
+    const targets = rememberOptimizedTarget(emptyOptimizedTargets(), {
+      conversationId: 'chat-1',
+    })
+    const rows = toHistoryRows(
+      [
+        query({ timestamp: 2, conversationId: 'chat-1', tokens: 10 }),
+        query({ timestamp: 1, conversationId: 'chat-2', tokens: 10 }),
+      ],
+      { optimizedTargets: targets, historyLimit: 10 },
+    )
+    expect(rows[0]?.optimized).toBe(true)
+    expect(rows[1]?.optimized).toBe(false)
+  })
+
   it('marks non-spike rows without a bang', () => {
     const rows = toHistoryRows(
       [query({ timestamp: 1, tokens: 64_755 })],
@@ -132,6 +167,7 @@ describe('historyDataPayload', () => {
     expect(json.includes('WorkosCursorSessionToken')).toBe(false)
     expect(json.includes('Authorization')).toBe(false)
     expect(Object.keys(payload).sort()).toEqual([
+      'billingCycleStart',
       'budgetDayBasis',
       'burnRate',
       'burnRateCriticalToast',
@@ -149,8 +185,10 @@ describe('historyDataPayload', () => {
       'events',
       'extensionVersion',
       'forecastWindow',
+      'groupQueriesByConversation',
       'historyFromDate',
       'historyLimit',
+      'historyToDate',
       'i18n',
       'language',
       'minimalMode',
@@ -161,6 +199,7 @@ describe('historyDataPayload', () => {
       'optimizeDepth',
       'periods',
       'pollIntervalMinutes',
+      'queryGroups',
       'recentQueryCount',
       'refreshing',
       'showCriticalAlert',
