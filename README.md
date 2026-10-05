@@ -4,6 +4,10 @@
 
 # Cursor Cost Tracker
 
+<p align="center">
+  <a href="https://cursorcosttracker.com/"><strong>cursorcosttracker.com</strong></a>
+</p>
+
 </div>
 
 <p align="center">
@@ -22,7 +26,7 @@
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.5-blue.svg" alt="Version 1.0.5">
+  <img src="https://img.shields.io/badge/version-1.0.6-blue.svg" alt="Version 1.0.6">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
   <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
@@ -33,20 +37,20 @@
 
 1. **Status bar** — Current, Today, and the newest queries stay on the bar while you code. Green is on pace; red is over budget or a token spike (`!`).
 2. **Guards** — **Burn Rate Guard** shows live `$ / window` on Statistics, a banner when that window is hot, and non-blocking toasts. A **blocking critical alert** fires when the newest query hits your token or dollar ceiling (**Open History** / **Ignore**). Neither stops Cursor.
-3. **Monthly cost forecast** — used, forecast, and ideal on one chart, plus **when** Team dollars or Pro included limits run out.
-4. **Optimize** — ready prompts for the last red (**Warn at**) query. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
+3. **Monthly cost forecast** — used, forecast, and ideal on one chart, plus **when** Team dollars or Pro included limits run out. The chart can follow the calendar month or a valid Cursor billing cycle ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev)).
+4. **Optimize** — ready prompts for the last red (**Warn at**) query, or **Play** on one red row. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 
-Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the last chat — savings appear after you press Start.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into a new Agent chat — savings appear after you press Start.
 
 The panel has six tabs:
 
-- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From date** (e.g. start of month). **Export CSV**. Toolbar **Model pricing** opens the official Cursor models page.
+- **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From** / **To** dates. **Group by conversation** (default off) folds the list into one row per local chat title. A red TOKENS cell has **Play**. Expand a row for list-price makeup. Toolbar: **Over Warn at**, **Optimized**, **Group by conversation**, **Export CSV**, **Model pricing**.
 - **Statistics** — **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast**, Last N totals, spend by model and by kind, **model pricing** table (Active / Fast filters, Last N request counts, CursorBench scores).
 - **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
 - **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
 - **Support** — Buy Me a Coffee; **Write a message** to the author (Comment / feature / bug / other).
-- **Settings** — **Language** (11 locales); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); Optimize depth; Show last / From date; Auto-refresh.
+- **Settings** — **Language** (11 locales, including Ukrainian); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); forecast window; Optimize depth; Group by conversation; Show last / From / To; Auto-refresh.
 
 If you are already signed in to Cursor, there is nothing to configure.
 
@@ -74,7 +78,7 @@ The same four cards when burn is under the warning floor: **Current burn rate**,
 
 ### 3. Coding stats
 
-Hero is **landed / AI = %** (your effectiveness) for this repo in the Last N / From date window, plus the same **if this branch landed** on main. **All on Cursor** is the dashboard Lines Edited total; **Projects** splits that total by local composer mix. Help `?` explains the formulas.
+Hero is **landed / AI = %** (your effectiveness) for this repo in the Last N / From–To window, plus the same **if this branch landed** on main, and window spend per 1k lines when both sides exist. **All on Cursor** is the dashboard Lines Edited total; **Projects** splits that total by local composer mix. Help `?` explains the formulas.
 
 <img src="screenshots/statistics_3.png" alt="Coding stats card: 25,361 / 57,331 = 44% your effectiveness, 61% if this branch landed on main, All on Cursor 90,618, Projects (2)" width="100%">
 
@@ -117,7 +121,7 @@ When a query lights up red (**Warn at**, default 1M tokens), **Optimize** builds
 Typical flow:
 
 1. A query goes red on the status bar or in Last N.
-2. **Run Optimize** (toolbar, default depth) pastes into the **last Agent chat** — or open this tab, expand a colored card, preview, and **Run** that depth.
+2. **Run Optimize** (toolbar, default depth) pastes into a **new Agent chat** — or open this tab, expand a colored card, preview, and **Run** that depth.
 3. You press **Start**. After the agent finishes, projected savings land in **`.ai/optimize-savings.md` inside this project only**.
 4. The top card shows **Projected save per similar request** (`0 / 0.00 $` until the first run; then mid tokens / USD, e.g. `~1.6M · ~0.97 $`). Expand it for the explanation and credited totals per project.
 
@@ -127,7 +131,7 @@ Three depths: **Quick** (why the last turn burned + next-message tips), **Balanc
 
 ### 8. Last N Cursor queries
 
-Full table inside the editor: Show last / From date, **Export CSV**. Spike rows show `!` on **TOKENS**.
+Full table inside the editor: Show last / From–To, **Group by conversation** (default off), **Play** on a red row, **Export CSV**. Spike rows show `!` on **TOKENS**.
 
 <img src="screenshots/alert_list.png" alt="Last 1000 Cursor queries table with cost, tokens, and spike warnings" width="100%">
 
@@ -159,11 +163,11 @@ Live window of billed spend ending now (default 10 minutes) on Statistics (see s
 
 ### 12. Coding stats
 
-For the **active workspace**, in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed**, and **All on Cursor** (dashboard Lines Edited, split under **Projects**). Git lines default to the Cursor account email (pick extra identities with **`?`**). The same folder name in two clone paths counts as one project. Opening a parent stack with git submodules (e.g. `servers/<service>`) sums those repos into the stack. Charts uses the same formulas. Toggle: `cursorCost.codeLinesInsight`.
+For the **active workspace**, in the same window as Last N / From–To: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed**, **$ / 1k lines** when the window has both cost and lines, and **All on Cursor** (dashboard Lines Edited, split under **Projects**). Git lines default to the Cursor account email (pick extra identities with **`?`**). The same folder name in two clone paths counts as one project. Opening a parent stack with git submodules (e.g. `servers/<service>`) sums those repos into the stack. Charts uses the same formulas. Toggle: `cursorCost.codeLinesInsight`.
 
 ### 13. Language
 
-Settings → **Language** switches the panel, status bar, and toasts immediately (English default; ten more locales including Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German, Ukrainian, and Polish).
+Settings → **Language** switches the panel, status bar, and toasts immediately (English default; ten more locales including Simplified Chinese, Japanese, Spanish, Brazilian Portuguese, Russian, Korean, French, German, Ukrainian, and Polish). Ukrainian was added in [#10](https://github.com/Lukasz0303/cursor-cost-tracker/pull/10) by [@milichev](https://github.com/milichev).
 
 <img src="screenshots/language.png" alt="Settings Language dropdown with eleven interface languages, English selected" width="100%">
 
@@ -182,6 +186,14 @@ On **Statistics**, a sortable table of Cursor model prices from the public docs 
 ### 16. Support — Write a message (1.0.5)
 
 Comment, New feature, Bug report, or Other. Nickname and email come from the Cursor account (editable). Expect a reply or send without one. Publish consent stays visible; Comment requires it. The mail app stays closed.
+
+### 17. Play on a red query (1.0.6)
+
+On the queries list, a red TOKENS cell (`!` at or over Warn at) has a play button beside the number. Play pastes a numbers-only brief for that conversation into a new Agent chat and does not press Start. The extension does not read the chat.
+
+### 18. Group by conversation (1.0.6)
+
+Queries toolbar switch, default off, also under Settings → Recent queries. On, the list folds into one collapsible row per local chat title (request count and totals). Chats that share a title merge. An id with no title shows `#` plus the first 8 characters. Requests without a conversation id land in **Ungrouped** and do not get a Play brief. **Over Warn at**, the spike `!`, and Play still apply. Play on a merged title uses the conversation that owns the dearest request. Export CSV stays a flat request list.
 
 ---
 
@@ -207,23 +219,28 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Used / forecast / ideal on one chart | — | Yes |
 | Run-out date (Team $ or Pro included limits) | — | Yes |
 | Pace by working days or all calendar days | — | Yes |
+| Forecast follows a monthly billing cycle when Cursor reports one | — | Yes |
 | Today / 7 days / Month range on the chart | — | Yes |
 | **Optimize** | | |
 | Ready prompt for the last red (Warn at) query | — | Yes |
+| Play on one red query (numbers only, new Agent chat) | — | Yes |
 | Quick / Balanced / Deep depths | — | Yes |
 | Projected save in local `.ai/optimize-savings.md` | — | Yes |
 | Never reads the chat transcript | — | Yes |
 | **Coding stats** | | |
 | Landed / AI = % effectiveness | — | Yes |
+| Window spend per 1k landed lines and per 1k AI lines | — | Yes |
 | If this branch landed on main / master | — | Yes |
 | All on Cursor · split by project | — | Yes |
 | AI lines vs merged on Charts | — | Yes |
 | **Panel · queries · charts** | | |
-| Last N queries in the editor (100–10,000 or From date) | — | Yes |
+| Last N queries in the editor (100–10,000 or From–To) | — | Yes |
+| Group the list by local chat title (default off; CSV stays flat) | — | Yes |
+| List-price makeup on a query, beside billed cost | — | Yes |
 | Per-query cost, tokens, model, kind | Website | Yes |
 | Statistics (totals, averages, spike count) | Website | Yes |
 | Spend by model and by kind | Website | Yes |
-| Charts (tokens / cost over time) | — | Yes |
+| Charts (tokens / cost over time; click a day; Sample / Last 7 / Month) | — | Yes |
 | Today / This month / All time mix cards | Website | Yes |
 | Model pricing (docs + Last N counts + CursorBench) | Website | Yes |
 | Export recent queries as CSV | — | Yes |
@@ -254,18 +271,20 @@ Answer two questions without opening cursor.com:
 
 **Team / Business / Enterprise** — dollars: cumulative Spend bars + line on one scale, dashed forecast, dotted ideal leftover, working days so far, daily pace, and month forecast. **Pro** — included percent for Cursor Models and Other Models, run-out dates, and the same used / forecast / ideal chart. Range toggle: **Today** · **7 days** · **Month** (default Month). Same control on **Statistics** and **Charts**.
 
+**Window:** calendar month by default. **Billing cycle** follows Cursor’s monthly cycle when the usage summary has a valid 26–35 day window (`cursorCost.forecastWindow`). A renewal inside the calendar month is marked and the series drops there. Status bar and Today stay on the calendar month. ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev))
+
 ### Optimize (primary)
 
 Third product goal: shrink **repeating expensive turns** in this project.
 
-- Targets the **last red query** (tokens ≥ **Warn at** in Settings), not just the newest cheap request. Findings also show how many spikes are in the Last N sample and the top cost model (context only).
+- Targets the **last red query** (tokens ≥ **Warn at** in Settings), not just the newest cheap request. **Play** on a red TOKENS cell pastes a numbers-only brief for that conversation into a **new** Agent chat and does not press Start. Findings also show how many spikes are in the sample and the top cost model (context only).
 - Three depths: **Quick** (short — why the last turn burned, three next-message tips) / **Balanced** (default — pattern, plan, small rules snippet) / **Deep** (full playbook). Prompts come from usage metadata only (model, tokens, cost). No chat transcript is read by the extension. **Set default** on a card; toolbar **Run Optimize** always pastes that depth.
-- **Run** focuses the **last active Agent chat** and pastes the prompt; you press Start.
+- **Run** opens a **new Agent chat** and pastes the prompt; you press Start. Play on a red row does the same.
 - After Start, the agent writes projected savings to **`.ai/optimize-savings.md`** in the workspace (including **project** name + mid tokens/USD). The panel shows those numbers as **Projected save per similar request** (`0 / 0.00 $` until the first run). Expand the card for the explanation and credited totals per project (extension `globalState`). Projection file stays **local to the project**; lifetime ledger is global across workspaces.
 
 ### Last N Cursor queries
 
-Click a **recent-query chip** (or Command Palette **Show Usage History**) to open the queries table. Click **Current** or **Today** to open the same panel on **Statistics**. Newest first. **Show last** (100–10,000, default 1,000) sits above the table — type the full number, then **Apply**. **From** a local calendar day (Start of month, or a date like 1.09.2026) loads every query from that day through today instead (cap 10,000). Columns:
+Click a **recent-query chip** (or Command Palette **Show Usage History**) to open the queries table. Click **Current** or **Today** to open the same panel on **Statistics**. Newest first. **Show last** (100–10,000, default 1,000) sits above the table — type the full number, then **Apply**. **From** a local calendar day (Start of month, or a date like 1.09.2026) through optional **To** loads that range instead (cap 10,000). Empty To means through today. **Group by conversation** (default off) folds rows by the local chat title; shared titles merge, and requests with no id land in **Ungrouped**. Expand a row for catalog list price beside billed cost. **Play** sits on a red TOKENS cell. **Optimized** filters rows already sent to Optimize. Columns:
 
 `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
@@ -273,11 +292,11 @@ Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Suppor
 
 ### Statistics
 
-Last N sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars. **Model pricing** — latest Cursor prices (public docs), Active / Hidden, Last N request counts, CursorBench scores; Active only / Hide Fast filters.
+Sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, cache $ saved vs input list price, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`, plus $ per 1k lines when the window has both). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars. **Model pricing** — latest Cursor prices (public docs), Active / Hidden, sample request counts, CursorBench scores; Active only / Hide Fast filters.
 
 ### Charts
 
-- **Tokens over time** and **Cost over time** — one cumulative bar per local calendar day from the Last N sample (oldest → newest). Height is the running total up to that day. Hover shows that day’s amount plus the total so far.
+- **Tokens over time** and **Cost over time** — one cumulative bar per local calendar day from the loaded sample (oldest → newest). Height is the running total up to that day. Hover shows that day’s amount plus the total so far. Click a bar for that day’s totals and an expandable query list from the same sample. **Sample / Last 7 / Month** zooms those bars without another request to Cursor.
 - **AI vs git** — same formulas as Coding stats (`landed / AI = %` and if this branch landed), plus bars for this branch and All on Cursor on one scale.
 - **Monthly cost forecast** — same control as Statistics: cycle meters, Today / 7 days / Month range, cumulative bars + used line on one scale, dashed forecast, and dotted leftover-budget lines.
 - **Today / This month / All time** cards — API-equivalent cost, messages, cache hit, input / output / cache write / cache read, and a mix bar. Figures come from the Last N loaded queries, not the full Cursor website dashboard.
@@ -300,7 +319,7 @@ A **non-blocking** warning toast at **$2** in the window (default) and a **non-b
 
 ### Coding stats
 
-How many lines Cursor applied in this workspace vs what already landed on **`main`/`master`**, in the same window as Last N / From date.
+How many lines Cursor applied in this workspace vs what already landed on **`main`/`master`**, in the same window as Last N / From–To. When that window has both cost and line totals, the card also shows spend **per 1k landed lines** and **per 1k AI lines**.
 
 - **Your effectiveness** — `landed / AI = %` (your git insertions on the default branch ÷ AI composer lines for this repo). Defaults to the Cursor account email; **`?`** on the card picks which git identities to sum.
 - **If this branch landed** — `(landed + this branch) / AI`.
@@ -310,7 +329,7 @@ AI totals come from local composer headers, not the usage API. Not line-level bl
 
 ### Language
 
-Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, French, German, Japanese, Korean, Portuguese (Brazil), Russian, Spanish, Ukrainian. Independent of the VS Code / Cursor display language.
+Settings → **Language** (`cursorCost.language`) switches the Last N panel, status bar, and toasts. **English** is the default. Also: Polish, Simplified Chinese, French, German, Japanese, Korean, Portuguese (Brazil), Russian, Spanish, and Ukrainian. Ukrainian is the 11th locale ([#10](https://github.com/Lukasz0303/cursor-cost-tracker/pull/10) by [@milichev](https://github.com/milichev)). Independent of the VS Code / Cursor display language.
 
 ### Support message
 
@@ -360,7 +379,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.5.vsix
+cursor --install-extension cursor-cost-tracker-1.0.6.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -389,7 +408,7 @@ A `!` prefixes a recent query (and the table **TOKENS** cell) when that query is
 
 ## History panel
 
-The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** loads from that local day through today (Start of month / Today). **Auto-refresh** is 1–60 minutes.
+The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** and optional **To date** load that local range (empty To means through today). **Group by conversation** is off until you turn it on. **Forecast window** is calendar month or billing cycle. **Auto-refresh** is 1–60 minutes.
 
 | TIME | MODEL | COST | TOKENS | INPUT / OUTPUT | KIND |
 |------|-------|------|--------|----------------|------|
@@ -439,10 +458,13 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.burnRateWarningToast` | `true` | Off = remember the episode without a toast |
 | `cursorCost.burnRateCriticalToast` | `true` | Off = remember the episode without a toast |
 | `cursorCost.codeLinesInsight` | `true` | Coding stats on Statistics and Charts (AI vs git · All on Cursor) |
+| `cursorCost.groupQueriesByConversation` | `false` | Fold the queries list into one collapsible row per local chat title. Shared titles merge. No conversation id → **Ungrouped**. Export CSV stays flat |
 | `cursorCost.language` | `en` | Panel, status bar, and toasts. Independent of the VS Code / Cursor display language |
 | `cursorCost.historyLimit` | `1000` | Newest queries to load (100–10,000). Settings tab: **Show last**. Ignored when From date is set |
-| `cursorCost.historyFromDate` | (empty) | Local `YYYY-MM-DD`; load from that day through today. Empty uses Show last |
+| `cursorCost.historyFromDate` | (empty) | Local `YYYY-MM-DD`; load from that day. Empty uses Show last |
+| `cursorCost.historyToDate` | (empty) | Local `YYYY-MM-DD` end of that sample. Empty means through today. Requires From date |
 | `cursorCost.budgetDayBasis` | `workingDays` | Pace Today / MTD / forecast by working days (Mon–Fri) or all calendar days |
+| `cursorCost.forecastWindow` | `calendarMonth` | `calendarMonth` or `billingCycle` for the monthly forecast only. Billing cycle needs a valid 26–35 day usage-summary window ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev)) |
 | `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | Good-state color (darker green on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | Warning color (darker red on light themes) |
@@ -455,7 +477,7 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 Cursor’s dashboard shows aggregated totals in the browser. This extension puts **Current**, **Today**, and **1–10 recent queries** on the status bar, and a **Monthly cost forecast** (used / forecast / ideal / run-out) so you can see how much you can still spend this month. Current/Today open Statistics; query chips open Last N (100–10,000) with Charts, period mix cards, and CSV export.
 
 **Can it predict my month-end bill?**  
-It forecasts from your **working-day pace so far** (Team dollars or Pro included percent). It is a pace projection, not an invoice — Cursor’s bill can still differ.
+It forecasts from your **working-day pace so far** (Team dollars or Pro included percent), on the calendar month or on a valid billing cycle. It is a pace projection, not an invoice — Cursor’s bill can still differ.
 
 **Do I need to paste a session token?**  
 No. If Cursor is signed in on this machine, the extension reads the local session. There is no token field in Settings.
@@ -506,6 +528,10 @@ This is **not** an official Cursor product.
 
 ---
 
+## Contributors
+
+- [Vadym Milichev (@milichev)](https://github.com/milichev) — [Ukrainian](https://github.com/Lukasz0303/cursor-cost-tracker/pull/10), [billing-cycle forecast](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) (chart reset styling and the model-catalog chart race), [Ignore-store type fix](https://github.com/Lukasz0303/cursor-cost-tracker/pull/9)
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 Łukasz Zileiński.
@@ -523,7 +549,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.5.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.6.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).
@@ -563,3 +589,5 @@ Contributions welcome.
 3. Open a pull request
 
 Product requirements: [`.ai/context/prd.md`](.ai/context/prd.md).
+
+**Webview:** edit sources under [`media/src/`](media/src/) (entry `media/src/main.js`). Run `npm run build` to regenerate `media/history.js`. Do not hand-edit the generated bundle. Calendar days use the IDE local timezone (`src/time/`).

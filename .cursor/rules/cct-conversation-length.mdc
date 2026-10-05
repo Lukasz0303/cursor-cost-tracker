@@ -1,0 +1,12 @@
+---
+description: Keep the next similar turn inside one task
+alwaysApply: false
+---
+
+# Conversation length
+
+Keep the next similar turn inside one task. When a thread is already long, start a fresh chat for the next task.
+
+A long thread gets dearer per turn because every turn resends context. Cache read grows with the thread, and later turns pay that volume again.
+
+Start a fresh chat after a long idle gap. Do not resume a thread whose cache write dominates.

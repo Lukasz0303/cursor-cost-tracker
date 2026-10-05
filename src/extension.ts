@@ -38,6 +38,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return fetchRecentEvents(cookie, signal, {
           limit: next.historyLimit,
           fromDate: next.historyFromDate,
+          toDate: next.historyToDate,
         })
       },
       budgetDayBasis: () => readWorkspaceConfig().budgetDayBasis,
@@ -64,6 +65,7 @@ export function activate(context: vscode.ExtensionContext): void {
         service.getCachedQueries(),
         readWorkspaceConfig().historyLimit,
         readWorkspaceConfig().historyFromDate,
+        readWorkspaceConfig().historyToDate,
       )
     }),
     vscode.commands.registerCommand(EXPORT_LEADERBOARD_CSV_COMMAND, () => {
@@ -83,7 +85,8 @@ export function activate(context: vscode.ExtensionContext): void {
       service.reconfigure({ pollIntervalMinutes: next.pollIntervalMinutes })
       if (
         event.affectsConfiguration('cursorCost.historyLimit') ||
-        event.affectsConfiguration('cursorCost.historyFromDate')
+        event.affectsConfiguration('cursorCost.historyFromDate') ||
+        event.affectsConfiguration('cursorCost.historyToDate')
       ) {
         void service.refresh()
       }

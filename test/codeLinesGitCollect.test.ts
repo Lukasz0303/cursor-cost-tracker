@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { collectMergedLineDays } from '../src/codeLines/runGitMerged'
+import { daysForAuthorEmails } from '../src/codeLines/landedCommits'
+import type { ParsedLeaderboardCommit } from '../src/leaderboard/types'
 
-function mockRepo(authorsStdout: string) {
+function mockRepo(authorsStdout: string, commitsByAuthor: Record<string, number>) {
   const logArgs: string[][] = []
   const execGit = async (args: string[]) => {
     if (args[0] === 'branch') {
@@ -33,22 +35,70 @@ function mockRepo(authorsStdout: string) {
       if (args.includes('--pretty=tformat:')) {
         return { stdout: '', stderr: '' }
       }
-      const ts = Math.floor(Date.UTC(2026, 8, 10, 12, 0, 0) / 1000)
-      return { stdout: `${ts}\n4\t0\tsrc/a.ts\n`, stderr: '' }
+      if (args.includes('--merges')) {
+        return { stdout: '', stderr: '' }
+      }
+      if (args.includes('--format=%H%x09%ct%x09%ae%x09%an')) {
+        const ts = Math.floor(Date.UTC(2026, 8, 10, 12, 0, 0) / 1000)
+        const lines: string[] = []
+        let hash = 1
+        for (const [email, insertions] of Object.entries(commitsByAuthor)) {
+          const name = email.split('@')[0] ?? email
+          lines.push(`${'a'.repeat(7)}${hash}\t${ts}\t${email}\t${name}`)
+          lines.push(`${insertions}\t0\tsrc/a.ts`)
+          hash += 1
+        }
+        return { stdout: `${lines.join('\n')}\n`, stderr: '' }
+      }
+      return { stdout: '', stderr: '' }
     }
     return { stdout: '', stderr: '' }
   }
   return { logArgs, execGit }
 }
 
+describe('daysForAuthorEmails', () => {
+  it('keeps only selected emails', () => {
+    const commits: ParsedLeaderboardCommit[] = [
+      {
+        hash: 'aaaaaaa',
+        timestampMs: Date.UTC(2026, 8, 10),
+        email: 'jane@acme.com',
+        name: 'Jane',
+        insertions: 40,
+        deletions: 1,
+      },
+      {
+        hash: 'bbbbbbb',
+        timestampMs: Date.UTC(2026, 8, 10),
+        email: 'bob@acme.com',
+        name: 'Bob',
+        insertions: 9,
+        deletions: 0,
+      },
+    ]
+    expect(daysForAuthorEmails(commits, ['jane@acme.com'])).toEqual([
+      {
+        date: expect.any(String),
+        insertions: 40,
+        deletions: 1,
+      },
+    ])
+  })
+})
+
 describe('collectMergedLineDays', () => {
-  it('defaults to the Cursor email and does not OR the GitHub org', async () => {
+  it('defaults to the Cursor email and does not count teammates', async () => {
     const { logArgs, execGit } = mockRepo(
       [
         'Jane\tjane@acme.com',
         'Bob\tbob@acme.com',
         'Acme Bot\tbot@acme.com',
       ].join('\n'),
+      {
+        'jane@acme.com': 4,
+        'bob@acme.com': 90,
+      },
     )
     const result = await collectMergedLineDays({
       cwd: '/tmp/acme',
@@ -62,11 +112,81 @@ describe('collectMergedLineDays', () => {
     expect(
       result.authors.accounts.filter((row) => row.selected).map((row) => row.email),
     ).toEqual(['jane@acme.com'])
-    const mergedLog = logArgs.find((args) => args.includes('--format=%ct'))
-    expect(mergedLog).toContain('--first-parent')
-    expect(mergedLog).toContain('--author=<jane@acme\\.com>')
-    expect(mergedLog?.some((arg) => arg === '--author=Acme')).toBe(false)
-    expect(mergedLog?.join('\n')).not.toContain('bob@acme')
+    const directLog = logArgs.find(
+      (args) =>
+        args.includes('--no-merges') &&
+        args.includes('--format=%H%x09%ct%x09%ae%x09%an'),
+    )
+    expect(directLog).toContain('--first-parent')
+    expect(directLog?.some((arg) => arg.startsWith('--author='))).toBe(false)
+  })
+
+  it('does not credit a merged PR to the person who clicked Merge', async () => {
+    const ts = Math.floor(Date.UTC(2026, 8, 12, 12, 0, 0) / 1000)
+    const result = await collectMergedLineDays({
+      cwd: '/tmp/acme',
+      sinceMs: Date.UTC(2026, 8, 1),
+      untilMs: Date.UTC(2026, 8, 19),
+      cursorEmail: 'jane@acme.com',
+      async execGit(args) {
+        if (args[0] === 'branch') {
+          return { stdout: 'main\n', stderr: '' }
+        }
+        if (args[0] === 'symbolic-ref') {
+          return { stdout: 'origin/main\n', stderr: '' }
+        }
+        if (args[0] === 'config' && args[1] === 'user.email') {
+          return { stdout: 'jane@acme.com\n', stderr: '' }
+        }
+        if (args[0] === 'config' && args[1] === 'user.name') {
+          return { stdout: 'Jane\n', stderr: '' }
+        }
+        if (args[0] === 'rev-parse') {
+          return { stdout: 'abc\n', stderr: '' }
+        }
+        if (args[0] === 'diff' && args.includes('--numstat')) {
+          // Full PR diff as seen from main..merge.
+          return { stdout: '2392\t10\tsrc/feature.ts\n', stderr: '' }
+        }
+        if (args[0] === 'log') {
+          if (args.includes('--format=%an%x09%ae')) {
+            return {
+              stdout: [
+                'Jane\tjane@acme.com',
+                'Bob\tbob@acme.com',
+              ].join('\n'),
+              stderr: '',
+            }
+          }
+          if (args.includes('--pretty=tformat:')) {
+            return { stdout: '', stderr: '' }
+          }
+          if (args.includes('--merges')) {
+            return {
+              stdout: `deadbeef\t${ts}\tabc1234 def5678\n`,
+              stderr: '',
+            }
+          }
+          if (
+            args.includes('--no-merges') &&
+            args.includes('--format=%ae%x09%an')
+          ) {
+            // Branch that landed belongs to Bob.
+            return { stdout: 'bob@acme.com\tBob\n', stderr: '' }
+          }
+          if (args.includes('--format=%H%x09%ct%x09%ae%x09%an')) {
+            // Jane's own direct commit on main.
+            return {
+              stdout: `aaaaaaa\t${ts}\tjane@acme.com\tJane\n10\t0\tsrc/own.ts\n`,
+              stderr: '',
+            }
+          }
+        }
+        return { stdout: '', stderr: '' }
+      },
+    })
+    // Only Jane's direct 10 lines — not Bob's 2392 from the merge she clicked.
+    expect(result.days.reduce((sum, day) => sum + day.insertions, 0)).toBe(10)
   })
 
   it('sums checked identities when sumMultiple is on', async () => {
@@ -75,8 +195,12 @@ describe('collectMergedLineDays', () => {
         'Jane\tjane@acme.com',
         'JaneHub\t8+JaneHub@users.noreply.github.com',
       ].join('\n'),
+      {
+        'jane@acme.com': 4,
+        '8+JaneHub@users.noreply.github.com': 6,
+      },
     )
-    await collectMergedLineDays({
+    const result = await collectMergedLineDays({
       cwd: '/tmp/acme',
       sinceMs: Date.UTC(2026, 8, 1),
       untilMs: Date.UTC(2026, 8, 19),
@@ -87,9 +211,10 @@ describe('collectMergedLineDays', () => {
       },
       execGit,
     })
-    const mergedLog = logArgs.find((args) => args.includes('--format=%ct'))
-    expect(mergedLog).toContain('--author=<jane@acme\\.com>')
-    expect(mergedLog).toContain(
+    expect(result.days[0]?.insertions).toBe(10)
+    const pendingLog = logArgs.find((args) => args.includes('--pretty=tformat:'))
+    expect(pendingLog).toContain('--author=<jane@acme\\.com>')
+    expect(pendingLog).toContain(
       '--author=<8\\+JaneHub@users\\.noreply\\.github\\.com>',
     )
   })
@@ -126,7 +251,11 @@ describe('collectMergedLineDays', () => {
     })
     expect(result.authorFiltered).toBe(false)
     expect(result.days).toEqual([])
-    expect(logCalls.some((args) => args.includes('--format=%ct'))).toBe(false)
+    expect(
+      logCalls.some((args) =>
+        args.includes('--format=%H%x09%ct%x09%ae%x09%an'),
+      ),
+    ).toBe(false)
   })
 
   it('sums nested microservice repos when the open folder is a stack', async () => {
@@ -173,8 +302,16 @@ describe('collectMergedLineDays', () => {
           if (args.includes('--pretty=tformat:')) {
             return { stdout: '', stderr: '' }
           }
-          const lines = cwd.endsWith('payments') ? 10 : 7
-          return { stdout: `${ts}\n${lines}\t0\tsrc/a.ts\n`, stderr: '' }
+          if (args.includes('--merges')) {
+            return { stdout: '', stderr: '' }
+          }
+          if (args.includes('--format=%H%x09%ct%x09%ae%x09%an')) {
+            const lines = cwd.endsWith('payments') ? 10 : 7
+            return {
+              stdout: `aaaaaaa\t${ts}\tjane@acme.com\tJane\n${lines}\t0\tsrc/a.ts\n`,
+              stderr: '',
+            }
+          }
         }
         return { stdout: '', stderr: '' }
       },
@@ -244,15 +381,21 @@ describe('collectMergedLineDays', () => {
           if (args.includes('--pretty=tformat:')) {
             return { stdout: '', stderr: '' }
           }
-          if (args.includes('--format=%ct')) {
-            logCwds.push(cwd)
+          if (args.includes('--merges')) {
+            return { stdout: '', stderr: '' }
           }
-          const lines = cwd.endsWith('rhino-api-provider-service')
-            ? 10
-            : cwd.endsWith('rhino-gateway')
-              ? 7
-              : 1
-          return { stdout: `${ts}\n${lines}\t0\tsrc/a.ts\n`, stderr: '' }
+          if (args.includes('--format=%H%x09%ct%x09%ae%x09%an')) {
+            logCwds.push(cwd)
+            const lines = cwd.endsWith('rhino-api-provider-service')
+              ? 10
+              : cwd.endsWith('rhino-gateway')
+                ? 7
+                : 1
+            return {
+              stdout: `aaaaaaa\t${ts}\tjane@acme.com\tJane\n${lines}\t0\tsrc/a.ts\n`,
+              stderr: '',
+            }
+          }
         }
         return { stdout: '', stderr: '' }
       },

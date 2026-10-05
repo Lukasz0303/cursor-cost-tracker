@@ -2,9 +2,9 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.17  
-**Date:** 2026-09-14  
-**Status:** Product decision (MVP)  
+**Document version:** 2.20  
+**Date:** 2026-10-05  
+**Status:** Product decision through **1.0.6**  
 **Canonical location:** this file (`.ai/context/prd.md`)  
 **Polish translation:** [prd.pl.md](./prd.pl.md)
 
@@ -19,7 +19,7 @@ Two UI surfaces:
 | Surface | Pattern | In the IDE |
 |---------|---------|------------|
 | Always-on summary | Current, Today | **status bar** (bottom) |
-| Details | “Last 100 Cursor queries” + Close | **webview panel** (editor tab) |
+| Details | Last N queries (default 1000) + Close | **webview panel** (editor tab) |
 
 Clicking **Current** or **Today** opens the history panel on **Statistics**. A recent-query chip opens the **queries list**. No intermediate menu and no browser.
 
@@ -50,7 +50,7 @@ After install (signed-in Cursor), the bar shows Current and Today. Click Current
 
 | Persona | Priority | Need |
 |---------|----------|------|
-| Cursor developer (Pro / Business / Team) | P0 | Current, Today, Last 100 |
+| Cursor developer (Pro / Business / Team) | P0 | Current, Today, Last N |
 | Agent power user | P0 | Quick view of expensive queries |
 | VS Code without Cursor | P2 | “Sign in to Cursor”; manual token later |
 
@@ -88,7 +88,7 @@ Empty recent slots are hidden. Spike **Ignore** store (`cursorCost.ignoredSpikes
 
 Primary path: **not** Quick Pick. Open the panel immediately. Current / Today land on **Statistics**. A recent-query chip lands on the **queries list**.
 
-**Container:** `WebviewPanel`, reused ID, title **Last 100 Cursor queries**.
+**Container:** `WebviewPanel`, reused ID. The title follows the sample (Last N, or the From–To range).
 
 | TIME | MODEL | COST | TOKENS | INPUT / OUTPUT | KIND |
 |------|-------|------|--------|----------------|------|
@@ -96,7 +96,7 @@ Primary path: **not** Quick Pick. Open the panel immediately. Current / Today la
 
 Newest first, monospace body, CSS `--vscode-*`. Command Palette: `Cursor Cost: Show Usage History`.
 
-Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Queries toolbar: **Over Warn at** (toggle — only queries at/over the token warning), **Refresh** (fetch from cursor.com), and **Export CSV**. Show last / From date stay under Settings. Statistics is the glossary for Current/Today, a **Month to date** meter (this month’s spend vs working days so far × daily budget, or vs a working-day pace forecast when there is no daily cap) with a used/forecast chart — on Pro one line pair per included quota on a 0–100% axis, plus a today-vs-daily-budget meter per quota — plus cycle / Last N aggregates. Charts: tokens and cost over time as cumulative bars + line on one scale, the same **Monthly cost forecast** control as Statistics (meters, range, used/forecast/ideal), then Today / This month / All time mix cards from that Last N sample. **Optimize:** three colored collapsible depth cards (Quick / Balanced / Deep) with per-card Run + expand-to-preview; Default badge follows `cursorCost.optimizeDepth` (Balanced by default). Toolbar **Run Optimize** pastes the default-depth prompt into the last Composer chat. Findings focus the last expensive / red query. Projected save shows `0 / 0.00 $` until the agent writes `.ai/optimize-savings.md` (`cct-savings` with `project`, mid tokens/USD, `run`); every prompt requires a closing tokens/USD/project report. One collapsed card is the **projected cost saved on a similar request**; expand for the explanation plus credited per-project totals from `globalState`. Not a whole-workspace audit. No chat transcript is read by the extension. **Support:** Buy Me a Coffee (URL in `src/supportLinks.ts`). GitHub Sponsors tiers stay in code but are hidden until the sponsor URL is set. Settings holds Warn at, Show last, **From date**, Show warnings, Optimize depth, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
+Toolbar: **Last N Cursor queries** (default 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Queries toolbar: **Over Warn at** (toggle — only queries at/over the token warning), **Optimized**, **Group by conversation** (default off), **Refresh** (fetch from cursor.com), and **Export CSV** (always flat request rows). Show last / From date / To date, and the same group toggle, stay under Settings. Statistics is the glossary for Current/Today, a **Month to date** meter (this month’s spend vs working days so far × daily budget, or vs a working-day pace forecast when there is no daily cap) with a used/forecast chart — on Pro one line pair per included quota on a 0–100% axis, plus a today-vs-daily-budget meter per quota — plus cycle / Last N aggregates. Charts: tokens and cost over time as cumulative bars + line on one scale. Click a bar for that day’s totals and the queries already in the sample. **Sample / Last 7 / Month** zooms that series without another fetch. The same **Monthly cost forecast** control as Statistics (meters, range, used/forecast/ideal), then Today / This month / All time mix cards from that sample. **Optimize:** three colored collapsible depth cards (Quick / Balanced / Deep) with per-card Run + expand-to-preview; Default badge follows `cursorCost.optimizeDepth` (Balanced by default). Toolbar **Run Optimize** and a card’s Run paste that depth into a **new** Agent chat. Findings focus the last expensive / red query. Projected save shows `0 / 0.00 $` until the agent writes `.ai/optimize-savings.md` (`cct-savings` with `project`, mid tokens/USD, `run`); every prompt requires a closing tokens/USD/project report. One collapsed card is the **projected cost saved on a similar request**; expand for the explanation plus credited per-project totals from `globalState`. Not a whole-workspace audit. No chat transcript is read by the extension. **Support:** Buy Me a Coffee (URL in `src/supportLinks.ts`). GitHub Sponsors tiers stay in code but are hidden until the sponsor URL is set. Settings holds every `cursorCost.*` key, including Warn at, **Group by conversation**, Show last, **From date**, **To date**, forecast window, Show warnings, Optimize depth, and Good/Warning colors. Last N figures are the events API sample — not the Current pool.
 
 **Token spike (v1.1, required after MVP):** extra column or leading `!` when `tokens >=` the user threshold. Row actions:
 
@@ -110,7 +110,21 @@ No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignor
 
 **Burn Rate Guard (1.0.4):** sum billed `costUsd` in a live window ending **now** (default **10 minutes**). Statistics always shows **Current burn rate** when enabled (`3.42 $ / 10 min`, optional `×` vs the user’s own recent pace, Today total). Window spend ≥ **$2** (default) shows a **non-modal** warning toast; ≥ **$5** a **non-modal** error toast. Once per episode, escalate warning→critical once, Snooze 30 min, first-load grace 5 min. Does **not** stop Cursor. Optional **Focus Composer** on the critical toast. `minQueries` default **2** so a single expensive query stays the last-query critical alert. Included Pro events at $0 still show token throughput on the card; dollar toasts may never fire. Today chip uses warnColor when the window is warning/critical and Show warnings is on. Last N rows in the window get warn styling (no 7th column). Toggle: `cursorCost.burnRateGuard`.
 
-**Generated Lines Insight / Coding stats (1.0.4):** for the **active workspace**, Statistics shows a **Coding stats** card in the same window as Last N / From date: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed** (`(landed + this branch) / AI`), and **All on Cursor** (dashboard Lines Edited, split under **Projects** by local composer mix). Charts uses the same formulas. Not `AI − pending`; not line-level blame. Toggle: `cursorCost.codeLinesInsight` (default **true**).
+**Generated Lines Insight / Coding stats (1.0.4, $ rates in 1.0.6):** for the **active workspace**, Statistics shows a **Coding stats** card in the same sample window as the queries table: **landed / AI = %** (your git insertions on `main`/`master` ÷ AI composer lines for this repo), the same **if this branch landed** (`(landed + this branch) / AI`), and **All on Cursor** (dashboard Lines Edited, split under **Projects** by local composer mix). When that window has both cost and line totals, the card also shows window spend **per 1k landed lines** and **per 1k AI lines**. Charts uses the same formulas. Not `AI − pending`; not line-level blame. Toggle: `cursorCost.codeLinesInsight` (default **true**).
+
+**Model pricing (1.0.5):** Statistics shows the public Cursor price table (`https://cursor.com/docs/models-and-pricing.md`, cached six hours, no session cookie): input / output / cache, Active / Hidden, request counts from the sample, and a CursorBench score. Toolbar **Model pricing** runs `cursorCost.openPricing`.
+
+**Support message (1.0.5):** Support → Write a message sends Comment / New feature / Bug report / Other to the author via FormSubmit. The mail app stays closed. The session token is not in the POST. Buy Me a Coffee stays on the tab. GitHub Sponsors stays hidden until its URL is set.
+
+**Sample window (1.0.6):** `historySample` is the one resolver for the queries table, Statistics sample, Charts daily bars, Coding stats, and CSV. Last N **or** a From–To calendar range (cap 10,000). `cursorCost.historyToDate` empty means through today. It does not change Current, Today, Burn Rate Guard, the critical alert, or the monthly forecast series.
+
+**Play on a red query (1.0.6):** a red TOKENS cell has Play. The host pastes a numbers-only brief for that conversation into a **new** Agent chat and does not press Start. No conversation id → the brief is that one query. Grouping uses the usage-event id only (no time-gap guess). The extension does not read prompt text or code. Rows touched by Play or Run Optimize are stored in `globalState` `cursorCost.optimizedTargets`. The queries toolbar **Optimized** filter shows those rows.
+
+**List price (1.0.6):** expanding a query row shows catalog input / output / cache-write / cache-read dollars beside billed cost. That is the price table, not the invoice. The Statistics sample also shows about how much cache-read saved versus input list price.
+
+**Group by conversation (1.0.6):** `cursorCost.groupQueriesByConversation` defaults to **false**. The queries toolbar switch and Settings → Recent queries stay in sync. On: one collapsed row per local chat title (request count and totals); expand for the same six columns. Chats that share a title merge (trim, collapsed whitespace, case-insensitive). An id with no title is labelled `#` plus the first 8 characters. Requests with no conversation id land in **Ungrouped** and do not get a Play brief. **Over Warn at**, the spike `!`, and Play still apply. Play on a merged-title row uses the conversation id that owns the dearest request. Export CSV stays flat. Titles come from the local index. The extension does not invent groups from time gaps and does not read prompt text. Statistics, Charts, and Optimize are not grouped.
+
+**Site:** product page at `https://cursorcosttracker.com/` (`site/`, GitHub Pages). `package.json` `homepage` is that URL.
 
 ### 5.3 Out of MVP
 
@@ -142,8 +156,8 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | A6 | developer | a clear error without a token | I know I must sign in |
 | A7 | developer | a tooltip with plan and cycle date | I get context without the table |
 
-v1.1: token-spike bang (§5.1–5.2), Ignore, configurable threshold; 80%/90% spend alerts; Copy stats.  
-**1.0.4:** **Burn Rate Guard** (live window $/time, banner, non-modal toasts, Statistics card, Today tint), **Coding stats** (landed / AI · All on Cursor), and **11 UI languages**.
+v1.1 leftovers still open: table **Ignore**, 80%/90% spend alerts, Copy stats. The `!` and the threshold setting shipped earlier.  
+**1.0.2–1.0.6** (what the tree does now) is §5.2 and the history table in [codebase-snapshot.md](./codebase-snapshot.md): forecast, critical alert, Optimize, Burn Rate Guard, Coding stats, **11 UI languages** (Ukrainian added after 1.0.4), model pricing, billing-cycle forecast, Play, list price, To date, group by conversation, chart day detail.
 
 ### 7b. User stories (v1.1 — token spike)
 
@@ -178,7 +192,9 @@ v1.1: token-spike bang (§5.1–5.2), Ignore, configurable threshold; 80%/90% sp
 
 On Pro the block is titled **Monthly cost forecast**. Each quota meter shows cycle used vs 100% plus a run-out date (or “lasts the month”), and the 0–100% chart marks where each forecast hits the ceiling. Quota percent is only reported per cycle, so a day’s share is weighted by that day’s dollar spend.
 
-**Last N:** same events API, `pageSize=100`, extra pages until `cursorCost.historyLimit` (default **1000**, min 100, max 10_000). When `cursorCost.historyFromDate` is a local calendar day (`YYYY-MM-DD`, e.g. `2026-09-01` for the start of September), fetch from that day’s 00:00 through today instead of Last N (still capped at 10,000).
+**Sample (`historySample`):** same events API, `pageSize=100`. Default is Last N: `cursorCost.historyLimit` (default **1000**, min 100, max 10_000). When `cursorCost.historyFromDate` is a local calendar day (`YYYY-MM-DD`), fetch that day’s 00:00 through `cursorCost.historyToDate` or the end of today when To is empty (still capped at 10,000). One resolver feeds the table, Statistics sample, Charts daily bars, Coding stats, and CSV.
+
+**Timezone policy:** All calendar days in the product (Today, From–To, Charts daily bars, Coding stats day keys, MTD buckets) use the **IDE’s local timezone**. Internal timestamps stay epoch milliseconds. The Last N TIME column and Optimize conversation briefs show local wall-clock time; Optimize adds a short zone label (e.g. `CEST`). Canonical helpers live in `src/time/`.
 
 **Spike fingerprint (v1.1):** stable id from the API if present, else `${timestamp}|${tokens}|${costUsd}|${model}`. Ignored ids in `context.globalState` key `cursorCost.ignoredSpikes`.
 
@@ -194,25 +210,19 @@ VS Code Extension API. TypeScript + esbuild + StatusBarItem + vanilla webview + 
 
 Details: [tech-stack.md](./tech-stack.md).
 
-Target layout:
-
-```
-src/extension.ts
-src/usage/{session,api,parse,service}.ts
-src/ui/{statusBar,historyPanel}.ts
-src/spikes/{threshold,ignoreStore}.ts   # v1.1
-src/format.ts
-media/history.{html,css,js}
-```
+File map: [architecture.md](./architecture.md). What each version added: [codebase-snapshot.md](./codebase-snapshot.md).
 
 ---
 
 ## 10. Commands and settings
 
-| Command ID | Title | Phase |
+| Command ID | Title | Since |
 |------------|--------|-------|
-| `cursorCost.showHistory` | Show Usage History (Last 100) | MVP |
-| `cursorCost.refresh` | Refresh | MVP |
+| `cursorCost.showHistory` | Show Usage History | 1.0.0 |
+| `cursorCost.refresh` | Refresh | 1.0.0 |
+| `cursorCost.openDashboard` | Open Dashboard | 1.0.0 |
+| `cursorCost.exportCsv` | Export recent queries CSV | 1.0.0 |
+| `cursorCost.openPricing` | Open model pricing | 1.0.5 |
 
 | Key | Default | Notes |
 |-----|---------|--------|
@@ -220,6 +230,7 @@ media/history.{html,css,js}
 | `cursorCost.showStatusBar` | true | Settings status-bar editor |
 | `cursorCost.showToday` | true | Settings status-bar editor |
 | `cursorCost.minimalMode` | false | Current + Refresh only; Settings status-bar editor |
+| `cursorCost.recentQueryCount` | 3 | 1–10 newest queries on the status bar |
 | `cursorCost.spikeTokenThreshold` | 1000000 | min 1000; Settings tab edits in **k** (100 = 100k tokens); `!` on that query |
 | `cursorCost.showSpikeWarning` | true | off = no `!` and no green/red |
 | `cursorCost.showCriticalAlert` | true | blocking dialog when the newest query hits the critical token or dollar threshold |
@@ -233,9 +244,11 @@ media/history.{html,css,js}
 | `cursorCost.burnRateWarningToast` | true | off = remember episode without a toast |
 | `cursorCost.burnRateCriticalToast` | true | off = remember episode without a toast |
 | `cursorCost.codeLinesInsight` | true | Coding stats on Statistics and Charts (landed / AI · All on Cursor) |
-| `cursorCost.language` | `en` | Panel, status bar, toasts; independent of VS Code / Cursor display language |
+| `cursorCost.groupQueriesByConversation` | false | Fold the queries list into one collapsible row per local chat title. Shared titles merge. No id → **Ungrouped**. Export CSV stays flat |
+| `cursorCost.language` | `en` | 11 locales: en, pl, zh-cn, fr, de, ja, ko, pt-br, ru, es, uk. Independent of the VS Code / Cursor display language |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignored when From date is set |
-| `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date** (Start of month / Today); empty = Last N |
+| `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date**; empty = Last N |
+| `cursorCost.historyToDate` | (empty) | local `YYYY-MM-DD` end of that sample; empty = through today; requires From date |
 | `cursorCost.budgetDayBasis` | `workingDays` | `workingDays` (Mon–Fri, default) or `calendarDays` (every day in the month); Settings **Pace by** — Today daily budget, MTD meters, forecast |
 | `cursorCost.forecastWindow` | `calendarMonth` | `calendarMonth` or `billingCycle`; Billing Cycle is offered only for a valid monthly usage-summary cycle and applies to the Monthly cost forecast |
 | `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
@@ -250,11 +263,15 @@ Activation: `onStartupFinished`.
 
 | Phase | Scope |
 |-------|--------|
-| **MVP** | session + API, status bar, Last 100 webview, polling, errors |
-| **v1.1** | spike `!` (default 1M tokens, user setting), Ignore + persist, 80/90% spend alerts, Copy stats |
-| **1.0.4** | Burn Rate Guard + Coding stats (AI vs git) + 11 UI languages |
-| **v1.2** | (open — sidebar / Quick Pick backlog) |
-| **v2** | Secret Storage, CSV, Open VSX |
+| **1.0.0** | session + API, status bar, Last N, Statistics, Charts, CSV, Settings, polling |
+| **1.0.1** | Statistics extras; enterprise Current stays on the personal monthly pool |
+| **1.0.2** | Monthly cost forecast; critical alert; recent queries 1–10; refresh default 1 min |
+| **1.0.3** | Optimize; Support Buy Me a Coffee; budget day basis; From date; Pro % on the bar |
+| **1.0.4** | Burn Rate Guard; Coding stats; UI languages (10 at release) |
+| **1.0.5** | Model pricing; Support message; landing page under `site/` |
+| **after 1.0.5** | Ukrainian (11th locale); billing-cycle forecast window |
+| **1.0.6** | cursorcosttracker.com; Play and Run Optimize into a new Agent chat; list price; cache $ saved; $ / 1k lines; To date; `historySample`; Optimized filter; group by conversation (default off); chart day detail and Sample / Last 7 / Month zoom |
+| **Still open** | table Ignore + bang recompute; 80/90% spend alerts; Copy stats; Today pace arrows; model-cost simulator; Secret Storage |
 
 ---
 
@@ -304,10 +321,10 @@ Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Session: `
 
 ## 14. Open
 
-Marketplace UI in English. No last-query shortcut on the bar in MVP. Ship a local VSIX first.
+Panel copy ships in 11 locales; English is the default. Open VSX is how Cursor users install. Homepage is `https://cursorcosttracker.com/`. Still open: table Ignore, 80/90% spend alerts, Copy stats, Today pace arrows, model-cost simulator, Secret Storage.
 
 ---
 
 ## 15. Summary
 
-Cursor/VS Code extension. Bar: Current + Today + sync + **spike `!`**. Click Current/Today: Statistics; query chip: Last N. Spike rows can be **Ignored** (store landed; UI follow-up). Optimize tab: metadata prompts only (no transcript). No auto-fix. Stack: TypeScript, esbuild, sql.js, Vitest. Usage logic in `src/usage/`.
+Cursor/VS Code extension, tree version **1.0.6**. Bar: Current + Today + sync + 1–10 queries + **spike `!`**. Click Current/Today: Statistics; query chip: queries list. Play on a red row pastes a numbers-only brief. The queries list can fold into one row per local chat title (default off). Spike Ignore store exists; the table button does not. Optimize is metadata only (no transcript). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Usage logic in `src/usage/`.

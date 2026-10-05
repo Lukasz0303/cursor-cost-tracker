@@ -37,9 +37,17 @@ Do **not** mix this into MVP phases 0–7 or into remaining v1.1 Ignore. On conf
 ## Planned (fork / upstream)
 
 - Billing-cycle forecast alignment ([#8](https://github.com/Lukasz0303/cursor-cost-tracker/issues/8)): [billing-cycle-forecast.md](./billing-cycle-forecast.md)
+- Group queries by conversation (toolbar toggle on Last N, **1.1.0** MINOR): [conversation-grouping-queries.md](./conversation-grouping-queries.md) · [conversation-grouping-queries.pl.md](./conversation-grouping-queries.pl.md)
+- Datetime consistency + media frontend split: [datetime-media-foundation.md](./datetime-media-foundation.md) · [datetime-media-foundation.pl.md](./datetime-media-foundation.pl.md)
 
 ## Additional / backlog
 
 Deferred spend-control notes (loop heuristic, daily cap, efficiency, model advisor, attribution). Not scheduled; re-number if picked up later.
 
 Index: [additional/README.md](./additional/README.md)
+
+## Market follow-ups (30 Sep 2026)
+
+Review plus seven ordered slices. These replace the **order** of the old 1.2–1.6 backlog when something from that review is picked up. They do not delete those notes.
+
+Index: [market-2026-09/README.md](./market-2026-09/README.md) · [market-2026-09/README.pl.md](./market-2026-09/README.pl.md)

@@ -312,6 +312,7 @@ describe('toOptimizePayload', () => {
           version: 1,
           totalTokens: 750_000,
           totalUsd: 0.41,
+          history: [],
           projects: {
             '/demo-repo': {
               key: '/demo-repo',

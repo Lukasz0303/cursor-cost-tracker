@@ -8,6 +8,8 @@ Burn Rate Guard shipped as [Burn Rate Guard](../burn-rate-guard.md) (**1.0.4**) 
 
 These plans stay as product notes (loop heuristics, daily cap, efficiency score, model advisor, project attribution). If a later MINOR picks one up, re-number it so versions do not collide with what already shipped.
 
+**Scheduling order** for the 30 Sep 2026 market review is [market-2026-09/README.md](../market-2026-09/README.md), not the 1.2–1.6 numbers below. Where a market slice overlaps a note here (efficiency, advisor, attribution, runaway), the market file says what changes.
+
 On conflict, [prd.md](../../context/prd.md) wins.
 
 | (was) | Feature | English | Polish |

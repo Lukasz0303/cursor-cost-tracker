@@ -1,16 +1,12 @@
 import { mapEventsPayload } from './parse'
 import type { UsageQuery } from './types'
-import {
-  historyFromDateBounds,
-  historyFromDateStartMs,
-  parseHistoryFromDate,
-} from '../historyFromDate'
+import { resolveHistorySample } from '../historySample'
 import {
   DEFAULT_HISTORY_LIMIT,
   MAX_HISTORY_LIMIT,
-  sampleSizeLimit,
 } from '../historyLimit'
 import { analyticsChunks } from '../codeLines/analyticsParse'
+import { localDayBoundsMs, sameLocalDay } from '../time/localDay'
 
 export const USAGE_SUMMARY_URL = 'https://cursor.com/api/usage-summary'
 export const USAGE_EVENTS_URL =
@@ -163,21 +159,15 @@ async function readUnknownJson(response: Response): Promise<unknown | undefined>
 }
 
 function localDayBounds(now: Date): { startDate: string; endDate: string } {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1)
+  const bounds = localDayBoundsMs(now)
   return {
-    startDate: String(start.getTime()),
-    endDate: String(end.getTime()),
+    startDate: bounds.startDate,
+    endDate: bounds.endDate,
   }
 }
 
-function sameLocalDay(timestamp: number, now: Date): boolean {
-  const d = new Date(timestamp)
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
+function isSameLocalDayAsNow(timestamp: number, now: Date): boolean {
+  return sameLocalDay(timestamp, now.getTime())
 }
 
 async function postEventsPage(
@@ -224,12 +214,18 @@ function finishQueries(
   collected: UsageQuery[],
   limit: number,
   startMs: number | null,
+  endMs: number | null,
 ): FetchEventsResult {
   collected.sort((left, right) => right.timestamp - left.timestamp)
-  const inRange =
-    startMs === null
-      ? collected
-      : collected.filter((query) => query.timestamp >= startMs)
+  const inRange = collected.filter((query) => {
+    if (startMs !== null && query.timestamp < startMs) {
+      return false
+    }
+    if (endMs !== null && query.timestamp > endMs) {
+      return false
+    }
+    return true
+  })
   return { ok: true, queries: inRange.slice(0, limit) }
 }
 
@@ -243,9 +239,11 @@ async function collectEventPages(
     startDate?: string
     endDate?: string
     startMs?: number | null
+    endMs?: number | null
   },
 ): Promise<FetchEventsResult> {
   const startMs = options.startMs ?? null
+  const endMs = options.endMs ?? null
   const collected: UsageQuery[] = []
   let pageSize = clampPageSize(Math.min(options.pageSize, options.limit))
   let maxPages = Math.max(options.maxPages, maxPagesFor(options.limit, pageSize))
@@ -283,7 +281,7 @@ async function collectEventPages(
         continue
       }
       if (collected.length > 0) {
-        return finishQueries(collected, options.limit, startMs)
+        return finishQueries(collected, options.limit, startMs, endMs)
       }
       return result
     }
@@ -324,7 +322,7 @@ async function collectEventPages(
     }
   }
 
-  return finishQueries(collected, options.limit, startMs)
+  return finishQueries(collected, options.limit, startMs, endMs)
 }
 
 export async function fetchUsageSummary(
@@ -352,6 +350,7 @@ export type FetchRecentEventsOptions = {
   pageSize?: number
   limit?: number
   fromDate?: string | null
+  toDate?: string | null
   now?: Date
 }
 
@@ -361,20 +360,31 @@ export async function fetchRecentEvents(
   options?: FetchRecentEventsOptions,
 ): Promise<FetchEventsResult> {
   const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE
-  const fromDate = parseHistoryFromDate(options?.fromDate)
   const now = options?.now ?? new Date()
-  const bounds = fromDate ? historyFromDateBounds(fromDate, now) : null
-  const startMs = fromDate ? historyFromDateStartMs(fromDate) : null
-  const limit = sampleSizeLimit(
-    options?.limit ?? DEFAULT_HISTORY_LIMIT,
-    fromDate,
-  )
+  const sample = resolveHistorySample({
+    historyLimit: options?.limit ?? DEFAULT_HISTORY_LIMIT,
+    historyFromDate: options?.fromDate ?? null,
+    historyToDate: options?.toDate ?? null,
+    now,
+  })
+  const limit = sample.fetchLimit
+  if (sample.mode === 'calendar') {
+    return collectEventPages(cookie, signal, {
+      pageSize,
+      maxPages: maxPagesFor(limit, pageSize),
+      limit,
+      startDate: sample.startDate,
+      endDate: sample.endDate,
+      startMs: sample.startMs,
+      endMs: sample.endMs,
+    })
+  }
   return collectEventPages(cookie, signal, {
     pageSize,
     maxPages: maxPagesFor(limit, pageSize),
     limit,
-    ...(bounds ?? {}),
-    startMs,
+    startMs: null,
+    endMs: null,
   })
 }
 
@@ -410,7 +420,9 @@ export async function fetchTodayEvents(
   }
   return {
     ok: true,
-    queries: fallback.queries.filter((query) => sameLocalDay(query.timestamp, now)),
+    queries: fallback.queries.filter((query) =>
+      isSameLocalDayAsNow(query.timestamp, now),
+    ),
   }
 }
 
@@ -470,10 +482,9 @@ export async function fetchUserAnalytics(
   for (const chunk of chunks) {
     const result = await fetchUserAnalyticsOnce(cookie, signal, chunk)
     if (!result.ok) {
-      if (parts.length === 0) {
-        return result
-      }
-      break
+      // A 32-day window is two requests. Returning the first chunk as ok
+      // published a short total and the card never restored the full window.
+      return result
     }
     parts.push(result.raw)
   }

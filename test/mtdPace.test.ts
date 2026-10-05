@@ -26,6 +26,40 @@ function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery
   }
 }
 
+/** Local calendar days the billing-cycle chart includes. End is exclusive. */
+function localBillingCycleAxis(startIso: string, endIso: string): string[] {
+  const startInstant = new Date(startIso)
+  const endInstant = new Date(endIso)
+  const start = new Date(
+    startInstant.getFullYear(),
+    startInstant.getMonth(),
+    startInstant.getDate(),
+  )
+  const endMidnight = new Date(
+    endInstant.getFullYear(),
+    endInstant.getMonth(),
+    endInstant.getDate(),
+  )
+  const endIsLocalMidnight =
+    endInstant.getHours() === 0 &&
+    endInstant.getMinutes() === 0 &&
+    endInstant.getSeconds() === 0 &&
+    endInstant.getMilliseconds() === 0
+  const last = endIsLocalMidnight
+    ? new Date(endMidnight.getTime() - 24 * 60 * 60 * 1000)
+    : endMidnight
+  const labels: string[] = []
+  for (
+    const date = new Date(start.getTime());
+    date.getTime() <= last.getTime();
+    date.setDate(date.getDate() + 1)
+  ) {
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    labels.push(`${date.getDate()}.${month}`)
+  }
+  return labels
+}
+
 function ready(overrides: Partial<UsageReady> = {}): UsageSnapshot {
   return {
     status: 'ready',
@@ -550,11 +584,11 @@ describe('toMtdSeries', () => {
 
 describe('billing-cycle forecast windows', () => {
   it('uses a continuous billing-cycle axis', () => {
+    const billingCycleStart = '2026-09-01T00:00:00.000Z'
+    const billingCycleEnd = '2026-10-01T00:00:00.000Z'
+    const axis = localBillingCycleAxis(billingCycleStart, billingCycleEnd)
     const stats = toMtdPace(
-      ready({
-        billingCycleStart: '2026-09-01T00:00:00.000Z',
-        billingCycleEnd: '2026-10-01T00:00:00.000Z',
-      }),
+      ready({ billingCycleStart, billingCycleEnd }),
       [],
       {
         now: new Date(2026, 8, 15, 12, 0, 0),
@@ -563,7 +597,7 @@ describe('billing-cycle forecast windows', () => {
     )
     expect(stats.forecastWindow).toBe('billingCycle')
     expect(stats.billingCycleAvailable).toBe(true)
-    expect(stats.chart).toHaveLength(31)
+    expect(stats.chart.map((point) => point.date)).toEqual(axis)
     expect(stats.resetDate).toBeNull()
   })
 

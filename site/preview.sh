@@ -13,6 +13,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   mkdir -p "$DEST/$(dirname "$line")"
   cp "$ROOT/$line" "$DEST/$line"
 done < "$ROOT/site/pages-assets.txt"
+sh "$ROOT/site/copy-releases.sh" "$DEST"
 PORT=4173
 while lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
   PORT=$((PORT + 1))

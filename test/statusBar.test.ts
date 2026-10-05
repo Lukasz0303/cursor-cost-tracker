@@ -649,9 +649,10 @@ describe('status bar chips', () => {
           kind: null,
           costUsd: 1.5,
           tokens: 1000,
-            outputTokens: 500,
-            cacheWriteTokens: 0,
-            cacheReadTokens: 0,
+          inputTokens: 500,
+          outputTokens: 500,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
         },
       ],
     })

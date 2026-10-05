@@ -7,11 +7,22 @@ import {
   type DashboardDayEdited,
 } from './analyticsParse'
 import type { CodeLinesSnapshot } from './types'
-import { codeLinesDisclaimer } from './copy'
+import { codeLinesDisclaimer, lineDollarsSummary } from './copy'
+import {
+  dollarsPerLine,
+  sumWindowCostUsd,
+  type LineDollarRates,
+  type WindowCostQuery,
+} from './dollarsPerLine'
+import { takeDashboardDays } from './dashboardCache'
 import { catalogFor } from '../i18n'
 import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { fetchUserAnalytics } from '../usage/api'
 import type { CodeLinesAuthorChoice, StoredAuthorChoice } from './authorChoice'
+
+export type CodeLinesDollars = LineDollarRates & {
+  summary: string
+}
 
 export type CollectCodeLinesOptions = {
   enabled: boolean
@@ -20,6 +31,8 @@ export type CollectCodeLinesOptions = {
   sinceDays?: number
   sinceMs?: number
   untilMs?: number
+  /** Account usage queries for the same window as landed / AI lines. */
+  queries?: readonly WindowCostQuery[]
   locale?: Locale
   cookie?: string | null
   cursorEmail?: string | null
@@ -34,6 +47,35 @@ export type CodeLinesPayload = CodeLinesSnapshot & {
   workspacePath: string | null
   authorFiltered: boolean
   authors: CodeLinesAuthorChoice
+  /** Window $ / landed and $ / AI; null when insight is off or no snapshot. */
+  dollars: CodeLinesDollars | null
+}
+
+function attachDollars(
+  summary: CodeLinesSnapshot['summary'],
+  options: CollectCodeLinesOptions,
+  locale: Locale,
+): CodeLinesDollars | null {
+  if (options.sinceMs === undefined || options.untilMs === undefined) {
+    return null
+  }
+  if (summary.rangeLabel === catalogFor(locale).codeLines.noData) {
+    return null
+  }
+  const rates = dollarsPerLine({
+    windowUsd: sumWindowCostUsd(
+      options.queries ?? [],
+      options.sinceMs,
+      options.untilMs,
+    ),
+    landed: summary.onMaster,
+    ai: summary.ai,
+  })
+  const text = lineDollarsSummary(rates, locale)
+  if (text === '') {
+    return null
+  }
+  return { ...rates, summary: text }
 }
 
 function emptyPayload(
@@ -66,6 +108,7 @@ function emptyPayload(
     workspacePath: partial.workspacePath ?? null,
     authorFiltered: partial.authorFiltered ?? false,
     authors: partial.authors ?? { accounts: [], sumMultiple: false },
+    dollars: null,
   }
 }
 
@@ -102,23 +145,27 @@ export async function collectCodeLinesPayload(
     }),
   ])
 
+  const sinceMs = options.sinceMs
+  const untilMs = options.untilMs
   let dashboardDays: DashboardDayEdited[] =
     options.dashboardDays !== undefined ? [...options.dashboardDays] : []
   if (
-    dashboardDays.length === 0 &&
-    options.cookie &&
-    options.sinceMs !== undefined &&
-    options.untilMs !== undefined &&
-    options.signal?.aborted !== true
+    options.dashboardDays === undefined &&
+    sinceMs !== undefined &&
+    untilMs !== undefined
   ) {
-    const analytics = await fetchUserAnalytics(
-      options.cookie,
-      options.signal ?? new AbortController().signal,
-      { startMs: options.sinceMs, endMs: options.untilMs },
-    )
-    if (analytics.ok) {
-      dashboardDays = parseUserAnalyticsDays(analytics.raw)
+    let incoming: DashboardDayEdited[] | null = null
+    if (options.cookie && options.signal?.aborted !== true) {
+      const analytics = await fetchUserAnalytics(
+        options.cookie,
+        options.signal ?? new AbortController().signal,
+        { startMs: sinceMs, endMs: untilMs },
+      )
+      if (analytics.ok) {
+        incoming = parseUserAnalyticsDays(analytics.raw)
+      }
     }
+    dashboardDays = takeDashboardDays(sinceMs, untilMs, incoming)
   }
 
   const hasAi = composers.some((row) => row.linesAdded > 0 || row.linesRemoved > 0)
@@ -155,5 +202,6 @@ export async function collectCodeLinesPayload(
     workspacePath,
     authorFiltered: merged.authorFiltered,
     authors: merged.authors,
+    dollars: attachDollars(split.summary, options, locale),
   }
 }

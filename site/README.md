@@ -11,11 +11,17 @@ The folder `docs/` stays local-only (social copy, gitignored). This site lives i
 | Page | `site/index.html`, `site/styles.css`, `site/main.js` |
 | Icon | `icon.png` (copied at publish time) |
 | Scenes | files listed in `site/pages-assets.txt` |
-| URL after the first deploy | https://lukasz0303.github.io/cursor-cost-tracker/ |
+| Release gallery | folders under `screenshots/releases/<semver>/` (copied + `releases-manifest.json` at publish/preview) |
+| Public URL | https://cursorcosttracker.com/ (custom domain → GitHub Pages) |
+| Fallback Pages URL | https://lukasz0303.github.io/cursor-cost-tracker/ |
 
-Download count, version, and rating start from the Open VSX snapshot in the HTML (**1,522** downloads, **1.0.5**, rating **5.0** / 2 reviews on 27 Sep 2026) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it.
+Download count, version, and rating start from the fallback in the HTML (**1.0.6**) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it. Until 1.0.6 is on Open VSX, that request still shows the published version.
 
 Screenshots are shown at their real aspect ratio. There is no walkthrough video.
+
+## Release screenshots
+
+Put numbered PNGs in `screenshots/releases/<semver>/` (for example `screenshots/releases/1.0.6/1.png`). Preview and GitHub Pages run `site/copy-releases.sh`, which copies those folders and writes `releases-manifest.json`. The Screenshots section defaults to the highest semver and shows chips for every release folder. No HTML edit is needed when you add a version.
 
 ## Preview locally
 
@@ -30,8 +36,8 @@ Open http://127.0.0.1:4173. On macOS the script opens that address.
 1. Merge `site/` and `.github/workflows/pages.yml` to **`main`** and push. The workflow only runs on `main`.
 2. GitHub → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. Actions → **Deploy landing page** should go green. The environment URL is the live page.
-4. Optional, after the URL loads: set `homepage` in `package.json` to `https://lukasz0303.github.io/cursor-cost-tracker/`.
+4. After the custom domain loads: set `homepage` in `package.json` to `https://cursorcosttracker.com/` and publish that version to Open VSX (needed for Cursor publisher verification).
 
 Later edits to `site/**`, `screenshots/**`, or `icon.png` on `main` republish automatically. **Run workflow** works without a path change.
 
-Pages does not bill for this traffic. The repository must stay public. A custom domain would be a `CNAME` later; it is not required.
+Pages does not bill for this traffic. The repository must stay public. Custom domain is configured in GitHub → Settings → Pages (and DNS at the registrar, e.g. Cloudflare).
