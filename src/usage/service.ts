@@ -1,3 +1,4 @@
+import { clampPollIntervalMinutes } from '../clamps'
 import { USAGE_CANCELLED, USAGE_LOAD_ERROR } from './api'
 import type { FetchEventsResult, FetchSummaryResult } from './api'
 import type { BudgetDayBasis } from '../budgetDayBasis'
@@ -30,6 +31,8 @@ export type UsageServiceOptions = {
   activityRefreshCooldownMs?: number
 }
 
+export { clampPollIntervalMinutes } from '../clamps'
+
 const DEFAULT_POLL_MINUTES = 1
 export const DEFAULT_ACTIVITY_REFRESH_COOLDOWN_MS = 60_000
 
@@ -45,13 +48,6 @@ export function isActivityRefreshDue(
     return true
   }
   return nowMs - lastFetchedAtMs >= cooldownMs
-}
-
-export function clampPollIntervalMinutes(value: number): number {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_POLL_MINUTES
-  }
-  return Math.min(60, Math.max(1, Math.round(value)))
 }
 
 function isAbortError(error: unknown): boolean {

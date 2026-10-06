@@ -9,6 +9,7 @@ Read [`.ai/context/README.md`](.ai/context/README.md) before implementing.
 - Burn Rate Guard (1.0.4): [`.ai/implementation-plans/burn-rate-guard.md`](.ai/implementation-plans/burn-rate-guard.md)
 - Generated Lines Insight (1.0.4): [`.ai/implementation-plans/generated-lines-insight.md`](.ai/implementation-plans/generated-lines-insight.md)
 - Additional / backlog: [`.ai/implementation-plans/additional/README.md`](.ai/implementation-plans/additional/README.md)
+- Market follow-ups (30 Sep 2026, slices 1–9): [`.ai/implementation-plans/market-2026-09/README.md`](.ai/implementation-plans/market-2026-09/README.md) · sample period window: [09-sample-period-window.md](.ai/implementation-plans/market-2026-09/09-sample-period-window.md)
 - Always-on rules: [`.cursor/rules/shared.mdc`](.cursor/rules/shared.mdc)
 
 Language: **English** for `.ai`, Cursor commands, code, commits, and MVP UI.

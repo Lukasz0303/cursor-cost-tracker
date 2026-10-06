@@ -11,7 +11,7 @@ import {
 } from '../config'
 import { catalogFor } from '../i18n'
 import { DEFAULT_LOCALE, parseLocale, type Locale } from '../locale'
-import { parseHistoryFromDate } from '../historyFromDate'
+import { billingCycleStartIso, parseHistoryFromDate } from '../historyFromDate'
 import type { ForecastWindow } from '../forecastWindow'
 import {
   clampHistoryLimit,
@@ -40,11 +40,22 @@ import { toChartSeries, type ChartPoint } from './chartSeries'
 import { toPeriodCards, type PeriodCard } from './periodCards'
 import { toMtdPace, type MtdPacePayload } from './mtdPace'
 import type { ModelCatalogPayload } from '../pricing/parse'
+import { pricePerMillion } from '../pricing/money'
+import {
+  queryListPrice,
+  type ListPriceSplit,
+} from '../pricing/listPrice'
+import { matchPricedModel } from '../pricing/usageMatch'
 import {
   toOptimizePayload,
   type OptimizePayload,
 } from './optimizePayload'
 import type { LifetimeSavings } from './optimizeLifetimeSavings'
+import {
+  emptyOptimizedTargets,
+  isOptimizedQuery,
+  type OptimizedTargets,
+} from './optimizedTargets'
 import { supportLinkReady } from '../supportLinks'
 import { PUBLISHED_COMMENTS, type PublishedComment } from '../support/comments'
 import {
@@ -52,6 +63,8 @@ import {
   type StatusBarPreviewChip,
 } from './statusBarView'
 import type { CodeLinesPayload } from '../codeLines/collect'
+import { cleanConversationTitle } from '../usage/conversationTitles'
+import { toQueryGroups, type QueryGroupPayload } from './queryGroups'
 
 export const HISTORY_ROW_KEYS = [
   'time',
@@ -62,6 +75,11 @@ export const HISTORY_ROW_KEYS = [
   'kind',
   'spike',
   'inBurnWindow',
+  'timestamp',
+  'conversationId',
+  'listPrice',
+  'optimized',
+  'conversationTitle',
 ] as const
 
 export type HistoryRow = {
@@ -73,11 +91,20 @@ export type HistoryRow = {
   kind: string
   spike: boolean
   inBurnWindow: boolean
+  timestamp: number
+  /** Empty when the usage event had no conversation id. */
+  conversationId: string
+  /** Null when the catalog is missing or errored. All-null split = no model match. */
+  listPrice: ListPriceSplit | null
+  /** True when this query's conversation (or ungrouped fingerprint) was sent to Optimize. */
+  optimized: boolean
+  /** Local Cursor composer title for this conversation id. Empty when unknown. */
+  conversationTitle: string
 }
 
 export type HistoryRowOptions = {
-  spikeTokenThreshold: number
-  showSpikeWarning: boolean
+  spikeTokenThreshold?: number
+  showSpikeWarning?: boolean
   showCriticalAlert?: boolean
   criticalTokenThreshold?: number
   criticalCostUsdThreshold?: number
@@ -86,6 +113,7 @@ export type HistoryRowOptions = {
   extensionVersion?: string
   historyLimit?: number
   historyFromDate?: string | null
+  historyToDate?: string | null
   refreshing?: boolean
   pollIntervalMinutes?: number
   showStatusBar?: boolean
@@ -101,6 +129,8 @@ export type HistoryRowOptions = {
   optimizeProjectLabel?: string
   /** Credited lifetime savings from extension globalState. */
   optimizeLifetimeSavings?: LifetimeSavings | null
+  /** Conversations and ungrouped queries already sent to Optimize. */
+  optimizedTargets?: OptimizedTargets | null
   burnRateGuard?: boolean
   burnRateWindowMinutes?: number
   burnRateWarningUsd?: number
@@ -110,6 +140,10 @@ export type HistoryRowOptions = {
   burnRateCriticalToast?: boolean
   codeLinesInsight?: boolean
   codeLines?: CodeLinesPayload | null
+  /** Fold the queries table into one row per conversation title. */
+  groupQueriesByConversation?: boolean
+  /** Local conversation titles keyed by usage-event id. Not sent raw to the webview. */
+  conversationTitles?: Readonly<Record<string, string>>
   nowMs?: number
   language?: Locale
   modelCatalog?: ModelCatalogPayload | null
@@ -120,21 +154,59 @@ export type HistoryRowOptions = {
   leaderboardUnlocked?: boolean
 }
 
+function listPriceForQuery(
+  query: UsageQuery,
+  catalog: ModelCatalogPayload | null | undefined,
+): ListPriceSplit | null {
+  if (catalog === null || catalog === undefined || catalog.error) {
+    return null
+  }
+  const priced = matchPricedModel(query.model, catalog)
+  if (priced === null) {
+    return queryListPrice(query, {
+      input: null,
+      output: null,
+      cacheWrite: null,
+      cacheRead: null,
+    })
+  }
+  return queryListPrice(query, {
+    input: pricePerMillion(priced.input),
+    output: pricePerMillion(priced.output),
+    cacheWrite: pricePerMillion(priced.cacheWrite),
+    cacheRead: pricePerMillion(priced.cacheRead),
+  })
+}
+
+/** Newest-first sample the table renders. Shared so group row indexes line up. */
+export function historyRowSample(
+  queries: readonly UsageQuery[],
+  limit: number,
+): UsageQuery[] {
+  const capped = clampHistoryLimit(limit)
+  return [...queries]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, capped)
+}
+
 export function toHistoryRows(
   queries: UsageQuery[],
   options?: HistoryRowOptions,
 ): HistoryRow[] {
-  const limit = clampHistoryLimit(
+  const burn = burnWindowForRows(queries, options)
+  const catalog = options?.modelCatalog
+  const targets = options?.optimizedTargets ?? emptyOptimizedTargets()
+  const titles = options?.conversationTitles
+  const sample = historyRowSample(
+    queries,
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
-  const burn = burnWindowForRows(queries, options)
-  const sorted = [...queries].sort((a, b) => b.timestamp - a.timestamp)
-  return sorted.slice(0, limit).map((query) => {
+  return sample.map((query) => {
     const model = stripModelPrefix(query.model)
     const tokens = formatTokens(query.tokens)
     const spike =
-      options !== undefined &&
-      options.showSpikeWarning &&
+      options?.showSpikeWarning === true &&
+      options.spikeTokenThreshold !== undefined &&
       isSpike(query.tokens, options.spikeTokenThreshold)
     return {
       time: formatDateTime(query.timestamp),
@@ -145,8 +217,28 @@ export function toHistoryRows(
       kind: formatKind(query.kind),
       spike,
       inBurnWindow: burn !== null && queryInLiveWindow(query.timestamp, burn),
+      timestamp: query.timestamp,
+      conversationId: query.conversationId ?? '',
+      listPrice: listPriceForQuery(query, catalog),
+      optimized: isOptimizedQuery(query, targets),
+      conversationTitle: conversationTitleForQuery(query, titles),
     }
   })
+}
+
+function conversationTitleForQuery(
+  query: UsageQuery,
+  titles: Readonly<Record<string, string>> | undefined,
+): string {
+  const id = query.conversationId?.trim() ?? ''
+  if (id === '' || titles === undefined) {
+    return ''
+  }
+  const raw = titles[id]
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  return cleanConversationTitle(raw) ?? ''
 }
 
 function burnWindowForRows(
@@ -171,6 +263,9 @@ function burnWindowForRows(
 export type HistoryDataPayload = {
   type: 'data'
   events: HistoryRow[]
+  /** Conversation rows for the same sample as `events`. Always sent. */
+  queryGroups: QueryGroupPayload[]
+  groupQueriesByConversation: boolean
   message?: string
   spikeTokenThreshold: number
   showSpikeWarning: boolean
@@ -182,6 +277,9 @@ export type HistoryDataPayload = {
   extensionVersion: string
   historyLimit: number
   historyFromDate: string | null
+  historyToDate: string | null
+  /** ISO day for Settings → This billing cycle preset; null when unknown. */
+  billingCycleStart: string | null
   pollIntervalMinutes: number
   showStatusBar: boolean
   showToday: boolean
@@ -238,6 +336,7 @@ export function historyDataPayload(
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
   )
   const historyFromDate = parseHistoryFromDate(options?.historyFromDate)
+  const historyToDate = parseHistoryFromDate(options?.historyToDate)
   const sampleLimit = sampleSizeLimit(historyLimit, historyFromDate)
   const pollIntervalMinutes =
     options?.pollIntervalMinutes ??
@@ -288,6 +387,7 @@ export function historyDataPayload(
     todayUsd,
     locale: language,
   })
+  const modelCatalog = options?.modelCatalog ?? null
   const rowOptions: HistoryRowOptions = {
     spikeTokenThreshold,
     showSpikeWarning,
@@ -296,6 +396,7 @@ export function historyDataPayload(
     criticalCostUsdThreshold,
     historyLimit: sampleLimit,
     historyFromDate,
+    historyToDate,
     okColor: options?.okColor ?? DEFAULT_OK_COLOR,
     warnColor: options?.warnColor ?? DEFAULT_WARN_COLOR,
     extensionVersion: options?.extensionVersion ?? '0.0.0',
@@ -313,10 +414,21 @@ export function historyDataPayload(
     burnRateCriticalUsd,
     burnRateMinQueries,
     nowMs,
+    modelCatalog,
+    optimizedTargets: options?.optimizedTargets,
+    conversationTitles: options?.conversationTitles,
   }
   const payload: HistoryDataPayload = {
     type: 'data',
     events: toHistoryRows(queries, rowOptions),
+    queryGroups: toQueryGroups(historyRowSample(queries, sampleLimit), {
+      titles: options?.conversationTitles,
+      spikeTokenThreshold,
+      showSpikeWarning,
+      optimizedTargets: options?.optimizedTargets,
+      locale: language,
+    }),
+    groupQueriesByConversation: options?.groupQueriesByConversation === true,
     spikeTokenThreshold,
     showSpikeWarning,
     showCriticalAlert,
@@ -327,6 +439,11 @@ export function historyDataPayload(
     extensionVersion: rowOptions.extensionVersion ?? '0.0.0',
     historyLimit,
     historyFromDate,
+    historyToDate,
+    billingCycleStart:
+      pacedSnapshot.status === 'ready'
+        ? billingCycleStartIso(pacedSnapshot.data.billingCycleStart)
+        : null,
     pollIntervalMinutes,
     showStatusBar,
     showToday,
@@ -361,14 +478,17 @@ export function historyDataPayload(
       spikeTokenThreshold,
       historyLimit,
       historyFromDate,
+      historyToDate,
       budgetDayBasis,
       locale: language,
+      modelCatalog,
     }),
     charts: toChartSeries(queries, sampleLimit),
     periods: toPeriodCards(queries, { historyLimit: sampleLimit, locale: language }),
     mtd: toMtdPace(pacedSnapshot, queries, {
       historyLimit,
       historyFromDate,
+      historyToDate,
       budgetDayBasis,
       locale: language,
       forecastWindow,

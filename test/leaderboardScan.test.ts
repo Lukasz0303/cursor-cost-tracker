@@ -93,7 +93,7 @@ describe('listCatalogGitRepos', () => {
 })
 
 describe('scanLeaderboardRepos', () => {
-  it('reads every local and remote branch in each included repo', async () => {
+  it('reads first-parent history of the default branch only', async () => {
     const repo = await mkdtemp(join(tmpdir(), 'cct-lb-log-'))
     await mkdir(join(repo, '.git'), { recursive: true })
     const calls: string[][] = []
@@ -104,6 +104,12 @@ describe('scanLeaderboardRepos', () => {
       },
       execGit: async (args) => {
         calls.push(args)
+        if (args[0] === 'branch') {
+          return { stdout: 'main\nfeature\n', stderr: '' }
+        }
+        if (args[0] === 'rev-parse') {
+          return { stdout: 'abc\n', stderr: '' }
+        }
         if (args[0] === 'log') {
           return {
             stdout: [
@@ -120,11 +126,72 @@ describe('scanLeaderboardRepos', () => {
     })
     const log = calls.find((args) => args[0] === 'log')
     expect(log).toEqual(
-      expect.arrayContaining(['--branches', '--remotes', '--no-merges', '--numstat']),
+      expect.arrayContaining(['--first-parent', '--no-merges', '--numstat', 'origin/main']),
     )
-    expect(log?.some((arg) => arg === 'main' || arg.startsWith('origin/'))).toBe(false)
+    expect(log).not.toEqual(expect.arrayContaining(['--branches', '--remotes']))
     expect(piece.reposScanned).toBe(1)
     expect(piece.groups[0]?.commits).toHaveLength(2)
+    expect(piece.groups[0]?.commits.reduce((sum, commit) => sum + commit.insertions, 0)).toBe(13)
+  })
+
+  it('credits a merged pull request to the branch author', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'cct-lb-merge-'))
+    await mkdir(join(repo, '.git'), { recursive: true })
+    const main = '1111111111111111111111111111111111111111'
+    const branch = '2222222222222222222222222222222222222222'
+    const merge = '3333333333333333333333333333333333333333'
+    const piece = await scanLeaderboardRepos(repo, '2026-01-01', '2026-01-31', {
+      sources: { catalog: '', saved: [repo], extra: [], excluded: [] },
+      execGh: async () => {
+        throw new Error('gh unused')
+      },
+      execGit: async (args) => {
+        if (args[0] === 'branch') {
+          return { stdout: 'main\n', stderr: '' }
+        }
+        if (args[0] === 'rev-parse') {
+          return { stdout: 'abc\n', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--merges')) {
+          return { stdout: `${merge}\t1767225600\t${main} ${branch}\n`, stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes(`${main}..${branch}`)) {
+          return { stdout: 'vadym@example.com\tVadym\n', stderr: '' }
+        }
+        if (args[0] === 'diff') {
+          return { stdout: '12\t3\tsrc/forecast.ts\n', stderr: '' }
+        }
+        if (args[0] === 'log') {
+          return { stdout: '', stderr: '' }
+        }
+        return { stdout: '', stderr: '' }
+      },
+    })
+    expect(piece.groups[0]?.commits).toEqual([
+      expect.objectContaining({
+        hash: merge,
+        email: 'vadym@example.com',
+        name: 'Vadym',
+        timestampMs: 1767225600 * 1000,
+        insertions: 12,
+        deletions: 3,
+      }),
+    ])
+  })
+
+  it('skips a repo that has no main or master', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'cct-lb-nobranch-'))
+    await mkdir(join(repo, '.git'), { recursive: true })
+    const piece = await scanLeaderboardRepos(repo, '2026-01-01', '2026-01-31', {
+      sources: { catalog: '', saved: [repo], extra: [], excluded: [] },
+      execGh: async () => {
+        throw new Error('gh unused')
+      },
+      execGit: async () => ({ stdout: '', stderr: '' }),
+    })
+    expect(piece.groups).toEqual([])
+    expect(piece.reposScanned).toBe(0)
+    expect(piece.reposSkipped).toBe(1)
   })
 })
 

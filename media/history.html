@@ -61,7 +61,7 @@
           type="button"
           id="runOptimizeToolbar"
           class="action-btn action-btn-accent"
-          title="Paste the default Balanced prompt into the last chat"
+          title="Open a new Agent chat with the default Balanced prompt"
         >
           Run Optimize (Balanced)
         </button>
@@ -122,10 +122,52 @@
             </span>
           </span>
         </label>
+        <label
+          class="spike-switch spike-switch-optimized"
+          for="filterOptimizedOnly"
+          title="Show only queries already sent to Optimize. Off keeps them on the list."
+          data-i18n-title="queries.optimizedTitle"
+        >
+          <span class="spike-switch-text" data-i18n="queries.optimized">Optimized</span>
+          <span class="spike-switch-control">
+            <input
+              type="checkbox"
+              id="filterOptimizedOnly"
+              role="switch"
+              aria-checked="false"
+            />
+            <span class="spike-switch-track" aria-hidden="true">
+              <span class="spike-switch-thumb"></span>
+            </span>
+          </span>
+        </label>
+        <label
+          class="spike-switch spike-switch-group"
+          for="groupByConversation"
+          title="Fold requests into one row per chat title. Export CSV stays flat."
+          data-i18n-title="queries.groupByConversationTitle"
+        >
+          <span class="spike-switch-text" data-i18n="queries.groupByConversation">Group by conversation</span>
+          <span class="spike-switch-control">
+            <input
+              type="checkbox"
+              id="groupByConversation"
+              role="switch"
+              aria-checked="false"
+            />
+            <span class="spike-switch-track" aria-hidden="true">
+              <span class="spike-switch-thumb"></span>
+            </span>
+          </span>
+        </label>
         <a class="action-btn" href="{{exportCsvHref}}" data-i18n="queries.exportCsv">Export CSV</a>
       </div>
       <p id="status" hidden></p>
       <p id="empty" hidden data-i18n="queries.empty">No queries yet</p>
+      <p id="groupTitlesHint" class="queries-hint" hidden data-i18n="queries.groupNoTitles">
+        Chat titles come from local Cursor storage. Rows fall back to the
+        conversation id when no title is available.
+      </p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -174,6 +216,56 @@
               Daily
             </button>
           </div>
+          <div
+            class="mtd-range"
+            role="group"
+            aria-label="Visible range"
+            data-i18n-aria="charts.zoomAria"
+            id="dailyChartZoom"
+          >
+            <button
+              type="button"
+              class="mtd-range-btn is-active"
+              data-chart-zoom="sample"
+              data-i18n="charts.zoomSample"
+            >
+              Sample
+            </button>
+            <button
+              type="button"
+              class="mtd-range-btn"
+              data-chart-zoom="7"
+              data-i18n="charts.zoomLast7"
+            >
+              Last 7
+            </button>
+            <button
+              type="button"
+              class="mtd-range-btn"
+              data-chart-zoom="month"
+              data-i18n="charts.zoomMonth"
+            >
+              Month
+            </button>
+          </div>
+        </div>
+        <div id="chartDayDetail" class="chart-day-detail" hidden>
+          <div class="chart-day-detail-head">
+            <strong id="chartDayDetailTitle"></strong>
+            <button
+              type="button"
+              class="mtd-range-btn"
+              id="chartDayDetailClose"
+              data-i18n="charts.dayClose"
+            >
+              Close
+            </button>
+          </div>
+          <p id="chartDayDetailMeta" class="chart-day-detail-meta"></p>
+          <details id="chartDayExpand" class="chart-day-expand">
+            <summary data-i18n="charts.dayExpand">Queries that day</summary>
+            <ul id="chartDayExpandList" class="chart-day-expand-list"></ul>
+          </details>
         </div>
       <article class="chart-card">
         <h2 data-i18n="charts.tokensTitle">Tokens over time</h2>
@@ -259,36 +351,155 @@
       <p id="optimizeEmpty" hidden data-i18n="optimize.empty">No queries yet</p>
       <div id="optimizeContent">
         <details class="optimize-savings" id="optimizeSavings">
-          <summary id="optimizeSummary" class="optimize-savings-summary" data-i18n="optimize.savingsSummary">
-            Projected save per similar request: 0 / 0.00 $
-          </summary>
-          <p id="optimizeNote" class="optimize-savings-note" data-i18n="optimize.savingsNote">
-            Projected cost saved on a similar request. Stays 0 / 0.00 $ until
-            you Run Optimize and press Start.
-          </p>
-          <p
-            id="optimizeLifetimeHeading"
-            class="optimize-savings-projects-title"
-            hidden
-            data-i18n="optimize.creditedByProject"
+          <summary
+            id="optimizeSummary"
+            class="optimize-savings-summary"
+            data-i18n-aria="optimize.savingsAccount"
+            aria-label="Saved tokens and money"
           >
-            Credited by project
-          </p>
-          <p id="optimizeLifetimeEmpty" class="optimize-savings-empty" hidden data-i18n="optimize.noCredits">
-            No credited Optimize runs yet.
-          </p>
-          <ul id="optimizeLifetimeProjects" class="optimize-savings-projects"></ul>
+            <span class="optimize-savings-layout">
+              <span class="optimize-savings-main">
+                <span
+                  class="optimize-savings-account"
+                  data-i18n="optimize.savingsAccount"
+                  >Saved tokens &amp; money</span
+                >
+                <span class="optimize-savings-balance" id="optimizeBalanceUsd">
+                  <span class="optimize-savings-int" id="optimizeBalanceInt"
+                    >0</span
+                  ><span class="optimize-savings-frac" id="optimizeBalanceFrac"
+                    >.00</span
+                  >
+                  <span class="optimize-savings-currency">$</span>
+                </span>
+                <span class="optimize-savings-sub" id="optimizeBalanceSub"
+                  >~0 tokens saved</span
+                >
+              </span>
+              <span
+                class="optimize-savings-chart"
+                id="optimizeSavingsViz"
+                aria-hidden="true"
+              >
+                <span class="optimize-savings-chart-head">
+                  <span
+                    class="optimize-savings-chart-label"
+                    data-i18n="optimize.savingsChartLabel"
+                    >Dollars saved by day</span
+                  >
+                  <span
+                    class="optimize-savings-chart-values"
+                    id="optimizeSparkValues"
+                  ></span>
+                </span>
+                <svg
+                  id="optimizeSavingsSpark"
+                  class="optimize-savings-spark"
+                  viewBox="0 0 360 84"
+                  preserveAspectRatio="none"
+                >
+                  <g id="optimizeSparkBars"></g>
+                </svg>
+                <span
+                  class="optimize-savings-chart-axis"
+                  id="optimizeSparkAxis"
+                ></span>
+                <div id="optimizeSparkTip" class="optimize-savings-tip" hidden></div>
+              </span>
+              <span
+                class="optimize-savings-toggle"
+                aria-hidden="true"
+                title="Details"
+              >
+                <span class="optimize-savings-chevron"></span>
+              </span>
+            </span>
+          </summary>
+          <div class="optimize-savings-body">
+            <span class="optimize-savings-metrics">
+              <span class="optimize-savings-metric">
+                <span
+                  class="optimize-savings-dot is-ok"
+                  aria-hidden="true"
+                ></span>
+                <span class="optimize-savings-metric-copy">
+                  <span
+                    class="optimize-savings-metric-label"
+                    data-i18n="optimize.perSimilarRequest"
+                    >Per similar request</span
+                  >
+                  <span
+                    class="optimize-savings-metric-hint"
+                    data-i18n="optimize.perSimilarHint"
+                    >Mid estimate from the last Optimize — what one more request like that may save</span
+                  >
+                </span>
+                <strong
+                  class="optimize-savings-metric-value is-ok"
+                  id="optimizeProjectedUsd"
+                  >0.00 $</strong
+                >
+              </span>
+              <span class="optimize-savings-metric">
+                <span
+                  class="optimize-savings-dot is-tokens"
+                  aria-hidden="true"
+                ></span>
+                <span class="optimize-savings-metric-copy">
+                  <span
+                    class="optimize-savings-metric-label"
+                    data-i18n="optimize.tokensAvoided"
+                    >Tokens on that request</span
+                  >
+                  <span
+                    class="optimize-savings-metric-hint"
+                    data-i18n="optimize.tokensAvoidedHint"
+                    >Same mid projection, in tokens instead of dollars</span
+                  >
+                </span>
+                <strong
+                  class="optimize-savings-metric-value"
+                  id="optimizeProjectedTokens"
+                  >~0</strong
+                >
+              </span>
+            </span>
+            <p id="optimizeNote" class="optimize-savings-note" data-i18n="optimize.savingsNote">
+              Big number = credited total after Optimize runs. Green row = mid $
+              saved on one similar request (from .ai/optimize-savings.md).
+            </p>
+            <p
+              id="optimizeLifetimeHeading"
+              class="optimize-savings-projects-title"
+              hidden
+              data-i18n="optimize.creditedByProject"
+            >
+              Credited by project
+            </p>
+            <p id="optimizeLifetimeEmpty" class="optimize-savings-empty" hidden data-i18n="optimize.noCredits">
+              No credited Optimize runs yet.
+            </p>
+            <ul id="optimizeLifetimeProjects" class="optimize-savings-projects"></ul>
+          </div>
         </details>
-        <p class="chart-hint" data-i18n="optimize.flowHint" data-i18n-html="true">
-          Typical flow: a query lights up red (Warn at) → <strong>Run Optimize</strong> in
-          the toolbar (default depth) pastes into that last chat — or open this
-          tab, expand a colored card, preview, and Run that depth. After Start,
-          savings land in <code>.ai/optimize-savings.md</code>. Expand the card
-          above for the projected cost on a similar request and credited totals
-          per project.
-        </p>
-        <h2 class="optimize-section-title" data-i18n="optimize.findings">Findings</h2>
-        <ul id="optimizeFindings" class="optimize-findings"></ul>
+        <details class="optimize-flow">
+          <summary class="optimize-flow-summary">
+            <span data-i18n="optimize.flowSummary">Typical flow and findings</span>
+            <span class="optimize-flow-chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="optimize-flow-body">
+            <p class="chart-hint" data-i18n="optimize.flowHint" data-i18n-html="true">
+              Typical flow: a query lights up red (Warn at) → <strong>Run Optimize</strong> in
+              the toolbar (default depth) opens a new Agent chat — or open this
+              tab, expand a colored card, preview, and Run that depth. After Start,
+              savings land in <code>.ai/optimize-savings.md</code>. Expand the card
+              above for the projected cost on a similar request and credited totals
+              per project.
+            </p>
+            <h2 class="optimize-section-title" data-i18n="optimize.findings">Findings</h2>
+            <ul id="optimizeFindings" class="optimize-findings"></ul>
+          </div>
+        </details>
         <h2 class="optimize-section-title" data-i18n="optimize.depths">Depths</h2>
         <div id="optimizeDepthCards" class="optimize-depth-cards">
           <article
@@ -437,6 +648,7 @@
       <section class="lb-card">
         <div class="lb-card-head">
           <h2 data-i18n="leaderboard.sectionRange">Range</h2>
+          <button type="button" class="action-btn" id="lbLock" data-i18n="leaderboard.lock" data-i18n-title="leaderboard.lockTitle">Lock</button>
         </div>
         <div class="lb-row">
           <label class="lb-field">
@@ -691,7 +903,7 @@
           <legend data-i18n="support.topic">Topic</legend>
           <div class="support-topic-row">
           <label class="support-topic">
-            <input type="radio" name="supportTopic" value="comment" />
+            <input type="radio" name="supportTopic" value="comment" checked />
             <span data-i18n="support.topicComment">Comment</span>
           </label>
           <label class="support-topic">
@@ -708,7 +920,7 @@
           </label>
           </div>
         </fieldset>
-        <p id="supportCommentNotice" class="chart-hint" hidden data-i18n="support.commentNotice">
+        <p id="supportCommentNotice" class="chart-hint" data-i18n="support.commentNotice">
           If the author accepts this comment, it will be visible to everyone in the next version of the extension. The message includes the time you send it.
         </p>
         <label id="supportConsentRow" class="support-consent">
@@ -1298,6 +1510,21 @@
         <fieldset>
           <h3 class="settings-card-title" data-i18n="settings.recentQueries">Recent queries</h3>
           <div class="settings-group">
+            <label class="settings-row" for="groupQueriesByConversation">
+              <span class="settings-copy">
+                <span data-i18n="settings.groupQueries">Group by conversation</span>
+                <span class="settings-hint" data-i18n="settings.groupQueriesHint">
+                  Fold the queries list into one collapsible row per chat title.
+                  Chats sharing a title merge into one row; requests without a
+                  conversation id land in Ungrouped. Export CSV stays flat.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                id="groupQueriesByConversation"
+                class="settings-switch"
+              />
+            </label>
             <label class="settings-row" for="historyLimit">
               <span class="settings-copy">
                 <span data-i18n="settings.showLast">Show last</span>
@@ -1313,17 +1540,29 @@
               <span class="settings-copy">
                 <span data-i18n="settings.fromDate">From date</span>
                 <span class="settings-hint" data-i18n="settings.fromDateHint">
-                  Load every query from this local day (for example 1.09.2026 or
-                  the start of the month) through today. Empty uses Show last. Caps
-                  at 10,000.
+                  Load every query from this local day through To date (or today
+                  when To is empty). Empty From uses Show last. Caps at 10,000.
                 </span>
               </span>
               <input type="date" id="historyFromDate" />
+            </label>
+            <label class="settings-row" for="historyToDate">
+              <span class="settings-copy">
+                <span data-i18n="settings.toDate">To date</span>
+                <span class="settings-hint" data-i18n="settings.toDateHint">
+                  Optional end of the calendar sample (local day). Empty means
+                  through today. Requires From date. Caps at 10,000.
+                </span>
+              </span>
+              <input type="date" id="historyToDate" />
             </label>
             <div class="settings-row settings-row-end">
               <div class="settings-inline-actions">
                 <button type="button" id="fromMonthSetting" data-i18n="settings.startOfMonth">Start of month</button>
                 <button type="button" id="fromTodaySetting" data-i18n="settings.fromToday">Today</button>
+                <button type="button" id="fromLast7Setting" data-i18n="settings.last7Days">Last 7 days</button>
+                <button type="button" id="fromLast30Setting" data-i18n="settings.last30Days">Last 30 days</button>
+                <button type="button" id="fromBillingCycleSetting" data-i18n="settings.thisBillingCycle">This billing cycle</button>
                 <button type="button" id="clearFromDateSetting" data-i18n="settings.useShowLast">Use Show last</button>
               </div>
             </div>
@@ -1382,6 +1621,8 @@
         </div>
       </form>
     </section>
+    <script nonce="{{nonce}}" src="{{limitsUri}}"></script>
     <script nonce="{{nonce}}" src="{{jsUri}}"></script>
+    {{leaderboardScript}}
   </body>
 </html>

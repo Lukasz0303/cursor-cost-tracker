@@ -75,16 +75,21 @@ describe('catalogs', () => {
 
 describe('webview language allowlists', () => {
   const repoRoot = join(import.meta.dirname, '..')
-  const historyJs = readFileSync(join(repoRoot, 'media/history.js'), 'utf8')
+  // Read sources under media/src (media/history.js is a minified esbuild output).
+  const historyJs = readFileSync(join(repoRoot, 'media/src/session.js'), 'utf8')
   const historyHtml = readFileSync(join(repoRoot, 'media/history.html'), 'utf8')
 
   function extractHistoryJsObjectBody(constName: string): string {
-    const re = new RegExp(`const ${constName} = \\{([\\s\\S]*?)\\n  \\}`)
+    const re = new RegExp(`const ${constName} = \\{([\\s\\S]*?)\\n\\s+\\}`)
     const match = historyJs.match(re)
     if (!match) {
-      throw new Error(`const ${constName} not found in media/history.js`)
+      throw new Error(`const ${constName} not found in media/src/session.js`)
     }
-    return match[1]
+    const body = match[1]
+    if (body === undefined) {
+      throw new Error(`const ${constName} not found in media/src/session.js`)
+    }
+    return body
   }
 
   function keysFromHistoryJsObjectBody(body: string): string[] {
@@ -94,7 +99,7 @@ describe('webview language allowlists', () => {
         /^\s*(?:'([^']+)'|"([^"]+)"|([a-z]{2}(?:-[a-z]{2})?))\s*:/,
       )
       if (keyMatch) {
-        keys.push(keyMatch[1] ?? keyMatch[2] ?? keyMatch[3]!)
+        keys.push(keyMatch[1] ?? keyMatch[2] ?? keyMatch[3] ?? '')
       }
     }
     return keys
@@ -110,8 +115,8 @@ describe('webview language allowlists', () => {
       )
       if (entryMatch) {
         entries.push({
-          key: entryMatch[1] ?? entryMatch[2] ?? entryMatch[3]!,
-          value: entryMatch[4],
+          key: entryMatch[1] ?? entryMatch[2] ?? entryMatch[3] ?? '',
+          value: entryMatch[4] ?? '',
         })
       }
     }
@@ -125,9 +130,11 @@ describe('webview language allowlists', () => {
     if (!selectMatch) {
       throw new Error('#languageSetting select not found in media/history.html')
     }
-    return [...selectMatch[1].matchAll(/<option value="([^"]+)"/g)].map(
-      (m) => m[1],
-    )
+    const body = selectMatch[1]
+    if (body === undefined) {
+      throw new Error('#languageSetting select not found in media/history.html')
+    }
+    return [...body.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1] ?? '')
   }
 
   it('SUPPORTED_LANGUAGES keys match LOCALES', () => {

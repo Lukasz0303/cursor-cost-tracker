@@ -60,6 +60,37 @@ export function catalogModelKey(model: Pick<PricedModel, 'name' | 'fast'>): stri
   return slug
 }
 
+/**
+ * Catalog row for a usage model id. Prefer non-fast when both match unless the
+ * usage id is a fast variant (keys already encode `-fast` via usageModelKey).
+ */
+export function matchPricedModel(
+  modelId: string | null | undefined,
+  catalog: ModelCatalogPayload | null | undefined,
+): PricedModel | null {
+  if (modelId === null || modelId === undefined || modelId.trim() === '') {
+    return null
+  }
+  if (catalog === null || catalog === undefined || catalog.error) {
+    return null
+  }
+  const key = usageModelKey(modelId)
+  const matches = catalog.models.filter(
+    (model) => catalogModelKey(model) === key,
+  )
+  if (matches.length === 0) {
+    return null
+  }
+  if (matches.length === 1) {
+    return matches[0] ?? null
+  }
+  const wantFast = key.endsWith('-fast')
+  const preferred = wantFast
+    ? matches.find((model) => model.fast)
+    : matches.find((model) => !model.fast)
+  return preferred ?? matches[0] ?? null
+}
+
 export function requestSharePercent(count: number, total: number): number {
   if (total <= 0 || count <= 0) {
     return 0

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { applyBudgetDayBasis } from '../src/usage/parse'
 import {
-  applyBudgetDayBasis,
   budgetDaysLeftInMonth,
   calendarDaysInMonth,
   calendarDaysLeftInMonth,
   workingDaysLeftInMonth,
-} from '../src/usage/parse'
+} from '../src/budgetDays'
 import type { UsageReady } from '../src/usage/types'
 
 describe('calendarDaysLeftInMonth', () => {

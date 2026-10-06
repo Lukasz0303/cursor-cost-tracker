@@ -2,6 +2,9 @@ import { formatCompactTokens, formatDollars } from '../format'
 
 export const LIFETIME_SAVINGS_STATE_KEY = 'cursorCost.optimizeLifetimeSavings'
 
+/** Cap stored growth samples so globalState stays small. */
+export const LIFETIME_HISTORY_MAX = 40
+
 export type ProjectSavings = {
   key: string
   label: string
@@ -13,11 +16,19 @@ export type ProjectSavings = {
   updatedAt: number
 }
 
+export type LifetimeHistoryPoint = {
+  at: number
+  totalUsd: number
+  totalTokens: number
+}
+
 export type LifetimeSavings = {
   version: 1
   totalTokens: number
   totalUsd: number
   projects: Record<string, ProjectSavings>
+  /** Credited totals over time (one point per credit that grew the totals). */
+  history: LifetimeHistoryPoint[]
 }
 
 export type OptimizeCreditInput = {
@@ -40,11 +51,19 @@ export type LifetimeProjectRow = {
   usd: number
 }
 
+export type LifetimeSeriesPoint = {
+  at: number
+  usd: number
+  tokens: number
+}
+
 export type LifetimePayload = {
   totalTokens: number
   totalUsd: number
   summary: string
   projects: LifetimeProjectRow[]
+  /** USD growth over time for the Optimize savings sparkline. */
+  series: LifetimeSeriesPoint[]
   empty: boolean
 }
 
@@ -54,6 +73,7 @@ export function emptyLifetimeSavings(): LifetimeSavings {
     totalTokens: 0,
     totalUsd: 0,
     projects: {},
+    history: [],
   }
 }
 
@@ -83,11 +103,17 @@ export function parseLifetimeSavings(raw: unknown): LifetimeSavings {
     totalTokens += project.tokens
     totalUsd += project.usd
   }
+  const history = parseHistory(record.history)
+  const seeded =
+    history.length > 0
+      ? history
+      : seedHistoryFromProjects(Object.values(projects))
   return {
     version: 1,
     totalTokens: Math.max(0, Math.round(totalTokens)),
     totalUsd: roundUsd(totalUsd),
     projects,
+    history: seeded,
   }
 }
 
@@ -172,7 +198,13 @@ export function applyOptimizeCredit(
     }
     const projects = { ...state.projects, [key]: advanced }
     return {
-      state: { version: 1, totalTokens: state.totalTokens, totalUsd: state.totalUsd, projects },
+      state: {
+        version: 1,
+        totalTokens: state.totalTokens,
+        totalUsd: state.totalUsd,
+        projects,
+        history: state.history ?? [],
+      },
       changed: true,
       creditedTokens: 0,
       creditedUsd: 0,
@@ -198,13 +230,25 @@ export function applyOptimizeCredit(
     totalTokens += project.tokens
     totalUsd += project.usd
   }
+  const nextTotals = {
+    totalTokens: Math.max(0, Math.round(totalTokens)),
+    totalUsd: roundUsd(totalUsd),
+  }
+  const history =
+    creditedTokens > 0 || creditedUsd > 0
+      ? appendHistory(state.history ?? [], {
+          at: nowMs,
+          totalUsd: nextTotals.totalUsd,
+          totalTokens: nextTotals.totalTokens,
+        })
+      : state.history ?? []
 
   return {
     state: {
       version: 1,
-      totalTokens: Math.max(0, Math.round(totalTokens)),
-      totalUsd: roundUsd(totalUsd),
+      ...nextTotals,
       projects,
+      history,
     },
     changed: true,
     creditedTokens,
@@ -232,8 +276,93 @@ export function toLifetimePayload(state: LifetimeSavings): LifetimePayload {
     totalUsd: state.totalUsd,
     summary: `Saved so far: ${summaryParts.join(' · ')}`,
     projects,
+    series: seriesForSparkline(state),
     empty,
   }
+}
+
+function seriesForSparkline(state: LifetimeSavings): LifetimeSeriesPoint[] {
+  let points = Array.isArray(state.history) ? state.history.slice() : []
+  if (points.length === 0 && (state.totalUsd > 0 || state.totalTokens > 0)) {
+    points = [
+      {
+        at: Date.now(),
+        totalUsd: state.totalUsd,
+        totalTokens: state.totalTokens,
+      },
+    ]
+  }
+  if (points.length === 1) {
+    const only = points[0]!
+    points = [
+      {
+        at: Math.max(0, only.at - 86_400_000),
+        totalUsd: 0,
+        totalTokens: 0,
+      },
+      only,
+    ]
+  }
+  return points.map((p) => ({
+    at: p.at,
+    usd: p.totalUsd,
+    tokens: p.totalTokens,
+  }))
+}
+
+function appendHistory(
+  history: LifetimeHistoryPoint[],
+  point: LifetimeHistoryPoint,
+): LifetimeHistoryPoint[] {
+  const next = history.concat([point])
+  if (next.length <= LIFETIME_HISTORY_MAX) {
+    return next
+  }
+  return next.slice(next.length - LIFETIME_HISTORY_MAX)
+}
+
+function parseHistory(raw: unknown): LifetimeHistoryPoint[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const out: LifetimeHistoryPoint[] = []
+  for (const row of raw) {
+    if (typeof row !== 'object' || row === null) {
+      continue
+    }
+    const rec = row as Record<string, unknown>
+    const at = asNonNegInt(rec.at)
+    const totalUsd = asNonNegUsd(rec.totalUsd)
+    const totalTokens = asNonNegInt(rec.totalTokens)
+    if (at === null || totalUsd === null || totalTokens === null) {
+      continue
+    }
+    out.push({ at, totalUsd, totalTokens })
+  }
+  return out.slice(-LIFETIME_HISTORY_MAX)
+}
+
+/** Approximate growth curve from project last-update order (legacy installs). */
+function seedHistoryFromProjects(
+  projects: ProjectSavings[],
+): LifetimeHistoryPoint[] {
+  if (projects.length === 0) {
+    return []
+  }
+  const ordered = projects.slice().sort((a, b) => a.updatedAt - b.updatedAt)
+  let totalUsd = 0
+  let totalTokens = 0
+  const out: LifetimeHistoryPoint[] = []
+  for (const project of ordered) {
+    totalUsd = roundUsd(totalUsd + project.usd)
+    totalTokens += project.tokens
+    out.push({
+      at: project.updatedAt > 0 ? project.updatedAt : Date.now(),
+      totalUsd,
+      totalTokens: Math.max(0, Math.round(totalTokens)),
+    })
+  }
+  return out.slice(-LIFETIME_HISTORY_MAX)
 }
 
 function parseProject(key: string, value: unknown): ProjectSavings | null {

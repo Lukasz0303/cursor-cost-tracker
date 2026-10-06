@@ -1,4 +1,6 @@
 import type { CodeLinesSource } from './types'
+import type { LineDollarRates } from './dollarsPerLine'
+import { formatDollars } from '../format'
 import { catalogFor, interpolate } from '../i18n'
 import { DEFAULT_LOCALE, localeBcp47, type Locale } from '../locale'
 
@@ -19,6 +21,36 @@ export function codeLinesDisclaimer(
     case 'unavailable':
       return copy.unavailable
   }
+}
+
+/**
+ * One localized line for the coding-stats card.
+ * Empty when neither rate is available — caller omits the row (no "— / —").
+ */
+export function lineDollarsSummary(
+  rates: LineDollarRates,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const copy = catalogFor(locale).codeLines
+  const parts: string[] = []
+  if (rates.usdPerLandedLine !== null) {
+    parts.push(
+      interpolate(copy.perLandedLine, {
+        amount: formatDollars(rates.usdPerLandedLine),
+      }),
+    )
+  }
+  if (rates.usdPerAiLine !== null) {
+    parts.push(
+      interpolate(copy.perAiLine, {
+        amount: formatDollars(rates.usdPerAiLine),
+      }),
+    )
+  }
+  if (parts.length === 0) {
+    return ''
+  }
+  return parts.join(copy.rateJoin)
 }
 
 export function formatLineCount(

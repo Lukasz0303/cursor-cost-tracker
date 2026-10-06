@@ -3,9 +3,11 @@ import {
   dailyBudgetUsd,
   sumMonthUsedUsd,
   sumTodayUsedUsd,
+} from '../src/usage/parse'
+import {
   workingDaysElapsedInMonth,
   workingDaysLeftInMonth,
-} from '../src/usage/parse'
+} from '../src/budgetDays'
 import type { UsageQuery } from '../src/usage/types'
 
 function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery {

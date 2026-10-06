@@ -18,14 +18,18 @@ File names in `.ai/context/` use **kebab-case, lowercase** (`architecture.md`, `
 | Token spike / Ignore | [../implementation-plans/token-spike.md](../implementation-plans/token-spike.md) · [../implementation-plans/token-spike.pl.md](../implementation-plans/token-spike.pl.md) |
 | 1.0.4 Burn Rate Guard | [../implementation-plans/burn-rate-guard.md](../implementation-plans/burn-rate-guard.md) · [../implementation-plans/burn-rate-guard.pl.md](../implementation-plans/burn-rate-guard.pl.md) |
 | 1.0.4 Generated Lines Insight | [../implementation-plans/generated-lines-insight.md](../implementation-plans/generated-lines-insight.md) · [../implementation-plans/generated-lines-insight.pl.md](../implementation-plans/generated-lines-insight.pl.md) |
+| 1.0.5–1.0.6 and later slices | [../implementation-plans/market-2026-09/README.md](../implementation-plans/market-2026-09/README.md) · billing cycle: [../implementation-plans/billing-cycle-forecast.md](../implementation-plans/billing-cycle-forecast.md) |
 | Additional / backlog plans | [../implementation-plans/additional/README.md](../implementation-plans/additional/README.md) |
+| What each release contains | root `CHANGELOG.md` and the history table in [codebase-snapshot.md](./codebase-snapshot.md) |
 
 ## When to update
 
+One command refreshes the whole set: [`.cursor/commands/11-sync-product-docs.md`](../../.cursor/commands/11-sync-product-docs.md). It does not bump the version, tag, or commit.
+
 - New directory or changed file ownership → `architecture.md` + `shared.mdc`.
 - Cursor API, `state.vscdb` paths, or parse changes → `prd.md` §8 + `tech-stack.md` + tests.
-- After MVP lands on main → `codebase-snapshot.md` (stop saying “no src”).
-- `engines.vscode` / publisher changes → `publishing.md` and `package.json`.
+- After a version ships or a slice lands in `src/` → `codebase-snapshot.md`, and `prd.md` / `prd.pl.md` when the behavior is now a requirement.
+- `engines.vscode` / publisher / homepage changes → `publishing.md` and `package.json`.
 
 ## What not to duplicate
 

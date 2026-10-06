@@ -6,7 +6,7 @@ import { DEFAULT_LOCALE, type Locale } from '../locale'
 const COMPOSER_FOCUS = 'composer.focusComposer'
 /** Surfaces an existing Composer without creating a new Agent tab when possible. */
 const COMPOSER_OPEN = 'composer.openComposer'
-/** Last resort only when no existing Composer surface is available. */
+/** New Agent chat — Run and Optimize this conversation. */
 const COMPOSER_NEW = 'composer.newAgentChat'
 const PASTE = 'editor.action.clipboardPasteAction'
 const VS_CODE_CHAT_OPEN = 'workbench.action.chat.open'
@@ -81,15 +81,51 @@ async function pasteIntoComposer(
   }
 }
 
+export type OptimizeChatTarget = 'new' | 'last'
+
+export type OpenOptimizeChatOptions = {
+  /**
+   * `last` — focus the last active Agent chat.
+   * `new` — Run and Optimize this conversation. Never falls back into the last chat.
+   */
+  target?: OptimizeChatTarget
+}
+
+async function copyToClipboard(
+  prompt: string,
+  deps: OpenOptimizeChatDeps,
+  locale: Locale,
+): Promise<OpenOptimizeChatResult> {
+  await deps.writeClipboard(prompt)
+  deps.showInformationMessage(catalogFor(locale).optimize.clipboard)
+  return 'clipboard'
+}
+
 /**
- * Prefill Cursor Composer / VS Code Chat with the Optimize prompt.
- * Prefer focusing the last active Agent chat — do not open a new chat first.
+ * Prefill a new Agent chat. If that command is missing, copy to the clipboard.
+ * Does not focus or paste into the last chat.
+ */
+async function openNewOptimizeChat(
+  prompt: string,
+  deps: OpenOptimizeChatDeps,
+  locale: Locale,
+): Promise<OpenOptimizeChatResult> {
+  const waitMs = deps.delayMs ?? PASTE_DELAY_MS
+  if (await commandExists(COMPOSER_NEW, deps.getCommands)) {
+    await pasteIntoComposer(prompt, [COMPOSER_NEW], deps, waitMs)
+    return 'composer-new'
+  }
+  return copyToClipboard(prompt, deps, locale)
+}
+
+/**
+ * Prefill the last active Agent chat.
  * Never auto-submits — the user presses Start.
  */
-export async function openOptimizeChat(
+async function openLastOptimizeChat(
   prompt: string,
-  deps: OpenOptimizeChatDeps = defaultDeps(),
-  locale: Locale = DEFAULT_LOCALE,
+  deps: OpenOptimizeChatDeps,
+  locale: Locale,
 ): Promise<OpenOptimizeChatResult> {
   const waitMs = deps.delayMs ?? PASTE_DELAY_MS
   const getCommands = deps.getCommands
@@ -123,7 +159,21 @@ export async function openOptimizeChat(
     }
   }
 
-  await deps.writeClipboard(prompt)
-  deps.showInformationMessage(catalogFor(locale).optimize.clipboard)
-  return 'clipboard'
+  return copyToClipboard(prompt, deps, locale)
+}
+
+/**
+ * Prefill Cursor Composer / VS Code Chat with an Optimize prompt.
+ * Never auto-submits — the user presses Start.
+ */
+export async function openOptimizeChat(
+  prompt: string,
+  deps: OpenOptimizeChatDeps = defaultDeps(),
+  locale: Locale = DEFAULT_LOCALE,
+  options?: OpenOptimizeChatOptions,
+): Promise<OpenOptimizeChatResult> {
+  if (options?.target === 'new') {
+    return openNewOptimizeChat(prompt, deps, locale)
+  }
+  return openLastOptimizeChat(prompt, deps, locale)
 }

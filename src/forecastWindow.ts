@@ -1,3 +1,5 @@
+import { isoDateFromLocal } from './time/localDay'
+
 export type ForecastWindow = 'calendarMonth' | 'billingCycle'
 
 export const DEFAULT_FORECAST_WINDOW: ForecastWindow = 'calendarMonth'
@@ -61,9 +63,7 @@ export function isInBillingCycle(timestamp: number, range: BillingCycleRange): b
 }
 
 export function localDayKey(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
+  return isoDateFromLocal(date)
 }
 
 export function billingCycleRenewalIsMidday(

@@ -1,5 +1,8 @@
 import { catalogFor, interpolate } from './i18n'
 import { DEFAULT_LOCALE, type Locale } from './locale'
+import { formatDate as formatDateLocal, formatDateTime as formatDateTimeLocal } from './time/format'
+
+export { formatDateLocal as formatDate, formatDateTimeLocal as formatDateTime }
 
 const KIND_PREFIX = /^USAGE_EVENT_KIND_/i
 
@@ -59,28 +62,6 @@ export function formatCompactTokens(n: number): string {
 
 function oneDecimal(n: number): string {
   return (Math.round(n * 10) / 10).toFixed(1)
-}
-
-export function formatDate(ms: number): string {
-  const d = new Date(ms)
-  if (!Number.isFinite(d.getTime())) {
-    return '—'
-  }
-  const day = d.getDate()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const year = d.getFullYear()
-  return `${day}.${month}.${year}`
-}
-
-export function formatDateTime(ms: number): string {
-  const d = new Date(ms)
-  if (!Number.isFinite(d.getTime())) {
-    return '—'
-  }
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  const seconds = String(d.getSeconds()).padStart(2, '0')
-  return `${formatDate(ms)}, ${hours}:${minutes}:${seconds}`
 }
 
 export function formatKind(kind: string | null): string {

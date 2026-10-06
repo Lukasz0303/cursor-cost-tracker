@@ -1,220 +1,172 @@
 /**
- * Sync i18n catalogs using the English as a source of truth.
+ * Keep locale catalogs aligned with English without rewriting translations
+ * that are already present.
+ *
+ *   npm run sync-i18n -- check
+ *   npm run sync-i18n -- sync
+ *   npm run sync-i18n -- export
+ *   npm run sync-i18n -- import
  */
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { catalogDrift } from '../src/i18n/catalogs'
+import { DE } from '../src/i18n/catalogs/de'
+import { EN } from '../src/i18n/catalogs/en'
+import { ES } from '../src/i18n/catalogs/es'
+import { FR } from '../src/i18n/catalogs/fr'
+import { JA } from '../src/i18n/catalogs/ja'
+import { KO } from '../src/i18n/catalogs/ko'
+import { PL } from '../src/i18n/catalogs/pl'
+import { PT_BR } from '../src/i18n/catalogs/pt-br'
+import { RU } from '../src/i18n/catalogs/ru'
+import { UK } from '../src/i18n/catalogs/uk'
+import { ZH_CN } from '../src/i18n/catalogs/zh-cn'
+import {
+  applyTranslations,
+  fillMissing,
+  isRecord,
+  sameAsEnglish,
+} from './i18nCatalog'
 
-import { writeFile, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { mkdir } from 'node:fs/promises';
-import { CATALOGS, type UiCatalog } from '../src/i18n/catalogs';
-import type { Locale } from '../src/locale';
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const catalogsDir = join(root, 'src/i18n/catalogs')
+const exportDir = join(root, 'tmp/i18n')
 
-type Dict = Record<string, unknown>;
-type NotEnglish = Exclude<Locale, 'en'>;
+const LOCALES = [
+  ['pl', 'PL', PL],
+  ['zh-cn', 'ZH_CN', ZH_CN],
+  ['ja', 'JA', JA],
+  ['es', 'ES', ES],
+  ['pt-br', 'PT_BR', PT_BR],
+  ['ru', 'RU', RU],
+  ['ko', 'KO', KO],
+  ['fr', 'FR', FR],
+  ['de', 'DE', DE],
+  ['uk', 'UK', UK],
+] as const
 
-const CATALOGS_DIR = join(__dirname, '../src/i18n/catalogs');
-const NON_ENGLISH_LANGS = Object.keys(CATALOGS).filter(
-  (lang) => lang !== 'en',
-) as NotEnglish[];
-const IMPORT_DIR = join(__dirname, '../tmp/i18n');
-
-function isObject(v: unknown): v is Dict {
-  return Object.prototype.toString.call(v) === '[object Object]';
+function localeByName(name: string): (typeof LOCALES)[number] | undefined {
+  return LOCALES.find(([locale]) => locale === name)
 }
 
-function isNotEnglish(lang: unknown): lang is NotEnglish {
-  return NON_ENGLISH_LANGS.includes(lang as NotEnglish);
-}
-
-function countStrings(obj: Dict): number {
-  return Object.values(obj).reduce((acc: number, value) => {
-    if (isObject(value)) return acc + countStrings(value);
-    return acc + 1;
-  }, 0);
-}
-
-function isTruthy<T>(v: T): v is Exclude<T, undefined | null> {
-  return !!v;
-}
-
-function sortObject(obj: Dict): Dict {
-  return Object.fromEntries(
-    Object.entries(obj)
-      .map(([k, v]) => [k, isObject(v) ? sortObject(v) : v] as const)
-      .sort(([a], [b]) => a.localeCompare(b)),
-  );
-}
-
-function addMissing(cat: UiCatalog): UiCatalog {
-  return Object.fromEntries(
-    Object.entries(CATALOGS.en).map(([key, section]) => {
-      const catSection = { ...cat[key as keyof UiCatalog] } as Dict;
-      Object.entries(section as Dict).forEach(([k, v]) => {
-        if (!Object.hasOwn(catSection, k)) catSection[k] = `${v} [EN]`;
-      });
-      return [key, catSection];
-    }),
-  ) as UiCatalog;
-}
-
-function margeTranslated(targetCatalog: UiCatalog, json: Dict): UiCatalog {
-  return Object.fromEntries(
-    Object.entries(targetCatalog).map(([key, section]) => {
-      const translatedSection = json[key as keyof UiCatalog] as Dict;
-      return [key, { ...section, ...translatedSection }];
-    }),
-  ) as UiCatalog;
-}
-
-const notTranslatedPattern = /^(.{1,256}?)\s*\[EN\]$/;
-
-function collectNotTranslatedStrings(catalog: UiCatalog) {
-  let count = 0;
-  const sectionEntries = Object.entries(catalog)
-    .map(([key, value]) => {
-      if (!isObject(value)) return undefined;
-      const notTranslatedEntries = Object.entries(value)
-        .map(([k, v]) => {
-          const match = notTranslatedPattern.exec(v);
-          if (!match) return undefined;
-          count++;
-          return [k, match[1]] as const;
-        })
-        .filter(isTruthy);
-      return notTranslatedEntries.length > 0
-        ? ([key, Object.fromEntries(notTranslatedEntries)] as const)
-        : undefined;
-    })
-    .filter(isTruthy);
-  return { count, strings: Object.fromEntries(sectionEntries) };
-}
-
-async function loadCatalog(lang: Locale) {
-  const modulePath = join(CATALOGS_DIR, lang);
-  const targetModule: Record<string, UiCatalog> = await import(modulePath);
-  const [exportName, targetCatalog] =
-    Object.entries(targetModule).find(([, v]) => isObject(v)) ?? [];
-  if (!exportName || !targetCatalog) {
-    throw new Error(`No export name or target catalog found in ${lang}`);
-  }
-  return { exportName, targetCatalog };
-}
-
-async function writeModule(
-  modulePath: string,
+async function writeCatalog(
+  locale: string,
   exportName: string,
-  catalog: UiCatalog,
-) {
-  const [moduleName] = modulePath.match(/\/([a-z]+)$/)?.[0] ?? [];
-  const header =
-    moduleName === 'en'
-      ? `/**
- * This file is the source of truth for the English and other catalogs.
- * It is used to generate the other catalogs.
- * See sync-i18n.ts for more details.
- */
-`
-      : `/**
- * This file is auto-generated by the sync-i18n.ts script.
- * Do not edit it manually.
- */
-`;
-  await writeFile(
-    `${modulePath}.ts`,
-    `${header}\n\nexport const ${exportName} = ${JSON.stringify(sortObject(catalog), null, 2)};\n`,
-  );
+  value: Record<string, unknown>,
+): Promise<void> {
+  const body = `export const ${exportName} = ${JSON.stringify(value, null, 2)}\n`
+  await writeFile(join(catalogsDir, `${locale}.ts`), body, 'utf8')
 }
 
-const commands = {
-  async sync() {
-    const { exportName, targetCatalog } = await loadCatalog('en');
-    await writeModule(join(CATALOGS_DIR, 'en'), exportName, targetCatalog);
-    await Promise.all(
-      NON_ENGLISH_LANGS.map(async (lang: Locale) => {
-        const { exportName, targetCatalog } = await loadCatalog(lang);
-        const mergedCatalog = addMissing(targetCatalog);
-        await writeModule(join(CATALOGS_DIR, lang), exportName, mergedCatalog);
-      }),
-    );
-    console.log('Synced all catalogs');
-  },
-
-  async export() {
-    await mkdir(IMPORT_DIR, { recursive: true });
-
-    let filesCount = 0;
-    let stringsCount = 0;
-    await Promise.all(
-      NON_ENGLISH_LANGS.map(async (lang) => {
-        const { targetCatalog } = await loadCatalog(lang);
-        const { count, strings } = collectNotTranslatedStrings(targetCatalog);
-        if (count === 0) return;
-        const exportPath = join(IMPORT_DIR, `${lang}.json`);
-        await writeFile(exportPath, JSON.stringify(strings, null, 2));
-        console.log(
-          `Exported ${count} not translated strings for ${lang} to ${exportPath}`,
-        );
-        stringsCount += count;
-        filesCount++;
-      }),
-    );
-
-    console.log(
-      `Exported ${filesCount} files with ${stringsCount} not translated strings`,
-    );
-  },
-
-  async import() {
-    const files = await readdir(IMPORT_DIR);
-    let filesCount = 0;
-    let stringsCount = 0;
-    await Promise.all(
-      files.map(async (file) => {
-        const [, lang] = file.match(/^([a-z-]+)\.json$/) ?? [];
-        console.log(`Importing ${file}...`);
-        if (!isNotEnglish(lang)) return;
-
-        const filePath = join(IMPORT_DIR, file);
-        const content = await readFile(filePath, 'utf8');
-        const json = JSON.parse(content);
-        const { exportName, targetCatalog } = await loadCatalog(lang);
-        const mergedCatalog = margeTranslated(targetCatalog, json);
-        await writeModule(join(CATALOGS_DIR, lang), exportName, mergedCatalog);
-        const count = countStrings(json);
-        console.log(`Imported ${count} strings for ${lang}`);
-        filesCount++;
-        stringsCount += count;
-      }),
-    );
-    console.log(`Imported ${filesCount} files with ${stringsCount} strings`);
-  },
-
-  usage() {
-    console.log(`
-Usage: sync-i18n [command]
-
-  Commands:
-    sync - Sync and sort all catalogs (adds '[EN]' suffix to the strings that are not translated)
-    export - Export not translated strings from all catalogs to JSON files (tmp/i18n/*.json)
-    import - Import translations from JSON files (tmp/i18n/*.json)
-    help - Show this help message
-
-  Workflow:
-    1. Run 'sync-i18n sync' to sync and sort all catalogs
-    2. Run 'sync-i18n export' to export not translated strings from all catalogs to JSON files (tmp/i18n/*.json)
-    3. Run 'sync-i18n import' to import translations from JSON files (tmp/i18n/*.json)
-    4. Run 'sync-i18n sync' to sync and sort all catalogs
-`);
-  },
-} as const;
-
-async function main() {
-  const [command] = process.argv.slice(2);
-  const commandFn = commands[command as keyof typeof commands];
-  if (!commandFn) {
-    commands.usage();
-    process.exit(1);
+async function check(): Promise<number> {
+  let problems = 0
+  for (const [locale, , catalog] of LOCALES) {
+    const drift = catalogDrift(catalog)
+    if (drift.length === 0) continue
+    problems += drift.length
+    console.error(`${locale}: ${drift.join(', ')}`)
   }
-  return commandFn();
+  if (problems === 0) {
+    console.log('Catalogs match English keys and placeholders.')
+    return 0
+  }
+  console.error(`${problems} catalog problem(s).`)
+  return 1
 }
 
-main().catch(console.error);
+async function sync(): Promise<number> {
+  let wrote = 0
+  for (const [locale, exportName, catalog] of LOCALES) {
+    const filled = fillMissing(EN, catalog)
+    if (!filled.changed) continue
+    await writeCatalog(locale, exportName, filled.value)
+    wrote += 1
+    console.log(`Added missing English keys to ${locale}.`)
+  }
+  if (wrote === 0) console.log('No missing keys.')
+  return check()
+}
+
+async function exportMissing(): Promise<number> {
+  await mkdir(exportDir, { recursive: true })
+  let files = 0
+  for (const [locale, , catalog] of LOCALES) {
+    const pending = sameAsEnglish(EN, catalog)
+    if (Object.keys(pending).length === 0) continue
+    await writeFile(
+      join(exportDir, `${locale}.json`),
+      `${JSON.stringify(pending, null, 2)}\n`,
+      'utf8',
+    )
+    files += 1
+    console.log(`Exported strings still equal to English: ${locale}`)
+  }
+  if (files === 0) console.log('No strings are still identical to English.')
+  return 0
+}
+
+async function importTranslations(): Promise<number> {
+  let names: string[]
+  try {
+    names = await readdir(exportDir)
+  } catch {
+    console.error(`Nothing to import. Expected JSON files in ${exportDir}.`)
+    return 1
+  }
+  let failed = false
+  for (const name of names) {
+    const match = /^([a-z]{2}(?:-[a-z]{2})?)\.json$/.exec(name)
+    if (!match?.[1]) continue
+    const localeName = match[1]
+    const known = localeByName(localeName)
+    if (!known) {
+      console.error(`Skipping unknown locale file ${name}`)
+      continue
+    }
+    const [locale, exportName, catalog] = known
+    const parsed: unknown = JSON.parse(
+      await readFile(join(exportDir, name), 'utf8'),
+    )
+    if (!isRecord(parsed)) {
+      console.error(`${name} is not a JSON object`)
+      failed = true
+      continue
+    }
+    const applied = applyTranslations(EN, catalog, parsed)
+    if (applied.problems.length > 0) {
+      console.error(`${locale}: ${applied.problems.join(', ')}`)
+      failed = true
+      continue
+    }
+    await writeCatalog(locale, exportName, applied.value)
+    console.log(`Imported ${locale}`)
+  }
+  if (failed) return 1
+  return check()
+}
+
+async function main(): Promise<void> {
+  const command = process.argv[2] ?? 'check'
+  const commands: Record<string, () => Promise<number>> = {
+    check,
+    sync,
+    export: exportMissing,
+    import: importTranslations,
+  }
+  const run = commands[command]
+  if (!run) {
+    console.error('Usage: sync-i18n <check|sync|export|import>')
+    process.exit(1)
+  }
+  process.exit(await run())
+}
+
+const entry = process.argv[1]
+if (entry?.endsWith('sync-i18n.ts')) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'sync-i18n failed'
+    console.error(message)
+    process.exit(1)
+  })
+}

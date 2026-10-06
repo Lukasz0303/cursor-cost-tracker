@@ -1,10 +1,42 @@
 # Changelog
 
-## Unreleased
+## 1.0.6 — 2026-10-05
 
 ### Added
 
-- **Billing-cycle forecast** — Monthly cost forecast can follow a valid monthly Cursor billing cycle via `cursorCost.forecastWindow`; calendar-month renewals show the reset marker and drop.
+- **Official website** — product page on own domain: [cursorcosttracker.com](https://cursorcosttracker.com/) (Cloudflare DNS → GitHub Pages). Open VSX install links stay on the site.
+- **Play on a red query** — on the queries list, a red TOKENS cell (`!` at or over Warn at) has a play button beside the number. Play pastes a numbers-only brief for that conversation into a new Agent chat and does not press Start. The extension does not read the transcript and does not write `.cursor/rules/`.
+- **Group by conversation** — queries toolbar switch, default off, also under Settings → Recent queries (`cursorCost.groupQueriesByConversation`). Folds the list into one collapsible row per local chat title. Chats that share a title merge. An id with no title shows `#` plus the first 8 characters. Requests without a conversation id land in **Ungrouped** and do not get a Play brief. **Over Warn at**, the spike `!`, and Play still apply; Play on a merged title uses the conversation that owns the dearest request. Export CSV stays a flat request list.
+- **Chart day** — click a daily tokens or cost bar for that day’s totals and an expandable query list from the loaded sample. **Sample / Last 7 / Month** zooms that series without another request to Cursor.
+- **List-price makeup** — expand a Last N row for catalog input / output / cache-write / cache-read dollars (from the model price table). Shown beside billed cost; not the invoice.
+- **Cache $ saved** — Statistics sample shows about how much cache-read saved vs input list price.
+- **$ / landed line** — Coding stats shows window spend per 1k landed lines and per 1k AI lines when the sample window has both cost and line totals.
+- **To date** — Settings → Recent queries: optional end day for the calendar sample (`cursorCost.historyToDate`), with From date. Shared sample window for Last N, Statistics sample, Charts bars, and Coding stats.
+- **Optimized rows** — after Play or Run Optimize, matching queries stay marked. The queries toolbar **Optimized** filter shows those rows.
+- **Billing-cycle forecast** — Monthly cost forecast can follow a valid monthly Cursor billing cycle via `cursorCost.forecastWindow`; calendar-month renewals show the reset marker and drop. ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev))
+- **Ukrainian** — Settings → Language adds Українська (`uk`), the 11th locale. The language list in Settings is alphabetical. ([#10](https://github.com/Lukasz0303/cursor-cost-tracker/pull/10) by [@milichev](https://github.com/milichev))
+
+### Changed
+
+- **`homepage`** in `package.json` / Open VSX listing points to `https://cursorcosttracker.com/` (was the GitHub README). Required for Cursor marketplace publisher verification.
+- **Sample window** — one resolver (`historySample`) for Last N vs From–To calendar range (cap 10,000). Does not change Current, Today, Burn Rate Guard, Critical alert, or the monthly forecast series.
+- **Forecast chart** — renewal knee and run-out line styling when the cycle resets inside the calendar month. ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev))
+- **CI** — GitHub Actions runs typecheck, unit tests, and the extension build on pull requests and on `main` / `release/**`.
+- **Run Optimize** — toolbar Run and a depth card’s Run open a **new** Agent chat, the same as Play. They do not paste into the last chat. You still press Start.
+- **Panel colors** — a theme change or a new good/warn color updates the panel colors without reloading the session, chat titles, or savings.
+- **Optimize time** — the brief uses the same local clock as the queries TIME column, plus a short time-zone label.
+
+### Fixed
+
+- **Conversation Optimize brief** — Play on a conversation writes `.ai/optimize-savings.md` as the running project total: prior mid plus this conversation, and `run` one higher. A file reset to a lower `run` still starts from the credited lifetime total.
+- **Ignore store** — spike checks accept either a `Set` or a list of keys. ([#9](https://github.com/Lukasz0303/cursor-cost-tracker/pull/9) by [@milichev](https://github.com/milichev))
+- **Charts** — a model-catalog update no longer races the forecast chart and leaves it blank. ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev))
+
+### Notes
+
+- The play button sits on a red TOKENS cell even when the usage event has no conversation id. In that case the brief is that one query. When an id is present, the brief covers every query in that conversation. Grouping does not guess a chat from time gaps.
+- Cursor publisher verification: after this VSIX is on Open VSX, reply in the Extension Verification forum thread with the custom-domain site + updated homepage.
+- Spike **Ignore** on the Last N table, Today pace arrows, and the full model-cost simulator remain follow-ups (see `.ai/implementation-plans/market-2026-09/`).
 
 ## 1.0.5 — 2026-09-30
 
@@ -12,7 +44,7 @@
 
 - **Model pricing** — Statistics shows the latest Cursor model prices (from the public docs page, cached six hours): input/output, Active / Hidden, request counts from the Last N sample, and a CursorBench coding score (click opens the CursorBench board). Sortable table; Active only / Hide Fast filters. Toolbar **Model pricing** opens the official models page (`Cursor Cost: Open model pricing`).
 - **Support → Write a message** — send Comment / New feature / Bug report / Other to the author without opening a mail app. Nickname defaults to the Cursor mailbox local-part; email is the Cursor account address (editable while a reply is expected; grayed when no reply). Publish-consent checkbox stays on every topic; Comment still requires it. Accepted comments can appear in a later release.
-- **Landing page** — static site under `site/` for GitHub Pages (`https://lukasz0303.github.io/cursor-cost-tracker/` after the first deploy from `main`).
+- **Landing page** — static site under `site/` for GitHub Pages (later custom domain: [cursorcosttracker.com](https://cursorcosttracker.com/)).
 
 ### Changed
 

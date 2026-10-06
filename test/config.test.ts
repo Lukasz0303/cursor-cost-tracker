@@ -91,6 +91,7 @@ describe('cursorCostConfigFrom', () => {
     expect(config.criticalCostUsdThreshold).toBe(7.5)
     expect(config.recentQueryCount).toBe(10)
     expect(config.historyFromDate).toBeNull()
+    expect(config.historyToDate).toBeNull()
   })
 
   it('reads Burn Rate Guard settings and raises critical to warning', () => {
@@ -172,6 +173,18 @@ describe('cursorCostConfigFrom', () => {
       },
     })
     expect(config.historyFromDate).toBe('2026-09-01')
+  })
+
+  it('reads historyToDate from settings', () => {
+    const config = cursorCostConfigFrom({
+      get<T>(key: string, defaultValue: T): T {
+        if (key === 'historyToDate') {
+          return '2026-09-10' as T
+        }
+        return defaultValue
+      },
+    })
+    expect(config.historyToDate).toBe('2026-09-10')
   })
 
   it('clears invalid historyFromDate', () => {
