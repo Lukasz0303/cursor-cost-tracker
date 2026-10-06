@@ -30,8 +30,8 @@ describe('catalogs', () => {
     const en = catalogFor('en')
     expect(catalogFor('pl').tabs.settings).toBe('Ustawienia')
     expect(en.tabs.settings).toBe('Settings')
-    expect(catalogFor('zh-cn').tabs.settings).not.toBe('Settings')
-    expect(catalogFor('de').tabs.settings).not.toBe('Settings')
+    expect(catalogFor('zh-cn').tabs.settings).toBe('设置')
+    expect(catalogFor('de').tabs.settings).toBe('Einstellungen')
   })
 
   describe.each(LOCALES)('%s', (locale) => {
