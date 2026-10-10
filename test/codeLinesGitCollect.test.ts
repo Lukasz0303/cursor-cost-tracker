@@ -8,7 +8,7 @@ import type { ParsedLeaderboardCommit } from '../src/leaderboard/types'
 
 function mockRepo(authorsStdout: string, commitsByAuthor: Record<string, number>) {
   const logArgs: string[][] = []
-  const execGit = async (args: string[]) => {
+  const execGit = async (args: string[], _cwd?: string) => {
     if (args[0] === 'branch') {
       return { stdout: 'main\n', stderr: '' }
     }
