@@ -73,42 +73,47 @@ describe('buildConversationOptimizePrompt', () => {
     ])
   })
 
-  it('asks for the conversation-length rule when no findings are passed', () => {
+  it('asks the open chat for the habit instead of a generic length rule', () => {
     const prompt = promptFor(12)
-    expect(prompt).toContain('Cursor conversation brief (Optimize Balanced)')
+    expect(prompt).toContain('Cursor conversation (Optimize Balanced)')
+    expect(prompt).toContain("Use this chat's real history")
     expect(prompt).toContain('## Next time')
     expect(prompt).not.toContain('## Next time (Quick)')
     expect(prompt).not.toContain('## Diagnosis checklist (Deep)')
-    expect(prompt).toContain('## One rule file')
-    expect(prompt).toContain('.cursor/rules/cct-conversation-length.mdc')
+    expect(prompt).toContain('## Rules')
+    expect(prompt).not.toContain('.cursor/rules/cct-conversation-length.mdc')
+    expect(prompt).not.toContain('Use only the numbers below')
     expect(prompt).not.toContain('## Findings')
     expect(prompt).not.toContain('call no tools')
     expect(prompt).toContain('unnamed conversation')
     expect(prompt).toContain('.ai/optimize-savings.md')
   })
 
-  it('quick depth skips the conversation-length rule without a finding', () => {
+  it('quick depth asks for at most one rule grounded in this chat', () => {
     const groups = groupConversations(series(12))
     const group = groups[0]
     expect(group).toBeDefined()
     const prompt = buildConversationOptimizePrompt(group!, { depth: 'quick' })
-    expect(prompt).toContain('Cursor conversation brief (Optimize Quick)')
+    expect(prompt).toContain('Cursor conversation (Optimize Quick)')
     expect(prompt).toContain('## Next time (Quick)')
-    expect(prompt).toContain('at most three bullets')
-    expect(prompt).toContain('Write no rule file')
+    expect(prompt).toContain('At most one tiny rule.')
+    expect(prompt).toContain('Three concrete changes to the next message')
     expect(prompt).not.toContain('.cursor/rules/cct-conversation-length.mdc')
+    expect(prompt).not.toContain('Write no rule file')
     expect(prompt).toContain('.ai/optimize-savings.md')
   })
 
-  it('quick depth still allows a rule when a finding fired', () => {
+  it('keeps a fired finding as a meter hint, not a required rule filename', () => {
     const group = groupConversations(series(4))[0]
     expect(group).toBeDefined()
     const prompt = buildConversationOptimizePrompt(group!, {
       depth: 'quick',
       findings: [{ id: 'stale-resume', line: 'long idle then expensive resume' }],
     })
-    expect(prompt).toContain('.cursor/rules/cct-stale-resume.mdc')
+    expect(prompt).not.toContain('.cursor/rules/cct-stale-resume.mdc')
     expect(prompt).toContain('## Findings')
+    expect(prompt).toContain('stale-resume: long idle then expensive resume')
+    expect(prompt).toContain('Confirm each one against this chat')
   })
 
   it('deep depth adds the diagnosis checklist playbook', () => {
@@ -116,11 +121,12 @@ describe('buildConversationOptimizePrompt', () => {
     const group = groups[0]
     expect(group).toBeDefined()
     const prompt = buildConversationOptimizePrompt(group!, { depth: 'deep' })
-    expect(prompt).toContain('Cursor conversation brief (Optimize Deep)')
+    expect(prompt).toContain('Cursor conversation (Optimize Deep)')
     expect(prompt).toContain('## Diagnosis checklist (Deep)')
     expect(prompt).toContain('## Next time (Deep)')
-    expect(prompt).toContain('whole-conversation playbook')
-    expect(prompt).toContain('.cursor/rules/cct-conversation-length.mdc')
+    expect(prompt).toContain('playbook for the whole thread')
+    expect(prompt).toContain('What did this thread keep re-sending')
+    expect(prompt).not.toContain('.cursor/rules/cct-conversation-length.mdc')
     expect(prompt).toContain('.ai/optimize-savings.md')
   })
 
@@ -136,23 +142,24 @@ describe('buildConversationOptimizePrompt', () => {
     expect(buildConversationOptimizePrompt(group!)).toEqual(balanced)
   })
 
-  it('uses the context-blowup rule path when that finding fired', () => {
+  it('shows a context-blowup finding as a hint, not a forced rule file', () => {
     const group = groupConversations(series(4))[0]
     expect(group).toBeDefined()
     const prompt = buildConversationOptimizePrompt(group!, {
       findings: [{ id: 'context-blowup', line: 'cache write jumped after the gap' }],
     })
-    expect(prompt).toContain('.cursor/rules/cct-context-blowup.mdc')
+    expect(prompt).not.toContain('.cursor/rules/cct-context-blowup.mdc')
     expect(prompt).not.toContain('cct-conversation-length')
     expect(prompt).toContain('## Findings')
     expect(prompt).toContain('context-blowup: cache write jumped after the gap')
     expect(prompt).not.toContain('call no tools')
   })
 
-  it('tells the agent to write no rule for two requests', () => {
+  it('treats two billed requests as a thin meter sample', () => {
     const prompt = promptFor(2)
-    expect(prompt).toContain('## One rule file')
-    expect(prompt.toLowerCase()).toContain('write no rule')
+    expect(prompt).toContain('## Rules')
+    expect(prompt).toContain('2 billed requests')
+    expect(prompt).toContain('meter sample is thin')
     expect(prompt).not.toContain('.cursor/rules/cct-')
     expect(prompt).not.toContain('call no tools')
   })
@@ -184,6 +191,7 @@ describe('buildConversationOptimizePrompt', () => {
       projectLabel: 'cursor-cost-tracker',
     })
     expect(prompt).toContain('title: Rename the parser')
+    expect(prompt).toContain('This thread is titled "Rename the parser".')
     expect(prompt).toContain("account's usage events")
     expect(prompt).toContain('project: cursor-cost-tracker')
     expect(prompt).toContain('## Lifetime savings')

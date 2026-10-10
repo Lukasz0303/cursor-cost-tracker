@@ -15,7 +15,7 @@ The folder `docs/` stays local-only (social copy, gitignored). This site lives i
 | Public URL | https://cursorcosttracker.com/ (custom domain → GitHub Pages) |
 | Fallback Pages URL | https://lukasz0303.github.io/cursor-cost-tracker/ |
 
-Download count, version, and rating start from the fallback in the HTML (**1.0.6**) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it. Until 1.0.6 is on Open VSX, that request still shows the published version.
+Download count, version, and rating start from the fallback in the HTML (**1.0.7**) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it. Until 1.0.7 is on Open VSX, that request still shows the published version.
 
 Screenshots are shown at their real aspect ratio. There is no walkthrough video.
 

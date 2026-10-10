@@ -220,6 +220,8 @@ describe('historyDataPayload', () => {
     expect(payload.support).toEqual({
       buyMeACoffee: true,
       githubSponsors: false,
+      website: true,
+      repository: true,
       nickname: '',
       email: '',
       comments: [],

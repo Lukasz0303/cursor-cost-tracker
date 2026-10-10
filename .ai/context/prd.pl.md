@@ -2,9 +2,9 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.20  
-**Data:** 2026-10-05  
-**Status:** decyzja produktowa do **1.0.6**  
+**Wersja dokumentu:** 2.21  
+**Data:** 2026-10-10  
+**Status:** decyzja produktowa do **1.0.7**  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
 
 Przy rozjeździe z [prd.md](./prd.md) wygrywa wersja angielska.
@@ -97,7 +97,7 @@ Główna ścieżka: **nie** Quick Pick. Od razu panel. Current / Today lądują 
 
 Najnowsze na górze, font monospace, CSS `--vscode-*`. Paleta poleceń: `Cursor Cost: Show Usage History`.
 
-Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Na zakładce zapytań: **Over Warn at** (przełącznik — tylko zapytania ≥ próg ostrzeżenia), **Optimized**, **Group by conversation** (domyślnie wyłączone), **Refresh** (pobierz z cursor.com) i **Export CSV** (zawsze płaska lista requestów). Show last / From date / To date oraz ten sam przełącznik grupowania zostają w Settings. Statistics to słownik Current/Today, miarka **Month to date** (zużycie w tym miesiącu vs dni robocze dotąd × dzienny budżet, albo vs prognoza z tempa dni roboczych gdy nie ma dziennego limitu) z wykresem zużycia i prognozy — na Pro para linii dla każdej included quota na osi 0–100% i miarka dzisiejszego zużycia vs dzienny budżet — plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie jako skumulowane słupki + linia na jednej skali. Klik słupka pokazuje sumy tego dnia i zapytania już w próbce. **Sample / Last 7 / Month** przybliża tę serię bez kolejnego pobrania. Ta sama kontrolka **Monthly cost forecast** co na Statistics (miarki, zakres, used/forecast/ideal), potem karty Today / This month / All time z tej próbki. **Optimize:** trzy kolorowe zwijane karty głębokości (Quick / Balanced / Deep) z własnym Run i podglądem; badge Default wg `cursorCost.optimizeDepth` (domyślnie Balanced). Toolbar **Run Optimize** i Run na karcie wklejają tę głębokość do **nowego** czatu Agent. Findings skupione na ostatnim drogim / czerwonym zapytaniu. Projekcja pokazuje `0 / 0.00 $` do zapisu `.ai/optimize-savings.md` (`cct-savings` z `project`, mid tokenów/USD, `run`); każdy prompt wymaga końcowego raportu tokeny/USD/projekt. Jedna zwinięta karta to **prognozowany koszt zaoszczędzony na podobnym requeście**; rozwinięcie: wyjaśnienie plus zaksięgowane sumy per projekt z `globalState`. To nie jest audyt całego workspace. Rozszerzenie nie czyta treści czatu. **Support:** Buy Me a Coffee (URL w `src/supportLinks.ts`). Tiery GitHub Sponsors zostają w kodzie, ale są ukryte, dopóki nie ustawi się URL sponsora. Settings trzyma każdy klucz `cursorCost.*`, w tym Warn at, **Group by conversation**, Show last, **From date**, **To date**, okno prognozy, Show warnings, Optimize depth i kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
+Pasek: **Last N Cursor queries** (domyślnie 1000) | **Statistics** | **Charts** | **Optimize** | **Support** | **Settings**. Na zakładce zapytań: **Over Warn at** (przełącznik — tylko zapytania ≥ próg ostrzeżenia), **Optimized**, **Group by conversation** (domyślnie wyłączone), **Refresh** (pobierz z cursor.com) i **Export CSV** (zawsze płaska lista requestów). Show last / From date / To date oraz ten sam przełącznik grupowania zostają w Settings. Statistics to słownik Current/Today, miarka **Month to date** (zużycie w tym miesiącu vs dni robocze dotąd × dzienny budżet, albo vs prognoza z tempa dni roboczych gdy nie ma dziennego limitu) z wykresem zużycia i prognozy — na Pro para linii dla każdej included quota na osi 0–100% i miarka dzisiejszego zużycia vs dzienny budżet — plus agregaty cyklu / Last N. Charts: tokeny i koszt w czasie jako skumulowane słupki + linia na jednej skali. Klik słupka pokazuje sumy tego dnia i zapytania już w próbce. **Sample / Last 7 / Month** przybliża tę serię bez kolejnego pobrania. Ta sama kontrolka **Monthly cost forecast** co na Statistics (miarki, zakres, used/forecast/ideal), potem karty Today / This month / All time z tej próbki. **Optimize:** trzy kolorowe zwijane karty głębokości (Quick / Balanced / Deep) z własnym Run i podglądem; badge Default wg `cursorCost.optimizeDepth` (domyślnie Balanced). Toolbar **Run Optimize** i Run na karcie wklejają tę głębokość do **otwartego** czatu Agent (`composer.focusComposer`). Play na wierszu konwersacji otwiera tę konwersację (`composer.openComposer` z jej id) i wkleja tam brief rozliczeniowy, który każe agentowi użyć otwartego czatu. Findings skupione na ostatnim drogim / czerwonym zapytaniu. Projekcja pokazuje `0 / 0.00 $` do zapisu `.ai/optimize-savings.md` (`cct-savings` z `project`, mid tokenów/USD, `run`); każdy prompt wymaga końcowego raportu tokeny/USD/projekt. Jedna zwinięta karta to **prognozowany koszt zaoszczędzony na podobnym requeście**; rozwinięcie: wyjaśnienie plus zaksięgowane sumy per projekt z `globalState`. To nie jest audyt całego workspace. Rozszerzenie nie czyta treści czatu. **Support:** Buy Me a Coffee (URL w `src/supportLinks.ts`). Tiery GitHub Sponsors zostają w kodzie, ale są ukryte, dopóki nie ustawi się URL sponsora. Settings trzyma każdy klucz `cursorCost.*`, w tym Warn at, **Group by conversation**, Show last, **From date**, **To date**, okno prognozy, Show warnings, Optimize depth i kolory Good/Warning. Last N to próbka z API eventów — nie pula Current.
 
 **Spike tokenów (v1.1, obowiązkowe po MVP):** kolumna albo `!` na początku wiersza, gdy `tokens >=` próg użytkownika. Akcje w wierszu:
 
@@ -119,7 +119,7 @@ Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Store I
 
 **Okno próbki (1.0.6):** `historySample` to jeden resolver dla tabeli, próbki Statistics, słupków Charts, Coding stats i CSV. Last N **albo** zakres From–To (cap 10 000). Puste `cursorCost.historyToDate` znaczy do dziś. Nie zmienia Current, Today, Burn Rate Guard, alertu krytycznego ani serii prognozy.
 
-**Play na czerwonym zapytaniu (1.0.6):** czerwona komórka TOKENS ma Play. Host wkleja brief samych liczb tej konwersacji do **nowego** czatu Agent i nie wciska Start. Brak id konwersacji → brief to to jedno zapytanie. Grupowanie używa tylko id z eventu (bez zgadywania po przerwie w czasie). Rozszerzenie nie czyta treści promptu ani kodu. Wiersze po Play albo Run Optimize trafiają do `globalState` `cursorCost.optimizedTargets`. Filtr **Optimized** na pasku zapytań pokazuje te wiersze.
+**Play na czerwonym zapytaniu (1.0.6, od 1.0.7 z nowym celem):** czerwona komórka TOKENS ma Play. Od 1.0.7 host otwiera tę konwersację (`composer.openComposer` z jej id) i wkleja brief samych liczb tej konwersacji do otwartego czatu; nie wciska Start. Brak id konwersacji → brief to to jedno zapytanie. Grupowanie używa tylko id z eventu (bez zgadywania po przerwie w czasie). Rozszerzenie nie czyta treści promptu ani kodu. Wiersze po Play albo Run Optimize trafiają do `globalState` `cursorCost.optimizedTargets`. Filtr **Optimized** na pasku zapytań pokazuje te wiersze.
 
 **Cena katalogowa (1.0.6):** rozwinięcie wiersza pokazuje dolary katalogowe input / output / cache-write / cache-read obok kosztu zafakturowanego. To tabela cen, nie faktura. Próbka Statistics pokazuje też, ile cache-read zaoszczędził względem ceny input.
 
@@ -158,7 +158,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 | A7 | programista | tooltip z planem i datą cyklu | mieć kontekst bez tabeli |
 
 Z v1.1 nadal otwarte: **Ignore** w tabeli, alerty 80%/90% wydatków, Copy stats. `!` i próg są już w produkcie.  
-**1.0.2–1.0.6** (to, co jest w drzewie) opisuje §5.2 i tabela historii w [codebase-snapshot.md](./codebase-snapshot.md): prognoza, alert krytyczny, Optimize, Burn Rate Guard, Coding stats, **11 języków UI** (ukraiński doszedł po 1.0.4), cennik modeli, prognoza cyklu rozliczeniowego, Play, cena katalogowa, To date, grupowanie rozmów, szczegóły dnia na wykresie.
+**1.0.2–1.0.7** (to, co jest w drzewie) opisuje §5.2 i tabela historii w [codebase-snapshot.md](./codebase-snapshot.md): prognoza, alert krytyczny, Optimize, Burn Rate Guard, Coding stats, **11 języków UI** (ukraiński doszedł po 1.0.4), cennik modeli, prognoza cyklu rozliczeniowego, Play, cena katalogowa, To date, grupowanie rozmów, szczegóły dnia na wykresie.
 
 ### 7b. User stories (v1.1 — spike tokenów)
 
@@ -272,6 +272,7 @@ Aktywacja: `onStartupFinished`.
 | **1.0.5** | cennik modeli; wiadomość w Support; strona w `site/` |
 | **po 1.0.5** | ukraiński (11. locale); prognoza wg cyklu rozliczeniowego |
 | **1.0.6** | cursorcosttracker.com; Play i Run Optimize do nowego czatu Agent; cena katalogowa; cache $ saved; $ / 1k linii; To date; `historySample`; filtr Optimized; grupowanie rozmów (domyślnie wyłączone); szczegóły dnia na wykresie i zoom Sample / Last 7 / Month |
+| **1.0.7** | Run Optimize wkleja do otwartego czatu Agent; Play otwiera tę konwersację i wkleja tam brief |
 | **Nadal otwarte** | Ignore w tabeli i przeliczenie bangu; alerty 80/90%; Copy stats; strzałki tempa przy Today; symulator kosztu modelu; Secret Storage |
 
 ---
@@ -328,4 +329,4 @@ Teksty panelu są w 11 językach; domyślny jest angielski. Instalacja w Cursorz
 
 ## 15. Podsumowanie
 
-Wtyczka Cursor/VS Code, drzewo w wersji **1.0.6**. Belka: Current + Today + sync + 1–10 zapytań + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: lista. Play na czerwonym wierszu wkleja brief samych liczb. Lista zapytań może zwinąć się do jednego wiersza na lokalny tytuł czatu (domyślnie wyłączone). Store Ignore jest; przycisku w tabeli nie ma. Optimize to same metadane (bez transkryptu). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Logika usage w `src/usage/`.
+Wtyczka Cursor/VS Code, drzewo w wersji **1.0.7**. Belka: Current + Today + sync + 1–10 zapytań + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: lista. Play na czerwonym wierszu wkleja brief samych liczb. Lista zapytań może zwinąć się do jednego wiersza na lokalny tytuł czatu (domyślnie wyłączone). Store Ignore jest; przycisku w tabeli nie ma. Optimize to same metadane (bez transkryptu). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Logika usage w `src/usage/`.

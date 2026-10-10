@@ -18,6 +18,7 @@ import {
   DEFAULT_HISTORY_LIMIT,
   sampleSizeLimit,
 } from '../historyLimit'
+import { contextFillForQuery, type ContextFill } from '../contextFill/fill'
 import { formatDateTime, formatDollars, formatKind, formatTokens } from '../format'
 import {
   DEFAULT_CRITICAL_COST_USD_THRESHOLD,
@@ -63,7 +64,10 @@ import {
   type StatusBarPreviewChip,
 } from './statusBarView'
 import type { CodeLinesPayload } from '../codeLines/collect'
-import { cleanConversationTitle } from '../usage/conversationTitles'
+import {
+  cleanConversationTitle,
+  type ComposerContextMeter,
+} from '../usage/conversationTitles'
 import { toQueryGroups, type QueryGroupPayload } from './queryGroups'
 
 export const HISTORY_ROW_KEYS = [
@@ -80,6 +84,7 @@ export const HISTORY_ROW_KEYS = [
   'listPrice',
   'optimized',
   'conversationTitle',
+  'context',
 ] as const
 
 export type HistoryRow = {
@@ -100,6 +105,8 @@ export type HistoryRow = {
   optimized: boolean
   /** Local Cursor composer title for this conversation id. Empty when unknown. */
   conversationTitle: string
+  /** This turn's share of the model context window. */
+  context: ContextFill
 }
 
 export type HistoryRowOptions = {
@@ -144,6 +151,8 @@ export type HistoryRowOptions = {
   groupQueriesByConversation?: boolean
   /** Local conversation titles keyed by usage-event id. Not sent raw to the webview. */
   conversationTitles?: Readonly<Record<string, string>>
+  /** Cursor's context meter per conversation id. Not sent raw to the webview. */
+  conversationContext?: Readonly<Record<string, ComposerContextMeter>>
   nowMs?: number
   language?: Locale
   modelCatalog?: ModelCatalogPayload | null
@@ -197,6 +206,7 @@ export function toHistoryRows(
   const catalog = options?.modelCatalog
   const targets = options?.optimizedTargets ?? emptyOptimizedTargets()
   const titles = options?.conversationTitles
+  const contextMeters = options?.conversationContext
   const sample = historyRowSample(
     queries,
     options?.historyLimit ?? DEFAULT_HISTORY_LIMIT,
@@ -222,6 +232,7 @@ export function toHistoryRows(
       listPrice: listPriceForQuery(query, catalog),
       optimized: isOptimizedQuery(query, targets),
       conversationTitle: conversationTitleForQuery(query, titles),
+      context: contextFillForQuery(query, contextMeters),
     }
   })
 }
@@ -307,6 +318,8 @@ export type HistoryDataPayload = {
   support: {
     buyMeACoffee: boolean
     githubSponsors: boolean
+    website: boolean
+    repository: boolean
     nickname: string
     email: string
     comments: PublishedComment[]
@@ -417,12 +430,14 @@ export function historyDataPayload(
     modelCatalog,
     optimizedTargets: options?.optimizedTargets,
     conversationTitles: options?.conversationTitles,
+    conversationContext: options?.conversationContext,
   }
   const payload: HistoryDataPayload = {
     type: 'data',
     events: toHistoryRows(queries, rowOptions),
     queryGroups: toQueryGroups(historyRowSample(queries, sampleLimit), {
       titles: options?.conversationTitles,
+      conversationContext: options?.conversationContext,
       spikeTokenThreshold,
       showSpikeWarning,
       optimizedTargets: options?.optimizedTargets,
@@ -505,6 +520,8 @@ export function historyDataPayload(
     support: {
       buyMeACoffee: supportLinkReady('buyMeACoffee'),
       githubSponsors: supportLinkReady('githubSponsors'),
+      website: supportLinkReady('website'),
+      repository: supportLinkReady('repository'),
       nickname: options?.cursorNickname?.trim() ?? '',
       email: options?.cursorEmail?.trim() ?? '',
       comments: [...PUBLISHED_COMMENTS],

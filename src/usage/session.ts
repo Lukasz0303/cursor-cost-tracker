@@ -298,6 +298,69 @@ async function readViaSqlJs(
   }
 }
 
+/**
+ * One ItemTable value. `null` when the key is missing. `undefined` is not used;
+ * open failures also return `null` after the sql.js copy is tried.
+ * Callers must not log the string: some keys hold tokens.
+ */
+export async function readStateDbItem(
+  key: string,
+  options?: ReadCursorSessionOptions,
+): Promise<string | null> {
+  const platform = options?.platform ?? process.platform
+  const env = options?.env ?? process.env
+  const dbPath = options?.dbPath ?? getStateDbPath(platform, env)
+  const locateWasm = options?.locateWasm ?? defaultLocateWasm
+  const maxBytes = options?.sqlJsMaxBytes ?? SQLJS_MAX_BYTES
+  if (!(await fileExists(dbPath))) {
+    return null
+  }
+  if (options?.preferSqlJs !== true) {
+    const native = await readNativeItem(dbPath, key)
+    if (native !== undefined) {
+      return native
+    }
+  }
+  try {
+    const info = await stat(dbPath)
+    if (info.size > maxBytes) {
+      return null
+    }
+    const bytes = await readDbCopy(dbPath)
+    const SQL = await loadSqlJs(locateWasm)
+    const db = new SQL.Database(bytes)
+    try {
+      return readItemValue(db, key)
+    } finally {
+      db.close()
+    }
+  } catch {
+    return null
+  }
+}
+
+async function readNativeItem(
+  dbPath: string,
+  key: string,
+): Promise<string | null | undefined> {
+  const db = await openStateDb(dbPath)
+  if (db === null) {
+    return undefined
+  }
+  try {
+    const stmt = db.prepare('SELECT value FROM ItemTable WHERE key = ?')
+    return sqlValueToString(stmt.get(key)?.value)
+  } catch {
+    return undefined
+  } finally {
+    try {
+      db.close()
+    } catch {
+      // already closed
+    }
+  }
+}
+
 export async function readCursorSession(
   options?: ReadCursorSessionOptions,
 ): Promise<SessionResult> {

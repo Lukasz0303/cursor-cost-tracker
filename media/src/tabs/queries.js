@@ -117,12 +117,12 @@ export function createQueriesView(session) {
 
   function playIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    svg.setAttribute('viewBox', '0 0 12 12')
+    svg.setAttribute('viewBox', '0 0 16 16')
     svg.setAttribute('width', '12')
     svg.setAttribute('height', '12')
     svg.setAttribute('aria-hidden', 'true')
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-    path.setAttribute('d', 'M3.2 1.6v8.8L10.4 6 3.2 1.6z')
+    path.setAttribute('d', 'M6.2 3.2v9.6L13.2 8 6.2 3.2z')
     path.setAttribute('fill', 'currentColor')
     svg.appendChild(path)
     return svg
@@ -130,17 +130,35 @@ export function createQueriesView(session) {
 
   function repeatIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '3 3 18 18')
+    svg.setAttribute('width', '12')
+    svg.setAttribute('height', '12')
+    svg.setAttribute('aria-hidden', 'true')
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute(
+      'd',
+      'M17.65 6.35A7.96 7.96 0 0 0 12 4C7.58 4 4.01 7.58 4.01 12S7.57 20 12 20c3.73 0 6.84-2.55 7.73-6h-2.08A6 6 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+    )
+    path.setAttribute('fill', 'currentColor')
+    svg.appendChild(path)
+    return svg
+  }
+
+  function openConversationIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     svg.setAttribute('viewBox', '0 0 16 16')
     svg.setAttribute('width', '12')
     svg.setAttribute('height', '12')
     svg.setAttribute('aria-hidden', 'true')
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-    // Classic refresh: curved arrow + arrowhead (Codicons-style).
     path.setAttribute(
       'd',
-      'M12.9 4.1A6 6 0 1 0 14 9h-1.5a4.5 4.5 0 1 1-1.4-3.7L9.5 7H14V2.5L12.9 4.1z',
+      'M3.2 3.4h9.6v6.2H8.4L5.6 12.2V9.6H3.2V3.4z',
     )
-    path.setAttribute('fill', 'currentColor')
+    path.setAttribute('fill', 'none')
+    path.setAttribute('stroke', 'currentColor')
+    path.setAttribute('stroke-width', '1.3')
+    path.setAttribute('stroke-linejoin', 'round')
     svg.appendChild(path)
     return svg
   }
@@ -330,9 +348,7 @@ export function createQueriesView(session) {
 
   function addTokensCell(tr, row, spike) {
     const td = document.createElement('td')
-    if (spike) {
-      td.className = 'tokens-spike'
-    }
+    td.className = spike ? 'tokens-col tokens-spike' : 'tokens-col'
     const wrap = session.el('span', 'tokens-cell')
     const label = session.el('span', 'tokens-value')
     session.setText(label, row && row.tokens ? row.tokens : '')
@@ -530,6 +546,77 @@ export function createQueriesView(session) {
     }
   }
 
+  function contextArrow(level) {
+    const arrow = session.el('span', 'context-arrow is-' + level)
+    arrow.setAttribute('aria-hidden', 'true')
+    return arrow
+  }
+
+  function contextShare(fill) {
+    const n = Number(fill && fill.percent)
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      return null
+    }
+    return Math.round(n)
+  }
+
+  function contextTip(fill) {
+    const percent = contextShare(fill)
+    if (!fill || fill.level === 'unknown' || percent === null) {
+      return session.t('queries.contextUnknown', {
+        model: fill && fill.model ? fill.model : '—',
+      })
+    }
+    return session.t(
+      fill.level === 'full' ? 'queries.contextFull' : 'queries.contextOk',
+      {
+        percent: String(percent),
+        window: fill.windowLabel || '',
+        model: fill.model || '—',
+      },
+    )
+  }
+
+  function appendContextCell(tr, fill, conversationId) {
+    const td = document.createElement('td')
+    td.className = 'context-col'
+    const percent = contextShare(fill)
+    const level =
+      percent === null
+        ? 'unknown'
+        : fill && fill.level === 'full'
+          ? 'full'
+          : 'ok'
+    const tip = contextTip(fill)
+    const id = typeof conversationId === 'string' ? conversationId : ''
+    if (level === 'unknown') {
+      const empty = session.el('span', 'context-state is-unknown')
+      empty.title = tip
+      session.setText(empty, '—')
+      td.appendChild(empty)
+      tr.appendChild(td)
+      return
+    }
+    const body = session.el('span', 'context-state is-' + level)
+    const label = session.el('span', 'context-percent')
+    session.setText(label, String(percent) + '%')
+    body.appendChild(label)
+    body.appendChild(contextArrow(level))
+    if (level === 'full' && id) {
+      const button = session.el('button', 'context-hit is-full')
+      button.type = 'button'
+      button.title = tip
+      button.setAttribute('aria-label', tip)
+      button.setAttribute('data-summarize-conversation', id)
+      button.appendChild(body)
+      td.appendChild(button)
+    } else {
+      body.title = tip
+      td.appendChild(body)
+    }
+    tr.appendChild(td)
+  }
+
   function addTimeCell(tr, text) {
     const td = document.createElement('td')
     td.className = 'query-time'
@@ -573,6 +660,7 @@ export function createQueriesView(session) {
     }
     addTimeCell(tr, row.time)
     session.addCell(tr, row.model)
+    appendContextCell(tr, row.context, row.conversationId)
     session.addCell(tr, row.cost, burnRow ? 'cost-burn' : undefined)
     addTokensCell(tr, row, !optimized && rowIsSpike(row, warnOn))
     session.addCell(tr, row.inputOutput)
@@ -583,7 +671,7 @@ export function createQueriesView(session) {
     detail.className = child ? 'query-detail is-child' : 'query-detail'
     detail.hidden = !open
     const td = document.createElement('td')
-    td.colSpan = 6
+    td.colSpan = 7
     const wrap = session.el('div', 'query-detail-body')
     fillConversationDetail(wrap, row)
     fillListPriceDetail(wrap, row)
@@ -637,9 +725,7 @@ export function createQueriesView(session) {
 
   function addGroupTokensCell(tr, group, spike) {
     const td = document.createElement('td')
-    if (spike) {
-      td.className = 'tokens-spike'
-    }
+    td.className = spike ? 'tokens-col tokens-spike' : 'tokens-col'
     const wrap = session.el('span', 'tokens-cell')
     const label = session.el('span', 'tokens-value')
     session.setText(label, group.tokens || '')
@@ -682,24 +768,44 @@ export function createQueriesView(session) {
     const wrap = session.el('span', 'query-time-cell')
     const chevron = session.el('span', 'query-expand')
     chevron.setAttribute('aria-hidden', 'true')
-    wrap.appendChild(chevron)
+    const tools = session.el('span', 'conversation-tools')
+    tools.appendChild(chevron)
+    const openId = groupOptimizeId(group)
+    if (openId) {
+      const openButton = session.el('button', 'conversation-open')
+      openButton.type = 'button'
+      const openLabel = session.t('queries.openConversation')
+      openButton.title = openLabel
+      openButton.setAttribute('aria-label', openLabel)
+      openButton.setAttribute('data-open-conversation', openId)
+      openButton.appendChild(openConversationIcon())
+      tools.appendChild(openButton)
+    }
+    wrap.appendChild(tools)
     const stack = session.el('span', 'conversation-label')
     const title = session.el('span', 'conversation-title')
-    session.setText(title, group.title || '')
+    const fullTitle = group.title || ''
+    session.setText(title, fullTitle)
+    if (fullTitle) {
+      title.title = fullTitle
+    }
     if (group.named !== true) {
       title.classList.add('is-muted')
     }
     stack.appendChild(title)
     const meta = session.el('span', 'conversation-meta')
-    session.setText(
-      meta,
-      groupCountLabel(group, shown) + ' · ' + (group.rangeLabel || ''),
-    )
+    session.setText(meta, groupCountLabel(group, shown))
     stack.appendChild(meta)
+    if (open && group.rangeLabel) {
+      const range = session.el('span', 'conversation-range')
+      session.setText(range, group.rangeLabel)
+      stack.appendChild(range)
+    }
     wrap.appendChild(stack)
     td.appendChild(wrap)
     tr.appendChild(td)
     session.addCell(tr, group.model || '—')
+    appendContextCell(tr, group.context, group.optimizeId || '')
     session.addCell(tr, group.cost || '')
     addGroupTokensCell(
       tr,
@@ -850,6 +956,32 @@ export function createQueriesView(session) {
           openDepthMenu(button)
           return
         }
+        const summaryButton = target.closest('.context-hit')
+        if (summaryButton && rowsEl.contains(summaryButton)) {
+          event.preventDefault()
+          event.stopPropagation()
+          const id = summaryButton.getAttribute('data-summarize-conversation') || ''
+          if (id) {
+            session.vscode.postMessage({
+              type: messageType.summarizeConversation,
+              id: id,
+            })
+          }
+          return
+        }
+        const openButton = target.closest('.conversation-open')
+        if (openButton && rowsEl.contains(openButton)) {
+          event.preventDefault()
+          event.stopPropagation()
+          const id = openButton.getAttribute('data-open-conversation') || ''
+          if (id) {
+            session.vscode.postMessage({
+              type: messageType.openConversation,
+              id: id,
+            })
+          }
+          return
+        }
         const groupRow = target.closest('tr.conversation-row')
         if (groupRow && rowsEl.contains(groupRow)) {
           toggleGroupRow(groupRow)
@@ -869,7 +1001,7 @@ export function createQueriesView(session) {
         if (!target || typeof target.closest !== 'function') {
           return
         }
-        if (target.closest('.token-play, .token-rerun')) {
+        if (target.closest('.token-play, .token-rerun, .conversation-open, .context-hit')) {
           return
         }
         const groupRow = target.closest('tr.conversation-row')

@@ -4,9 +4,12 @@ import {
   CHAT_INDEX_KEY,
   COMPOSER_INDEX_KEY,
   mergeConversationTitles,
+  meterFromComposerHeader,
+  metersFromComposerIndex,
   nameFromComposerHeader,
   titlesFromChatTabs,
   titlesFromComposerIndex,
+  type ComposerContextMeter,
 } from './conversationTitles'
 
 export type ReadConversationTitlesOptions = {
@@ -20,9 +23,18 @@ export type ReadConversationTitlesOptions = {
  * composer headers already used for line totals.
  * Never selects `composerData:{id}` or any message-list value.
  */
-export async function readConversationTitles(
+export type ConversationLocal = {
+  titles: Map<string, string>
+  context: Map<string, ComposerContextMeter>
+}
+
+export async function readConversationLocal(
   options: ReadConversationTitlesOptions = {},
-): Promise<Map<string, string>> {
+): Promise<ConversationLocal> {
+  const empty = {
+    titles: new Map<string, string>(),
+    context: new Map<string, ComposerContextMeter>(),
+  }
   const dbPath =
     options.dbPath ??
     getStateDbPath(
@@ -30,12 +42,12 @@ export async function readConversationTitles(
       options.env ?? process.env,
     )
   if (!(await fileExists(dbPath))) {
-    return new Map()
+    return empty
   }
 
   const db = await openStateDb(dbPath)
   if (db === null) {
-    return new Map()
+    return empty
   }
   try {
     const itemStmt = db.prepare(
@@ -48,6 +60,7 @@ export async function readConversationTitles(
     )
     const chatRaw = sqlValueToString(itemStmt.get(CHAT_INDEX_KEY)?.value)
     const headerNames = new Map<string, string>()
+    const context = metersFromComposerIndex(composerRaw ?? '')
     try {
       const headerStmt = db.prepare(
         'SELECT composerId, value FROM composerHeaders',
@@ -65,17 +78,30 @@ export async function readConversationTitles(
         if (named !== null && !headerNames.has(named.id)) {
           headerNames.set(named.id, named.name)
         }
+        const measured = meterFromComposerHeader(raw, fallback)
+        if (measured !== null) {
+          const previous = context.get(measured.id)
+          if (
+            previous === undefined ||
+            (previous.tokenLimit === null && measured.meter.tokenLimit !== null)
+          ) {
+            context.set(measured.id, measured.meter)
+          }
+        }
       }
     } catch {
       // composerHeaders is optional. Index keys still apply.
     }
-    return mergeConversationTitles(
+    return {
+      titles: mergeConversationTitles(
       composerRaw === null ? undefined : titlesFromComposerIndex(composerRaw),
       chatRaw === null ? undefined : titlesFromChatTabs(chatRaw),
       headerNames,
-    )
+      ),
+      context,
+    }
   } catch {
-    return new Map()
+    return empty
   } finally {
     try {
       db?.close()
@@ -83,4 +109,10 @@ export async function readConversationTitles(
       // already closed
     }
   }
+}
+
+export async function readConversationTitles(
+  options: ReadConversationTitlesOptions = {},
+): Promise<Map<string, string>> {
+  return (await readConversationLocal(options)).titles
 }

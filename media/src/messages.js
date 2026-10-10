@@ -40,6 +40,8 @@ export const messageType = {
   setLanguage: 'setLanguage',
   runOptimize: 'runOptimize',
   optimizeConversation: 'optimizeConversation',
+  openConversation: 'openConversation',
+  summarizeConversation: 'summarizeConversation',
   setOkColor: 'setOkColor',
   setWarnColor: 'setWarnColor',
   setHistoryLimit: 'setHistoryLimit',

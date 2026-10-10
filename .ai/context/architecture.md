@@ -43,7 +43,7 @@ The token **never** goes to the webview.
 | `src/ui/conversationSessions.ts` | Group the sample by conversation id for that brief |
 | `src/ui/queryGroups.ts` | Queries-table groups: title merge, `#` + 8-char id, Ungrouped, Play target |
 | `src/ui/optimizedTargets.ts` | Remember optimized conversation ids / fingerprints (`globalState`, cap 200) |
-| `src/ui/openOptimizeChat.ts` | Prefill a new Agent chat for Run Optimize and Play (clipboard if that command is missing). Does not paste into the last chat. User presses Start |
+| `src/ui/openOptimizeChat.ts` | Paste Run Optimize into the open Agent chat (`composer.focusComposer`); Play opens that conversation (`composer.openComposer` with its id) and pastes there (clipboard fallback if that command is missing). Never auto-submits. User presses Start |
 | `src/ui/criticalAlert.ts` | Blocking dialog when the newest query hits 10M tokens or $5 |
 | `src/ui/burnRateAlert.ts` | Non-modal warning/error toasts for live-window spend (View details, Snooze, Focus Composer) |
 | `src/burnRate/window.ts` | Live `[now − W, now]` query window |
@@ -90,7 +90,7 @@ If you change the directory layout, update this file and `shared.mdc`.
 2. Snapshot: `loading` | `ready` | `error`.
 3. Status bar, the critical-alert controller, and the burn-rate controller subscribe to the snapshot.
 4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', … }` (no token): events, the `historySample` window (Last N or From–To), `groupQueriesByConversation` and `queryGroups` (local titles only), forecast window and renewal marker, model catalog, list-price splits, optimized targets, burn rate, and coding stats. Settings also receives `statusBarPreview` and every `cursorCost.*` value. Billing-cycle availability comes from the usage-summary cycle dates.
-5. Refresh (status bar, queries toolbar, or command) → `service.refresh()`. Export CSV saves that same sample. Play and Run Optimize post into the host, which pastes a numbers-only brief or the depth prompt into a **new** Agent chat. Chart day detail and Sample / Last 7 / Month filter the series already in the webview.
+5. Refresh (status bar, queries toolbar, or command) → `service.refresh()`. Export CSV saves that same sample. Run Optimize posts into the host, which pastes the depth prompt into the open Agent chat; Play opens that conversation and pastes the numbers-only brief there. Chart day detail and Sample / Last 7 / Month filter the series already in the webview.
 
 ## 4. MVP boundaries
 

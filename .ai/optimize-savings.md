@@ -1,10 +1,10 @@
 ## Lifetime savings
 
-Run 21. Twenty requests on one model billed 32.38 $. Cache write is 0 and cache read is 53,798,528. The last slice is 10.77 $ across 3 requests at median cache read 5,537,280; the first slice is 2.18 $ across 4 requests at median cache read 343,296. The next similar turn stays at the first slice's per-request cost (2.18 / 4 = 0.545 $) instead of the last slice's (10.77 / 3 = 3.59 $). Mid save on that turn: 5,193,984 cache-read tokens (5,537,280 − 343,296) and 3.05 $ (3.59 − 0.545).
+Run 23. This thread billed 5.24 $ across 6 requests. Request #5 (model-list correction that mined Cursor.app and rewrote the catalog in one loop) was 6,030,681 tokens and 3.45 $. The next similar correction stays on the pricing rows already in the repo: about 700,000 tokens and 0.40 $, so it saves 5,330,681 tokens and 3.05 $.
 
 ```cct-savings
 project: cursor-cost-tracker
-tokens_mid: 34642212
-usd_mid: 20.49
-run: 21
+tokens_mid: 41672893
+usd_mid: 24.82
+run: 23
 ```

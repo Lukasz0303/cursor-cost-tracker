@@ -88,6 +88,92 @@ describe('daysForAuthorEmails', () => {
 })
 
 describe('collectMergedLineDays', () => {
+  it('fetches origin before counting and still counts when fetch fails', async () => {
+    const calls: string[][] = []
+    const { execGit: repoGit } = mockRepo('Jane\tjane@acme.com', {
+      'jane@acme.com': 4,
+    })
+    const result = await collectMergedLineDays({
+      cwd: '/tmp/acme',
+      sinceMs: Date.UTC(2026, 8, 1),
+      untilMs: Date.UTC(2026, 8, 19),
+      cursorEmail: 'jane@acme.com',
+      async execGit(args, cwd) {
+        calls.push(args)
+        if (args[0] === 'fetch') {
+          throw new Error('offline')
+        }
+        return repoGit(args, cwd)
+      },
+    })
+    const fetchAt = calls.findIndex((args) => args[0] === 'fetch')
+    const landedAt = calls.findIndex(
+      (args) =>
+        args[0] === 'log' &&
+        args.includes('--first-parent') &&
+        args.includes('--format=%H%x09%ct%x09%ae%x09%an'),
+    )
+    expect(calls[fetchAt]).toEqual([
+      'fetch',
+      '--no-tags',
+      '--quiet',
+      'origin',
+      'refs/heads/main:refs/remotes/origin/main',
+    ])
+    expect(fetchAt).toBeGreaterThanOrEqual(0)
+    expect(landedAt).toBeGreaterThan(fetchAt)
+    expect(result.days[0]?.insertions).toBe(4)
+  })
+
+  it('fetches the remote default when that branch is master', async () => {
+    const calls: string[][] = []
+    await collectMergedLineDays({
+      cwd: '/tmp/acme',
+      sinceMs: Date.UTC(2026, 8, 1),
+      untilMs: Date.UTC(2026, 8, 19),
+      cursorEmail: 'jane@acme.com',
+      async execGit(args) {
+        calls.push(args)
+        if (args[0] === 'branch') {
+          return { stdout: 'main\nmaster\n', stderr: '' }
+        }
+        if (args[0] === 'symbolic-ref') {
+          return { stdout: 'origin/master\n', stderr: '' }
+        }
+        if (args[0] === 'config') {
+          return { stdout: 'jane@acme.com\n', stderr: '' }
+        }
+        if (args[0] === 'rev-parse') {
+          return { stdout: 'abc\n', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--merges')) {
+          return { stdout: '', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--format=%an%x09%ae')) {
+          return { stdout: 'Jane\tjane@acme.com\n', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--format=%H%x09%ct%x09%ae%x09%an')) {
+          return { stdout: '', stderr: '' }
+        }
+        return { stdout: '', stderr: '' }
+      },
+    })
+    const fetch = calls.find((args) => args[0] === 'fetch')
+    const landed = calls.find(
+      (args) =>
+        args[0] === 'log' &&
+        args.includes('--format=%H%x09%ct%x09%ae%x09%an'),
+    )
+    expect(fetch).toEqual([
+      'fetch',
+      '--no-tags',
+      '--quiet',
+      'origin',
+      'refs/heads/master:refs/remotes/origin/master',
+    ])
+    expect(landed?.[landed.length - 1]).toBe('origin/master')
+  })
+
   it('defaults to the Cursor email and does not count teammates', async () => {
     const { logArgs, execGit } = mockRepo(
       [

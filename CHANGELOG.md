@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.7 — 2026-10-10
+
+### Added
+
+- **Context** — the query history table has a Context column. It is the newest turn's share of that model's window. The arrow points up while there is room. At 60% or more it turns red and pastes a copyable handoff into that conversation so you can start a new chat. The extension still does not read the transcript.
+- **Open conversation** — a grouped row can open that chat without pasting a prompt.
+- **Model pricing** — Statistics lists the models switched on in Cursor Settings → Models. One price stays on the line; Fast, 500k, and 1M sit inside that model. Filter by provider, active models, or variant.
+- **Website and repository** — Support has tiles for the product site and the GitHub repository. The same two links are icon buttons on the query history toolbar.
+
+### Changed
+
+- **Run Optimize** — toolbar Run and a depth card’s Run paste into the open Agent chat. They do not open a new chat. You still press Start.
+- **Play** — on a red query, Play opens that conversation and pastes a billing brief that tells the agent to use the open chat. A generic idle or cache essay is no longer the required answer.
+- **Coding stats** — landed lines follow the repository's default branch (main, master, or whatever origin uses) and refresh that branch from origin first. Offline, the last fetched commit still counts.
+
 ## 1.0.6 — 2026-10-05
 
 ### Added

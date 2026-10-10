@@ -141,7 +141,9 @@ export function createSupportView(session) {
       btn.title = isReady
         ? session.t('support.opensInBrowser')
         : session.t('support.comingSoonTitle')
-      const card = btn.closest('.support-coffee-card, .support-tier')
+      const card = btn.closest(
+        '.support-coffee-card, .support-tier, .support-link-card',
+      )
       if (card) {
         card.classList.toggle('is-ready', isReady)
       }
@@ -195,19 +197,17 @@ export function createSupportView(session) {
   }
 
   function wire() {
-    if (supportViewEl) {
-      supportViewEl.addEventListener('click', function (event) {
-        const btn = event.target.closest('[data-support-link]')
-        if (!btn || btn.disabled) {
-          return
-        }
-        const linkId = btn.getAttribute('data-support-link')
-        if (!linkId) {
-          return
-        }
-        session.vscode.postMessage({ type: messageType.openSupportLink, id: linkId })
-      })
-    }
+    document.addEventListener('click', function (event) {
+      const btn = event.target.closest('[data-support-link]')
+      if (!btn || btn.disabled) {
+        return
+      }
+      const linkId = btn.getAttribute('data-support-link')
+      if (!linkId) {
+        return
+      }
+      session.vscode.postMessage({ type: messageType.openSupportLink, id: linkId })
+    })
     if (supportNicknameEl) {
       supportNicknameEl.addEventListener('input', function () {
         supportNicknameDirty = true

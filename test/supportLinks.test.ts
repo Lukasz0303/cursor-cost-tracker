@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   BUY_ME_A_COFFEE_URL,
   GITHUB_SPONSORS_URL,
+  REPOSITORY_URL,
   SUPPORT_TIERS,
+  WEBSITE_URL,
   resolveSupportUrl,
   supportLinkReady,
 } from '../src/supportLinks'
@@ -25,5 +27,16 @@ describe('supportLinks', () => {
     )
     expect(resolveSupportUrl('githubSponsors')).toBeUndefined()
     expect(resolveSupportUrl('nope')).toBeUndefined()
+  })
+
+  it('opens the product site and the public repository', () => {
+    expect(WEBSITE_URL).toBe('https://cursorcosttracker.com/')
+    expect(REPOSITORY_URL).toBe(
+      'https://github.com/Lukasz0303/cursor-cost-tracker',
+    )
+    expect(supportLinkReady('website')).toBe(true)
+    expect(supportLinkReady('repository')).toBe(true)
+    expect(resolveSupportUrl('website')).toBe(WEBSITE_URL)
+    expect(resolveSupportUrl('repository')).toBe(REPOSITORY_URL)
   })
 })

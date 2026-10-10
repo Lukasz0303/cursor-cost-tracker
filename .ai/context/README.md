@@ -19,14 +19,14 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 | Status bar | Team: Current `used $ / limit $`. Pro: mean included % vs 100% (`32% / 100%`); Today mean today % / daily pace (`3.5% / 4.5% (17.12 $)`). Refresh (on demand), 1–10 recent queries (`cost - tokens`, default 3); `!` on a query ≥ token threshold (default 1M) |
 | Critical alert | Blocking dialog when the newest query hits 10M tokens or $5 (configurable; once per query) |
 | Click Current/Today | Statistics tab immediately (not Quick Pick). A recent-query chip opens the queries list |
-| History | Six public tabs: Last N (default 1000; Show last / From / To in Settings; toolbar **Over Warn at**, **Optimized**, and **Group by conversation** default off; Play on a red TOKENS cell; expand a row for list-price makeup), Statistics (burn rate, Coding stats with $ / 1k lines, model pricing, cache $ saved, monthly forecast), Charts (tokens/cost, click a day, Sample / Last 7 / Month, the same forecast, period mix), Optimize (last-red-query prompts and Play both open a new Agent chat; projected save from `.ai/optimize-savings.md`), Support (Buy Me a Coffee; Write a message via FormSubmit; GitHub Sponsors hidden until the URL is set), Settings (every `cursorCost.*` key) |
+| History | Six public tabs: Last N (default 1000; Show last / From / To in Settings; toolbar **Over Warn at**, **Optimized**, and **Group by conversation** default off; Play on a red TOKENS cell opens that conversation; expand a row for list-price makeup), Statistics (burn rate, Coding stats with $ / 1k lines, model pricing, cache $ saved, monthly forecast), Charts (tokens/cost, click a day, Sample / Last 7 / Month, the same forecast, period mix), Optimize (Run pastes into the open Agent chat and Play opens that conversation; projected save from `.ai/optimize-savings.md`), Support (Buy Me a Coffee; Write a message via FormSubmit; GitHub Sponsors hidden until the URL is set), Settings (every `cursorCost.*` key) |
 | Unlimited | text Unlimited, hide Today |
 | No session | `N/A` / Sign in, no crash |
 | Token | extension host only; never `postMessage`, logs, or webview |
 | Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs only |
 
-**Repo stage:** Phase 7 / MVP wired, then **1.0.0–1.0.6**. Current tree is **1.0.6**: Burn Rate Guard, Coding stats, 11 UI languages, model pricing, billing-cycle forecast, Play on a red query, list price, To date, Group by conversation (default off), chart day detail and zoom. Run Optimize and Play both open a new Agent chat. History of each version: [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired, then **1.0.0–1.0.7**. Current tree is **1.0.7** (`CHANGELOG.md` opens on 1.0.7; `package.json` still says 1.0.6 until the release bump): Burn Rate Guard, Coding stats, 11 UI languages, model pricing, billing-cycle forecast, Play on a red query (opens that conversation), list price, To date, Group by conversation (default off), chart day detail and zoom. Run Optimize pastes into the open Agent chat. History of each version: [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 

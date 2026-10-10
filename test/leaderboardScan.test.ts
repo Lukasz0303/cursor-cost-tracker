@@ -125,6 +125,14 @@ describe('scanLeaderboardRepos', () => {
       },
     })
     const log = calls.find((args) => args[0] === 'log')
+    const fetch = calls.find((args) => args[0] === 'fetch')
+    expect(fetch).toEqual([
+      'fetch',
+      '--no-tags',
+      '--quiet',
+      'origin',
+      'refs/heads/main:refs/remotes/origin/main',
+    ])
     expect(log).toEqual(
       expect.arrayContaining(['--first-parent', '--no-merges', '--numstat', 'origin/main']),
     )
@@ -132,6 +140,56 @@ describe('scanLeaderboardRepos', () => {
     expect(piece.reposScanned).toBe(1)
     expect(piece.groups[0]?.commits).toHaveLength(2)
     expect(piece.groups[0]?.commits.reduce((sum, commit) => sum + commit.insertions, 0)).toBe(13)
+  })
+
+  it('fetches and counts origin/master when that is the default branch', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'cct-lb-master-'))
+    await mkdir(join(repo, '.git'), { recursive: true })
+    const calls: string[][] = []
+    const piece = await scanLeaderboardRepos(repo, '2026-01-01', '2026-01-31', {
+      sources: { catalog: '', saved: [repo], extra: [], excluded: [] },
+      execGh: async () => {
+        throw new Error('gh unused')
+      },
+      execGit: async (args) => {
+        calls.push(args)
+        if (args[0] === 'branch') {
+          return { stdout: 'main\nmaster\n', stderr: '' }
+        }
+        if (args[0] === 'symbolic-ref') {
+          return { stdout: 'origin/master\n', stderr: '' }
+        }
+        if (args[0] === 'fetch') {
+          throw new Error('offline')
+        }
+        if (args[0] === 'rev-parse') {
+          return { stdout: 'abc\n', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--merges')) {
+          return { stdout: '', stderr: '' }
+        }
+        if (args[0] === 'log' && args.includes('--no-merges')) {
+          return {
+            stdout: 'aaa1111\t1767225600\tada@example.com\tAda\n4\t0\tsrc/a.ts\n',
+            stderr: '',
+          }
+        }
+        return { stdout: '', stderr: '' }
+      },
+    })
+    const fetch = calls.find((args) => args[0] === 'fetch')
+    const landed = calls.find(
+      (args) => args[0] === 'log' && args.includes('--no-merges') && args.includes('--numstat'),
+    )
+    expect(fetch).toEqual([
+      'fetch',
+      '--no-tags',
+      '--quiet',
+      'origin',
+      'refs/heads/master:refs/remotes/origin/master',
+    ])
+    expect(landed?.[landed.length - 1]).toBe('origin/master')
+    expect(piece.groups[0]?.commits.reduce((sum, commit) => sum + commit.insertions, 0)).toBe(4)
   })
 
   it('credits a merged pull request to the branch author', async () => {

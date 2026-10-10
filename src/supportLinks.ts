@@ -6,7 +6,11 @@
  * and skips openExternal.
  */
 
-export type SupportLinkId = 'buyMeACoffee' | 'githubSponsors'
+export type SupportLinkId =
+  | 'buyMeACoffee'
+  | 'githubSponsors'
+  | 'website'
+  | 'repository'
 
 export type SupportTier = {
   id: string
@@ -25,6 +29,12 @@ export const BUY_ME_A_COFFEE_URL = 'https://buymeacoffee.com/lzzzielinsn'
  * Example: https://github.com/sponsors/Lukasz0303
  */
 export const GITHUB_SPONSORS_URL = ''
+
+/** Public product site (GitHub Pages). */
+export const WEBSITE_URL = 'https://cursorcosttracker.com/'
+
+/** Public source repository. */
+export const REPOSITORY_URL = 'https://github.com/Lukasz0303/cursor-cost-tracker'
 
 export const SUPPORT_TIERS: SupportTier[] = [
   {
@@ -53,10 +63,21 @@ export const SUPPORT_TIERS: SupportTier[] = [
 const SUPPORT_URLS: Record<SupportLinkId, string> = {
   buyMeACoffee: BUY_ME_A_COFFEE_URL,
   githubSponsors: GITHUB_SPONSORS_URL,
+  website: WEBSITE_URL,
+  repository: REPOSITORY_URL,
+}
+
+function isSupportLinkId(linkId: unknown): linkId is SupportLinkId {
+  return (
+    linkId === 'buyMeACoffee' ||
+    linkId === 'githubSponsors' ||
+    linkId === 'website' ||
+    linkId === 'repository'
+  )
 }
 
 export function resolveSupportUrl(linkId: unknown): string | undefined {
-  if (linkId !== 'buyMeACoffee' && linkId !== 'githubSponsors') {
+  if (!isSupportLinkId(linkId)) {
     return undefined
   }
   const url = SUPPORT_URLS[linkId].trim()

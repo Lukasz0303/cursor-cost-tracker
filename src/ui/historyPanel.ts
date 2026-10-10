@@ -9,6 +9,12 @@ import {
   OPEN_DASHBOARD_COMMAND,
   OPEN_PRICING_COMMAND,
 } from '../constants'
+import {
+  APPLICATION_USER_KEY,
+  parseAccountModels,
+  type AccountModel,
+} from '../pricing/accountModels'
+import { buildCatalogLines } from '../pricing/catalogLines'
 import { loadModelCatalog } from '../pricing/load'
 import type { ModelCatalogPayload } from '../pricing/parse'
 import { withRequestCounts } from '../pricing/usageMatch'
@@ -37,7 +43,7 @@ import {
   lastQueriesTitle,
   sampleSizeLimit,
 } from '../historyLimit'
-import { readCursorSession } from '../usage/session'
+import { readCursorSession, readStateDbItem } from '../usage/session'
 import { newestSample } from '../usage/groupConversations'
 import {
   isLeaderboardUnlocked,
@@ -46,6 +52,8 @@ import {
   unlockStateFor,
   verifyUnlockToken,
 } from '../unlock/leaderboardUnlock'
+import { buildContextSummaryPrompt } from '../contextFill/summaryPrompt'
+import { openConversationComposer, pasteIntoConversation } from './openOptimizeChat'
 import { OptimizeRouter } from './optimizeRouter'
 import { isSettingsMessage, SettingsRouter } from './settingsRouter'
 import { PanelPublisher } from './panelPublisher'
@@ -251,6 +259,7 @@ export class HistoryPanel {
   private readonly optimizeRouter: OptimizeRouter
   private readonly publisher: PanelPublisher
   private modelCatalog: ModelCatalogPayload | null = null
+  private accountModels: AccountModel[] | null = null
 
   private constructor(
     context: vscode.ExtensionContext,
@@ -454,6 +463,12 @@ export class HistoryPanel {
         return
       case 'runOptimize':
         void this.optimizeRouter.run('chat', message.depth)
+        return
+      case 'openConversation':
+        void openConversationComposer(message.id)
+        return
+      case 'summarizeConversation':
+        void pasteIntoConversation(message.id, buildContextSummaryPrompt())
         return
       case 'optimizeConversation':
         void this.optimizeRouter.conversation(
@@ -680,20 +695,42 @@ export class HistoryPanel {
       .sort((left, right) => right.timestamp - left.timestamp)
       .slice(0, limit)
       .map((query) => stripModelPrefix(query.model) ?? '')
-    return withRequestCounts(this.modelCatalog, ids)
+    const priced = withRequestCounts(this.modelCatalog, ids)
+    return {
+      ...priced,
+      accountKnown: this.accountModels !== null,
+      lines: buildCatalogLines(priced, this.accountModels),
+    }
   }
 
   private publishModelCatalog(force: boolean): void {
-    void loadModelCatalog(force).then((catalog) => {
-      if (HistoryPanel.current !== this) {
-        return
-      }
-      this.modelCatalog = catalog
-      void this.panel.webview.postMessage({
-        type: 'modelCatalog',
-        modelCatalog: this.catalogForView(),
+    void Promise.all([loadModelCatalog(force), this.loadAccountModels()]).then(
+      ([catalog, account]) => {
+        if (HistoryPanel.current !== this) {
+          return
+        }
+        this.modelCatalog = catalog
+        this.accountModels = account
+        void this.panel.webview.postMessage({
+          type: 'modelCatalog',
+          modelCatalog: this.catalogForView(),
+        })
+      },
+    )
+  }
+
+  private async loadAccountModels(): Promise<AccountModel[] | null> {
+    try {
+      const raw = await readStateDbItem(APPLICATION_USER_KEY, {
+        locateWasm: (file) => join(__dirname, file),
       })
-    })
+      if (raw === null) {
+        return null
+      }
+      return parseAccountModels(raw)
+    } catch {
+      return null
+    }
   }
 
   /**

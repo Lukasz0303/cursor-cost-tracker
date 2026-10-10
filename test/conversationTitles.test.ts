@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   COMPOSER_INDEX_KEY,
   mergeConversationTitles,
+  meterFromComposerHeader,
+  metersFromComposerIndex,
   nameFromComposerHeader,
   titlesFromChatTabs,
   titlesFromComposerIndex,
@@ -29,6 +31,45 @@ describe('conversation titles', () => {
     expect(titles.get('abc')).toBe('Hello')
     expect(titles.has('blank')).toBe(false)
     expect([...titles.values()].join(' ')).not.toContain('secret prompt')
+  })
+
+  it('reads the context meter and ignores message bodies', () => {
+    const raw = JSON.stringify({
+      allComposers: [
+        {
+          composerId: 'abc',
+          name: 'Model grouping',
+          contextUsagePercent: 86.4,
+          contextTokensUsed: 220_900,
+          contextTokenLimit: 256_000,
+          messages: [{ text: 'secret prompt' }],
+        },
+        { composerId: 'no-meter', name: 'Plain' },
+      ],
+    })
+    const meters = metersFromComposerIndex(raw)
+    expect(meters.get('abc')).toEqual({
+      percent: 86,
+      tokensUsed: 220_900,
+      tokenLimit: 256_000,
+    })
+    expect(meters.has('no-meter')).toBe(false)
+    expect(JSON.stringify([...meters.values()])).not.toContain('secret prompt')
+  })
+
+  it('derives the percent from used and limit on a header', () => {
+    const measured = meterFromComposerHeader(
+      JSON.stringify({
+        composerId: 'abc',
+        name: 'Model grouping',
+        contextTokensUsed: 220_900,
+        contextTokenLimit: 256_000,
+        text: 'secret prompt',
+      }),
+      'abc',
+    )
+    expect(measured?.meter.percent).toBe(86)
+    expect(JSON.stringify(measured)).not.toContain('secret prompt')
   })
 
   it('prefers chatTitle over title', () => {
