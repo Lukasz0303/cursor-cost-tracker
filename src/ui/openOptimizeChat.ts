@@ -6,8 +6,10 @@ import { DEFAULT_LOCALE, type Locale } from '../locale'
 const COMPOSER_FOCUS = 'composer.focusComposer'
 /** Surfaces an existing Composer without creating a new Agent tab when possible. */
 const COMPOSER_OPEN = 'composer.openComposer'
-/** New Agent chat — Run and Optimize this conversation. */
+/** New Agent chat — Run Optimize. */
 const COMPOSER_NEW = 'composer.newAgentChat'
+/** Glass layout opens an existing agent by id. Editor uses composer.openComposer. */
+const GLASS_OPEN_AGENT = 'glass.openAgentById'
 const PASTE = 'editor.action.clipboardPasteAction'
 const VS_CODE_CHAT_OPEN = 'workbench.action.chat.open'
 const PASTE_DELAY_MS = 150
@@ -61,17 +63,22 @@ async function commandExists(
   return commands.includes(commandId)
 }
 
+type OpenStep = {
+  command: string
+  args?: readonly unknown[]
+}
+
 async function pasteIntoComposer(
   prompt: string,
-  openCommands: string[],
+  openCommands: readonly OpenStep[],
   deps: OpenOptimizeChatDeps,
   waitMs: number,
 ): Promise<void> {
   const previous = await deps.readClipboard()
   await deps.writeClipboard(prompt)
   try {
-    for (const commandId of openCommands) {
-      await deps.executeCommand(commandId)
+    for (const step of openCommands) {
+      await deps.executeCommand(step.command, ...(step.args ?? []))
     }
     await delay(waitMs)
     await deps.executeCommand(PASTE)
@@ -81,14 +88,21 @@ async function pasteIntoComposer(
   }
 }
 
-export type OptimizeChatTarget = 'new' | 'last'
+function step(command: string, ...args: unknown[]): OpenStep {
+  return { command, args }
+}
+
+export type OptimizeChatTarget = 'new' | 'last' | 'composer'
 
 export type OpenOptimizeChatOptions = {
   /**
    * `last` — focus the last active Agent chat.
-   * `new` — Run and Optimize this conversation. Never falls back into the last chat.
+   * `new` — open a fresh Agent chat. Run Optimize uses `last`.
+   * `composer` — open the conversation Play was pressed on, then paste there.
    */
   target?: OptimizeChatTarget
+  /** Composer id for `target: 'composer'`. Play passes the conversation id. */
+  composerId?: string
 }
 
 async function copyToClipboard(
@@ -112,10 +126,82 @@ async function openNewOptimizeChat(
 ): Promise<OpenOptimizeChatResult> {
   const waitMs = deps.delayMs ?? PASTE_DELAY_MS
   if (await commandExists(COMPOSER_NEW, deps.getCommands)) {
-    await pasteIntoComposer(prompt, [COMPOSER_NEW], deps, waitMs)
+    await pasteIntoComposer(prompt, [step(COMPOSER_NEW)], deps, waitMs)
     return 'composer-new'
   }
   return copyToClipboard(prompt, deps, locale)
+}
+
+/**
+ * Open an existing conversation and focus its empty input.
+ * Does not paste a prompt and does not create a second chat.
+ */
+export async function openConversationComposer(
+  composerId: string,
+  deps: OpenOptimizeChatDeps = defaultDeps(),
+): Promise<boolean> {
+  const id = composerId.trim()
+  if (id === '' || id.startsWith('query-')) {
+    return false
+  }
+  const getCommands = deps.getCommands
+  try {
+    if (await commandExists(COMPOSER_OPEN, getCommands)) {
+      await deps.executeCommand(COMPOSER_OPEN, id, { focusMainInputBox: true })
+      return true
+    }
+    if (await commandExists(GLASS_OPEN_AGENT, getCommands)) {
+      await deps.executeCommand(GLASS_OPEN_AGENT, id)
+      return true
+    }
+  } catch {
+    return false
+  }
+  return false
+}
+
+/** Open that conversation and paste a prompt into its empty input. */
+export async function pasteIntoConversation(
+  composerId: string,
+  prompt: string,
+  deps: OpenOptimizeChatDeps = defaultDeps(),
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<OpenOptimizeChatResult> {
+  const id = composerId.trim()
+  if (id === '' || id.startsWith('query-')) {
+    return copyToClipboard(prompt, deps, locale)
+  }
+  return openComposerOptimizeChat(prompt, id, deps, locale)
+}
+
+/**
+ * Open the Agent chat Play was pressed on and paste there.
+ * A new empty chat has no transcript, so this path never creates one.
+ */
+async function openComposerOptimizeChat(
+  prompt: string,
+  composerId: string,
+  deps: OpenOptimizeChatDeps,
+  locale: Locale,
+): Promise<OpenOptimizeChatResult> {
+  const base = deps.delayMs ?? PASTE_DELAY_MS
+  // Switching to another composer needs the input focused before paste.
+  const waitMs = base === 0 ? 0 : Math.max(base, 400)
+  const getCommands = deps.getCommands
+  const open = (await commandExists(COMPOSER_OPEN, getCommands))
+    ? step(COMPOSER_OPEN, composerId)
+    : (await commandExists(GLASS_OPEN_AGENT, getCommands))
+      ? step(GLASS_OPEN_AGENT, composerId)
+      : null
+  if (open === null) {
+    return copyToClipboard(prompt, deps, locale)
+  }
+  try {
+    await pasteIntoComposer(prompt, [open], deps, waitMs)
+  } catch {
+    return copyToClipboard(prompt, deps, locale)
+  }
+  return 'composer'
 }
 
 /**
@@ -133,17 +219,17 @@ async function openLastOptimizeChat(
   // Focus last/selected Agent only. Calling openComposer first often opens a
   // new chat window; focusComposer targets the selectedComposerId input.
   if (await commandExists(COMPOSER_FOCUS, getCommands)) {
-    await pasteIntoComposer(prompt, [COMPOSER_FOCUS], deps, waitMs)
+    await pasteIntoComposer(prompt, [step(COMPOSER_FOCUS)], deps, waitMs)
     return 'composer'
   }
 
   if (await commandExists(COMPOSER_OPEN, getCommands)) {
-    await pasteIntoComposer(prompt, [COMPOSER_OPEN], deps, waitMs)
+    await pasteIntoComposer(prompt, [step(COMPOSER_OPEN)], deps, waitMs)
     return 'composer'
   }
 
   if (await commandExists(COMPOSER_NEW, getCommands)) {
-    await pasteIntoComposer(prompt, [COMPOSER_NEW], deps, waitMs)
+    await pasteIntoComposer(prompt, [step(COMPOSER_NEW)], deps, waitMs)
     return 'composer-new'
   }
 
@@ -174,6 +260,13 @@ export async function openOptimizeChat(
 ): Promise<OpenOptimizeChatResult> {
   if (options?.target === 'new') {
     return openNewOptimizeChat(prompt, deps, locale)
+  }
+  if (options?.target === 'composer') {
+    const composerId = options.composerId?.trim() ?? ''
+    if (composerId === '') {
+      return copyToClipboard(prompt, deps, locale)
+    }
+    return openComposerOptimizeChat(prompt, composerId, deps, locale)
   }
   return openLastOptimizeChat(prompt, deps, locale)
 }

@@ -1,0 +1,12 @@
+---
+description: Product-doc sync stays on the command file list
+alwaysApply: false
+---
+
+# Docs sync — one file list
+
+When the ask is `11-sync-product-docs` (fold Unreleased, align README, CHANGELOG, `.ai/context`, site version):
+
+- Open only the files that command names. One `npm test` at the end if the snapshot needs a count.
+- Do not open `site/i18n.js` except to replace the version string, and do not patch `src/i18n/catalogs/` or `media/history.html` in that turn.
+- A sentence that disagrees with the code gets one named file, not every locale.

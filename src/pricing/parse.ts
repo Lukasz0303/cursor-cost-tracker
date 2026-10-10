@@ -35,6 +35,10 @@ export type ModelCatalogPayload = {
   error: string | null
   /** Leaderboard the bench scores link to. */
   benchUrl?: string
+  /** True when Cursor Settings model switches were read. */
+  accountKnown?: boolean
+  /** Family rows for the pricing table. Empty variant label = one price on that line. */
+  lines?: import('./catalogLines').CatalogLine[]
 }
 
 const FAST_NAME = /\bfast\b/i

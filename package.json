@@ -2,7 +2,7 @@
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
   "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Play on a red query, Critical alert, Optimize, Support message, Charts, CSV, 11 UI languages.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",

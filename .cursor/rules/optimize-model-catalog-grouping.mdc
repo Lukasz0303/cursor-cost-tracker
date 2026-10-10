@@ -1,0 +1,22 @@
+---
+description: Model pricing list — group catalog rows, do not mine Cursor.app
+alwaysApply: false
+globs: media/src/tabs/modelCatalog.js,media/css/base.css,src/pricing/**/*.ts
+---
+
+# Model pricing grouping
+
+This chat billed **5.24 $** across 6 requests (`grok-4.7-high`). Request **#5** (correction: 9 active models, group by name, variants inside) was **6,030,681 tokens / 3.45 $**. That turn kept python-slicing `workbench.desktop.main.js` and `cursor-always-local`, fetched the full pricing markdown, then rewrote the catalog host and webview in the same loop. Request **#1** (group the list) was **1,640,801 tokens / 1.15 $** after reading every locale catalog.
+
+## When the ask is the Statistics model list
+
+- Group rows the catalog already has (`Grok 4.7`, `(Fast)`, `500k`). One price on the line when the family has one row; expand when it has several. Provider is a column. Filters are comboboxes.
+- Edit only `media/src/tabs/modelCatalog.js`, `media/css/base.css`, `src/i18n/catalogs/en.ts`, `src/i18n/catalogs/pl.ts`, and one `src/pricing/*.ts` helper plus its test.
+- Do not open `/Applications/Cursor.app`. Do not python-slice minified workbench. Do not WebFetch the pricing page into the chat.
+- Do not read locale catalogs other than `en` and `pl`.
+- Account toggles (`state.vscdb`, `availableDefaultModels2`) are a later message that names `src/pricing/accountModels.ts` and `src/usage/session.ts` only.
+
+## Still allowed
+
+- `npm run package` alone when the user asks to rebuild the VSIX. This chat’s package turn was **541,084 tokens / 0.28 $**.
+- A Vitest file for the family-name split.

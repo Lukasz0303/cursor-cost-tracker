@@ -1,7 +1,9 @@
+import { contextFillForQuery, type ContextFill } from '../contextFill/fill'
 import { formatDateTime, formatDollars, formatKind, formatTokens } from '../format'
 import { catalogFor } from '../i18n'
 import { DEFAULT_LOCALE, type Locale } from '../locale'
 import { DEFAULT_SPIKE_TOKEN_THRESHOLD, isSpike } from '../spikes/threshold'
+import type { ComposerContextMeter } from '../usage/conversationTitles'
 import {
   titleGroupKey,
   UNGROUPED_CONVERSATION_ID,
@@ -36,12 +38,16 @@ export type QueryGroupPayload = {
   optimizable: boolean
   optimizeId: string | null
   optimizeTimestamp: number | null
+  /** Newest turn's share of that model's context window. */
+  context: ContextFill
   /** Indexes into the same sample `toHistoryRows` renders, newest first. */
   rowIndexes: number[]
 }
 
 export type QueryGroupOptions = {
   titles?: Readonly<Record<string, string>>
+  /** Cursor context meters keyed by conversation id. */
+  conversationContext?: Readonly<Record<string, ComposerContextMeter>>
   spikeTokenThreshold?: number
   showSpikeWarning?: boolean
   optimizedTargets?: OptimizedTargets | null
@@ -83,6 +89,16 @@ function sameLocalDay(a: number, b: number): boolean {
     left.getMonth() === right.getMonth() &&
     left.getDate() === right.getDate()
   )
+}
+
+function newestQuery(queries: readonly UsageQuery[]): UsageQuery {
+  let best = queries[0] as UsageQuery
+  for (const query of queries) {
+    if (query.timestamp >= best.timestamp) {
+      best = query
+    }
+  }
+  return best
 }
 
 function rangeLabel(first: number, last: number): string {
@@ -255,6 +271,7 @@ export function toQueryGroups(
       optimizable,
       optimizeId: target?.id ?? null,
       optimizeTimestamp: target?.timestamp ?? null,
+      context: contextFillForQuery(newestQuery(bucket.queries), options.conversationContext),
       rowIndexes: bucket.rowIndexes,
     })
   }

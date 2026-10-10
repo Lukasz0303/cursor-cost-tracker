@@ -14,7 +14,7 @@ import {
   mapPool,
   normalizeFsPath,
 } from '../codeLines/nestedRepos'
-import { resolveDefaultBranch } from '../codeLines/runGitMerged'
+import { refreshOriginBranch, resolveDefaultBranch } from '../codeLines/runGitMerged'
 import { isValidLeaderboardRange, parseLocalDayEndExclusive, parseLocalDayStart } from './dates'
 import {
   listGhRepoSlugs,
@@ -301,17 +301,19 @@ export async function leaderboardRoots(
 }
 
 /**
- * First-parent history of the default branch (`origin/main` when that
- * ref exists, otherwise the local branch). Commits that landed on
- * main/master, not every feature branch. GitHub merge commits stay in
- * the walk: `--no-merges` would drop "Merge pull request #N" and hide
- * the author whose branch actually landed.
+ * First-parent history of the default branch. The short name comes from
+ * `origin/HEAD` (`main`, `master`, or another default) and that
+ * remote-tracking ref is fetched before the log. A missing remote falls
+ * back to the local branch of the same name. GitHub merge commits stay
+ * in the walk: `--no-merges` on the first-parent log would drop
+ * "Merge pull request #N" and hide the author whose branch landed.
  */
 async function mergedBranchRef(cwd: string, execGit: ExecGit): Promise<string | null> {
   const branch = await resolveDefaultBranch(cwd, execGit)
   if (branch === null) {
     return null
   }
+  await refreshOriginBranch(cwd, branch, execGit)
   const remote = `origin/${branch}`
   try {
     await execGit(['rev-parse', '--verify', remote], cwd)

@@ -17,8 +17,11 @@ import { localDayKey } from '../codeLines/gitMerged'
 import { codeLinesWindowFromSample } from '../codeLines/window'
 import { lastQueriesTitle, sampleSizeLimit } from '../historyLimit'
 import { nicknameFromCursorEmail } from '../support/nickname'
-import { titleRecord } from '../usage/conversationTitles'
-import { readConversationTitles } from '../usage/readConversationTitles'
+import { contextRecord, titleRecord, type ComposerContextMeter } from '../usage/conversationTitles'
+import {
+  readConversationLocal,
+  type ConversationLocal,
+} from '../usage/readConversationTitles'
 import { readCursorSession } from '../usage/session'
 import type { UsageService } from '../usage/service'
 import type { ModelCatalogPayload } from '../pricing/parse'
@@ -57,11 +60,12 @@ export class PanelPublisher {
     key: string
     value: {
       session: Awaited<ReturnType<typeof readCursorSession>>
-      titles: Awaited<ReturnType<typeof readConversationTitles>>
+      local: ConversationLocal
     }
   } | null = null
   private optimizeSavingsMarkdown: string | null = null
   private conversationTitles: Record<string, string> = {}
+  private conversationContext: Record<string, ComposerContextMeter> = {}
   private conversationAccountSpend = false
 
   constructor(private readonly deps: PanelPublisherDeps) {}
@@ -149,27 +153,28 @@ export class PanelPublisher {
     })
     const ioKey = panelIoCacheKey(folder?.uri.fsPath ?? null, queries)
     let session: Awaited<ReturnType<typeof readCursorSession>>
-    let titles: Awaited<ReturnType<typeof readConversationTitles>>
+    let local: ConversationLocal
     const cached = takePanelIoCache(this.panelIoCache, ioKey)
     if (cached !== undefined) {
       session = cached.session
-      titles = cached.titles
+      local = cached.local
     } else {
-      ;[session, titles] = await Promise.all([
+      ;[session, local] = await Promise.all([
         readCursorSession({
           locateWasm: (file) => join(__dirname, file),
         }),
-        readConversationTitles(),
+        readConversationLocal(),
       ])
       if (seq !== this.postDataSeq) {
         return
       }
-      this.panelIoCache = { key: ioKey, value: { session, titles } }
+      this.panelIoCache = { key: ioKey, value: { session, local } }
     }
     if (seq !== this.postDataSeq) {
       return
     }
-    this.conversationTitles = titleRecord(titles)
+    this.conversationTitles = titleRecord(local.titles)
+    this.conversationContext = contextRecord(local.context)
     const savedAuthors = parseStoredAuthorChoice(
       this.deps.workspaceState.get(CODE_LINES_AUTHORS_STATE_KEY),
     )
@@ -254,6 +259,7 @@ export class PanelPublisher {
         optimizeLifetimeSavings: lifetime,
         optimizedTargets: this.deps.readOptimizedTargets(),
         conversationTitles: this.conversationTitles,
+        conversationContext: this.conversationContext,
         refreshing: overrides?.refreshing ?? this.deps.service.isRefreshing(),
         modelCatalog: this.deps.catalogForView(),
         cursorNickname: nicknameFromCursorEmail(

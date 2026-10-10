@@ -1,8 +1,8 @@
 # Codebase snapshot
 
-**Date:** 2026-10-05  
-**Version in the tree:** **1.0.6** (`package.json`).  
-**This cut:** everything in **1.0.0–1.0.6**, including Group by conversation, chart day detail, and Run Optimize into a new Agent chat. `CHANGELOG.md` has no Unreleased heading. GitHub Actions runs typecheck, Vitest, and esbuild.
+**Date:** 2026-10-10  
+**Version in the tree:** **1.0.7** (`CHANGELOG.md` opens on 1.0.7; `package.json` still says 1.0.6 until the release bump).  
+**This cut:** everything in **1.0.0–1.0.7**. Run Optimize pastes into the open Agent chat. Play opens that conversation. `CHANGELOG.md` has no Unreleased heading. GitHub Actions runs typecheck, Vitest, and esbuild.
 
 `npm test` on this date: **78 files, 867 passed, 1 skipped** (live `state.vscdb`), after the two chart-mode catalog keys landed in every locale. CI is `.github/workflows/ci.yml` (Node 20, `npm ci`). The landing page stays on `.github/workflows/pages.yml`.
 
@@ -17,6 +17,7 @@
 | **1.0.4** | 2026-09-20 | Burn Rate Guard. Coding stats (landed / AI, All on Cursor). UI languages (10 at release). Critical alert **Ignore** on the modal |
 | **1.0.5** | 2026-09-30 | Model pricing table. Support → Write a message (FormSubmit). Landing page under `site/`. Pace and forecast colors. Six public tabs |
 | **1.0.6** | 2026-10-05 | Site on [cursorcosttracker.com](https://cursorcosttracker.com/). Ukrainian (11th locale). Billing-cycle forecast. Play and Run Optimize into a new Agent chat. List price, cache $ saved, $ / 1k lines, To date, one sample resolver, Optimized filter, Group by conversation (default off), chart day detail and Sample / Last 7 / Month zoom |
+| **1.0.7** | 2026-10-10 | Run Optimize pastes into the open Agent chat. Play opens that conversation and pastes a billing brief that uses the open chat |
 
 Changelog sections live in root `CHANGELOG.md`. Billing-cycle forecast, Ukrainian, and the Ignore-store fix are in **1.0.6**, credited to [@milichev](https://github.com/milichev).
 
@@ -32,7 +33,7 @@ VS Code / Cursor extension. Status bar: Current, Today, Refresh, 1–10 recent q
 
 **Webview sources.** Edit `media/src/` (entry `main.js` → esbuild → `media/history.js`). Charts modules under `media/src/charts/`; Settings under `media/src/tabs/settings.js`.
 
-**Queries table.** Columns TIME, MODEL, COST, TOKENS, INPUT / OUTPUT, KIND. Newest first. Toolbar: **Over Warn at**, **Optimized**, **Group by conversation** (default off), Refresh, Export CSV. A red TOKENS cell (Warn at, default 1M) has **Play**: numbers-only brief for that conversation (or that one query when there is no id) pasted into a **new** Agent chat. The extension does not press Start, does not read prompt text or code, and does not write `.cursor/rules/`. Expand a row for catalog list price (input / output / cache write / cache read) beside billed cost. After Play or Run Optimize, matching rows are remembered in `globalState` `cursorCost.optimizedTargets` (cap 200) and the **Optimized** filter shows them.
+**Queries table.** Columns TIME, MODEL, COST, TOKENS, INPUT / OUTPUT, KIND. Newest first. Toolbar: **Over Warn at**, **Optimized**, **Group by conversation** (default off), Refresh, Export CSV. A red TOKENS cell (Warn at, default 1M) has **Play**: Play opens that conversation (`composer.openComposer` with its id) and pastes a numbers-only brief for that conversation (or that one query when there is no id) into the open chat. The extension does not press Start, does not read prompt text or code, and does not write `.cursor/rules/`. Expand a row for catalog list price (input / output / cache write / cache read) beside billed cost. After Play or Run Optimize, matching rows are remembered in `globalState` `cursorCost.optimizedTargets` (cap 200) and the **Optimized** filter shows them.
 
 **Group by conversation.** `cursorCost.groupQueriesByConversation` (default **false**) is the toolbar switch and the same checkbox under Settings → Recent queries. On: one collapsed row per local chat title, with request count and totals; expand for the same six columns. Chats that share a title (trim, collapsed whitespace, case-insensitive) merge into one row. An id with no local title is labelled `#` plus the first 8 characters. Requests with no conversation id land in **Ungrouped** and do not get a Play brief. Play on a merged-title row targets the conversation id that owns the dearest request. **Over Warn at** and the spike `!` still apply. Export CSV stays flat request rows. Titles come from the local index (`src/usage/conversationTitles.ts`); the extension does not invent groups from time gaps. Payload: `queryGroups` from `src/ui/queryGroups.ts`. Grouping is the queries table only.
 
@@ -40,7 +41,7 @@ VS Code / Cursor extension. Status bar: Current, Today, Refresh, 1–10 recent q
 
 **Charts.** Cumulative or daily token and cost bars. Click a bar for that day’s totals and an expandable query list from the loaded sample. **Sample / Last 7 / Month** filters that series in the webview. The same forecast control, AI vs merged when coding stats are on, then Today / This month / All time mix cards.
 
-**Optimize.** Quick / Balanced (default) / Deep. Toolbar Run Optimize and a card’s Run paste into a **new** Agent chat (`composer.newAgentChat`). They do not paste into the last chat. Projected save stays `0 / 0.00 $` until `.ai/optimize-savings.md` exists. Lifetime credits are mid deltas in `globalState`. Briefs use the same local clock as the queries TIME column, plus a short zone label (`src/time/`).
+**Optimize.** Quick / Balanced (default) / Deep. Toolbar Run Optimize and a card’s Run paste into the **open** Agent chat (`composer.focusComposer`). Play on a conversation row opens that conversation (`composer.openComposer` with its id) and pastes a billing brief that tells the agent to use the open chat. Projected save stays `0 / 0.00 $` until `.ai/optimize-savings.md` exists. Lifetime credits are mid deltas in `globalState`. Briefs use the same local clock as the queries TIME column, plus a short zone label (`src/time/`).
 
 **Support.** Buy Me a Coffee is live. GitHub Sponsors stays hidden until `GITHUB_SPONSORS_URL` is set. Write a message posts to the author through FormSubmit (`src/support/authorMessage.ts`). The session token is not in that POST.
 

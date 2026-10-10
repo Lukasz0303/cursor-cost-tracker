@@ -62,7 +62,7 @@ export class OptimizeRouter {
     const prompt = optimize.prompts[depth] || optimize.prompt
     if (mode === 'chat') {
       const pasted = await openOptimizeChat(prompt, undefined, config.language, {
-        target: 'new',
+        target: 'last',
       })
       if (pasted !== 'clipboard') {
         await this.host.rememberLastRedTarget(config)
@@ -77,7 +77,7 @@ export class OptimizeRouter {
 
   /**
    * Rebuild the conversation brief from the cached sample and paste it into
-   * a new Agent chat. Ignores any prompt text from the webview.
+   * that conversation. Ignores any prompt text from the webview.
    */
   async conversation(
     id: string,
@@ -131,8 +131,10 @@ export class OptimizeRouter {
       creditedUsdMid: credited?.lastUsdMid,
       creditedRun: credited?.lastRun,
     })
+    const composerId = group.id.startsWith('query-') ? '' : group.id
     const pasted = await openOptimizeChat(prompt, undefined, config.language, {
-      target: 'new',
+      target: 'composer',
+      composerId,
     })
     if (pasted === 'clipboard') {
       return

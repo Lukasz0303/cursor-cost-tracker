@@ -266,15 +266,6 @@ function tokenBuckets(queries: readonly UsageQuery[]): string {
   return `input ${formatTokens(input)} · output ${formatTokens(output)} · cache read ${formatTokens(cacheRead)} · cache write ${formatTokens(cacheWrite)}`
 }
 
-function findingId(findings: readonly ConversationFinding[]): ConversationFindingId | null {
-  for (const finding of findings) {
-    if (FINDING_IDS.has(finding.id)) {
-      return finding.id
-    }
-  }
-  return null
-}
-
 function findingsSection(findings: readonly ConversationFinding[]): string[] {
   const lines: string[] = []
   for (const finding of findings) {
@@ -293,82 +284,84 @@ function findingsSection(findings: readonly ConversationFinding[]): string[] {
   if (lines.length === 0) {
     return []
   }
-  return ['## Findings', ...lines, '']
-}
-
-function ruleSection(
-  queryCount: number,
-  finding: ConversationFindingId | null,
-  depth: OptimizeDepth,
-): string[] {
-  if (queryCount < MIN_REQUESTS_FOR_RULE) {
-    return [
-      '## One rule file',
-      `This conversation has ${queryCount} requests, fewer than ${MIN_REQUESTS_FOR_RULE}. Write no rule file, and say why in one line.`,
-      `Still write \`${OPTIMIZE_SAVINGS_FILE}\` for the lifetime total in ## Lifetime savings.`,
-      '',
-    ]
-  }
-  // Quick: only write a rule when a finding already fired for this group.
-  if (depth === 'quick' && finding === null) {
-    return [
-      '## One rule file',
-      'Quick depth: no finding fired for this conversation. Write no rule file.',
-      `Still write \`${OPTIMIZE_SAVINGS_FILE}\` for the lifetime total in ## Lifetime savings.`,
-      '',
-    ]
-  }
-  const slug = finding ?? 'conversation-length'
   return [
-    '## One rule file',
-    `You may create or replace exactly one rule file: \`.cursor/rules/cct-${slug}.mdc\`.`,
-    '- At most 40 lines.',
-    '- Front matter: `alwaysApply: false` and a short `description`. No globs.',
-    '- State a general habit only: start a fresh chat after a long idle gap, do not resume a thread whose cache write dominates, or keep the next similar turn inside one task.',
-    '- Do not quote this chat, do not include the conversation title, and do not name a file from the repo.',
-    '- Do not edit other rules, AGENTS.md, or product code.',
-    '- Do not read the transcript to fill in the rule.',
-    `You must also write \`${OPTIMIZE_SAVINGS_FILE}\` (## Lifetime savings). No other files.`,
+    '## Findings',
+    'Meter hints only. Confirm each one against this chat before you act on it.',
+    ...lines,
     '',
   ]
 }
 
-function introLines(depth: OptimizeDepth, toolLine: string): string[] {
+function ruleSection(queryCount: number, depth: OptimizeDepth): string[] {
+  const short =
+    queryCount < MIN_REQUESTS_FOR_RULE
+      ? `This thread has ${queryCount} billed requests, so the meter sample is thin. Prefer tips in the reply. Write a rule only when this chat shows a habit that will repeat.`
+      : 'Write a rule only for a habit you can point at in this chat.'
+  const scope =
+    depth === 'quick'
+      ? 'At most one tiny rule.'
+      : depth === 'deep'
+        ? 'Add focused rule files for this thread. Do not replace rules that are still good.'
+        : 'Add or tighten one small rule for this thread. Do not replace rules that are still good.'
+  return [
+    '## Rules',
+    short,
+    scope,
+    '- Say what this chat was doing (the kind of ask, the tool loop, the files) in the rule text.',
+    '- Do not write a generic idle-gap, cache-write, or "start a fresh chat" rule unless that is what this thread actually did.',
+    '- At most 40 lines. Front matter: `alwaysApply: false` and a short `description`.',
+    '- Do not edit AGENTS.md or product code. Do not audit the repository.',
+    `You must still write \`${OPTIMIZE_SAVINGS_FILE}\` (## Lifetime savings).`,
+    '',
+  ]
+}
+
+function identityLine(named: boolean, title: string): string {
+  if (!named) {
+    return 'This thread has no stored title. Match it by the work already in this chat and the billing window below. If this chat is empty, stop.'
+  }
+  return `This thread is titled "${title}". If the open chat is clearly a different conversation, stop and name the chat that is open. Do not optimize the wrong thread.`
+}
+
+function introLines(
+  depth: OptimizeDepth,
+  toolLine: string,
+  named: boolean,
+  title: string,
+): string[] {
   const label = optimizeDepthLabel(depth)
+  const shared = [
+    `You are inside this Cursor conversation. The user pressed Play (Optimize ${label}) and this prompt was pasted here.`,
+    "Use this chat's real history: the asks, the files, the repeated turns, and the tool loops. The extension did not attach a transcript dump and did not read the messages.",
+    'The sections below are billing metadata for this same thread. Cite a number when you claim something was expensive. Do not invent quotes, paths, or work that is not in this chat.',
+    identityLine(named, title),
+    'Cache read is cheap, cache write is dear, output is dearest. That is a hint, not the answer. Name the habit in this chat that produced the burn.',
+    'Do not answer with a generic essay about idle gaps, cache write, or starting a fresh chat unless this thread actually did that.',
+    toolLine,
+  ]
   if (depth === 'quick') {
     return [
-      `Cursor conversation brief (Optimize ${label})`,
+      `Cursor conversation (Optimize ${label})`,
       '',
-      'Use only the numbers below. If a figure is missing, say `not in the data`.',
-      'Do not ask what the work was. This extension did not read prompts, messages, or code.',
-      'Lead with the largest dollar item. Keep the answer short.',
-      toolLine,
+      ...shared,
+      'Keep the answer short. Lead with the single habit in this chat that cost the most.',
       '',
     ]
   }
   if (depth === 'deep') {
     return [
-      `Cursor conversation brief (Optimize ${label})`,
+      `Cursor conversation (Optimize ${label})`,
       '',
-      'Use only the numbers below. If a figure is missing, say `not in the data`.',
-      'Do not ask what the work was. This extension did not read prompts, messages, or code.',
-      'Cache read is cheap, cache write is dear, output is dearest. A long thread gets dearer per turn because every turn resends context.',
-      "Do not recommend a cheaper model unless one model is most of this conversation's dollars.",
-      'This is a full playbook for the WHOLE conversation pattern — not a single last-turn tip.',
-      'Lead with the largest dollar item. At most three actions, each citing a number from this brief.',
-      toolLine,
+      ...shared,
+      'This is a playbook for the whole thread, grounded in what this chat actually did — not a single last-turn tip and not a workspace audit.',
       '',
     ]
   }
   return [
-    `Cursor conversation brief (Optimize ${label})`,
+    `Cursor conversation (Optimize ${label})`,
     '',
-    'Use only the numbers below. If a figure is missing, say `not in the data`.',
-    'Do not ask what the work was. This extension did not read prompts, messages, or code.',
-    'Cache read is cheap, cache write is dear, output is dearest. A long thread gets dearer per turn because every turn resends context.',
-    "Do not recommend a cheaper model unless one model is most of this conversation's dollars.",
-    'Lead with the largest dollar item. At most three actions, each citing a number from this brief.',
-    toolLine,
+    ...shared,
+    'Lead with the habit in this chat that cost the most. At most three actions.',
     '',
   ]
 }
@@ -377,46 +370,45 @@ function nextTimeSection(
   depth: OptimizeDepth,
   count: number,
   billed: string,
-  idleExample: string,
-  medianCache: string,
 ): string[] {
+  const evidence = `Billing evidence for this thread: ${count} requests, ${billed}. Use the curve, idle markers, and dearest row only when they match something that happened in this chat.`
   if (depth === 'quick') {
     return [
       '## Next time (Quick)',
-      'Assume the same kind of work starts again. Write at most three bullets. Every bullet must cite a number from this brief.',
-      `- When to open a new chat: ${count} requests · ${billed}.`,
-      `- Where to split: idle example ${idleExample}.`,
-      `- What grew: cache vs median cache read ${medianCache}.`,
+      evidence,
+      'From this chat, not from a template:',
+      '1. At most three bullets on why this thread got expensive. Each bullet names something that happened here (a repeated ask, a file, a tool loop, or a resume) and cites one number.',
+      '2. Three concrete changes to the next message in this chat.',
+      '3. At most one tiny rule for the habit you just named.',
       '',
     ]
   }
   if (depth === 'deep') {
     return [
       '## Diagnosis checklist (Deep)',
-      'Answer each in one line, citing a number from this brief:',
-      `- Was the burn mostly cache write, cache read growth, output, or model mix? (tokens line + models)`,
-      `- Where should this thread have been split? (idle markers / cost curve; example ${idleExample})`,
+      'Answer from this chat. Cite a number only when the messages support it:',
+      '- What did this thread keep re-sending or re-doing?',
+      '- Was the burn input context, tool loops, retries, model choice, or a resume after a gap?',
       `- Which single habit would have prevented most of the ${billed} billed here?`,
-      `- What must stay allowed so quality does not collapse on the next similar conversation?`,
+      '- What must stay allowed so quality does not collapse on the next similar turn?',
       '',
       '## Next time (Deep)',
-      'Assume the same kind of work starts again. This is a whole-conversation playbook.',
-      'Write at most five bullets. Every bullet must cite a number from this brief.',
-      `- When to open a new chat: this brief has ${count} requests and ${billed}.`,
-      `- Where the curve says the thread should have been split: idle example ${idleExample}.`,
-      `- What the numbers say grew: cache write after a gap, or cache read versus this group's median cache read ${medianCache}.`,
-      '- One durable rule focus for the next similar thread (cite the finding id or conversation-length).',
-      '- What to type differently on the very next message after Start (no invented transcript quotes).',
+      'Whole-conversation playbook for this thread. Assume the same kind of work continues here.',
+      evidence,
+      '1. Diagnose the waste in structured sections tied to turns in this chat.',
+      '2. Before/after for the next similar turn (token and dollar ranges you estimate).',
+      '3. What to type on the very next message in this chat. No invented quotes.',
+      '4. Focused rules for the pattern this chat repeated. Do not rewrite the repo.',
       '',
     ]
   }
   return [
     '## Next time',
-    'Assume the same kind of work starts again.',
-    'Write at most five bullets. Every bullet must cite a number from this brief.',
-    `- When to open a new chat: this brief has ${count} requests and ${billed}.`,
-    `- Where the curve says the thread should have been split: idle example ${idleExample}.`,
-    `- What the numbers say grew: cache write after a gap, or cache read versus this group's median cache read ${medianCache}.`,
+    evidence,
+    'From this chat:',
+    '1. Explain the waste pattern of this thread (what was asked, what grew, what was repeated).',
+    '2. A short plan for the rest of this chat: what to stop doing, what to ask in one turn, what not to re-attach.',
+    '3. At most three actions. Each one names a habit from this chat and cites one number.',
     '',
   ]
 }
@@ -476,7 +468,7 @@ function savingsClose(
 
   return [
     '## Lifetime savings',
-    `Also write \`${OPTIMIZE_SAVINGS_FILE}\`. That file is the running Optimize total for this project, separate from the one conversation rule above.`,
+    `Also write \`${OPTIMIZE_SAVINGS_FILE}\`. That file is the running Optimize total for this project, separate from any rule you add for this thread.`,
     ...priorLines,
     'Overwrite that file with this fence (keep project):',
     '',
@@ -488,18 +480,13 @@ function savingsClose(
     '```',
     '',
     'End with (REQUIRED): mid tokens saved, mid USD saved, and project name — same values as the fence (`project`, `tokens_mid`, `usd_mid`).',
-    'Do not summarize a transcript. This brief has no prompt text and no code.',
+    'Estimate the next similar turn in this chat after the habit changes. The extension did not put prompt text or code in this message.',
   ]
 }
 
-function groupMedianCache(queries: readonly UsageQuery[]): string {
-  const value = median(queries.map((query) => query.cacheReadTokens))
-  return value === null ? 'not in the data' : formatTokens(value)
-}
-
 /**
- * Numbers-only brief for one conversation. The extension does not send it.
- * No transcript and no file tree. The agent may write exactly one rule file.
+ * Billing brief pasted into the conversation Play was pressed on.
+ * The extension does not read the transcript. The open chat is the context.
  * Depth mirrors the Optimize tab (Quick / Balanced / Deep); default Balanced.
  */
 export function buildConversationOptimizePrompt(
@@ -521,23 +508,15 @@ export function buildConversationOptimizePrompt(
       ? 'not in the data'
       : `#${top.index} · ${modelName(top.query)} · ${formatTokens(top.query.tokens)} tokens · ${formatDollars(top.query.costUsd)}`
   const markers = idleMarkers(queries)
-  const idleExample =
-    markers[0] === undefined ? 'not in the data' : markers[0]
   const findings = options.findings ?? []
-  const fired = findingId(findings)
   const billed = formatDollars(sumCost(queries))
-  const medianCache = groupMedianCache(queries)
-
-  const skipRuleQuick = depth === 'quick' && (count < MIN_REQUESTS_FOR_RULE || fired === null)
-  const toolLine =
-    count < MIN_REQUESTS_FOR_RULE || skipRuleQuick
-      ? `Do not write a rule file at this depth. You must still write \`${OPTIMIZE_SAVINGS_FILE}\`.`
-      : `Tools are allowed only to write the one rule file in ## One rule file and \`${OPTIMIZE_SAVINGS_FILE}\`. The savings file is required.`
+  const title = promptConversationTitle(group)
+  const toolLine = `Tools may look at this chat to name the waste. Add focused rules for this thread, and you must write \`${OPTIMIZE_SAVINGS_FILE}\`. Do not audit or rewrite the repository.`
 
   const lines = [
-    ...introLines(depth, toolLine),
+    ...introLines(depth, toolLine, group.named, title),
     '## Conversation',
-    `title: ${promptConversationTitle(group)}`,
+    `title: ${title}`,
     `window: ${window}`,
     `requests: ${count}`,
     `billed: ${billed}`,
@@ -568,8 +547,8 @@ export function buildConversationOptimizePrompt(
     ),
     '',
     ...findingsSection(findings),
-    ...nextTimeSection(depth, count, billed, idleExample, medianCache),
-    ...ruleSection(count, fired, depth),
+    ...nextTimeSection(depth, count, billed),
+    ...ruleSection(count, depth),
     ...savingsClose(
       options.projectLabel,
       options.priorMarkdown,

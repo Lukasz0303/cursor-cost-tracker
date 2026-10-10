@@ -16,7 +16,10 @@ vi.mock('vscode', () => ({
   },
 }))
 
-import { openOptimizeChat } from '../src/ui/openOptimizeChat'
+import {
+  openConversationComposer,
+  openOptimizeChat,
+} from '../src/ui/openOptimizeChat'
 import type { OpenOptimizeChatDeps } from '../src/ui/openOptimizeChat'
 
 function mockDeps(
@@ -131,6 +134,83 @@ describe('openOptimizeChat', () => {
       'editor.action.clipboardPasteAction',
     )
     expect(deps.writeClipboard).toHaveBeenLastCalledWith('previous-clip')
+  })
+
+  it('target composer opens that conversation and pastes into it', async () => {
+    const deps = mockDeps([
+      'composer.focusComposer',
+      'composer.openComposer',
+      'composer.newAgentChat',
+    ])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, {
+        target: 'composer',
+        composerId: 'conv-1',
+      }),
+    ).resolves.toBe('composer')
+    expect(deps.executeCommand).toHaveBeenCalledWith(
+      'composer.openComposer',
+      'conv-1',
+    )
+    expect(deps.executeCommand).not.toHaveBeenCalledWith('composer.newAgentChat')
+    expect(deps.executeCommand).not.toHaveBeenCalledWith('composer.focusComposer')
+    expect(deps.executeCommand).toHaveBeenCalledWith(
+      'editor.action.clipboardPasteAction',
+    )
+  })
+
+  it('target composer uses glass open when the editor command is missing', async () => {
+    const deps = mockDeps(['glass.openAgentById'])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, {
+        target: 'composer',
+        composerId: 'conv-9',
+      }),
+    ).resolves.toBe('composer')
+    expect(deps.executeCommand).toHaveBeenCalledWith(
+      'glass.openAgentById',
+      'conv-9',
+    )
+  })
+
+  it('target composer copies to the clipboard when no open command exists', async () => {
+    const deps = mockDeps(['composer.newAgentChat', 'composer.focusComposer'])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, {
+        target: 'composer',
+        composerId: 'conv-1',
+      }),
+    ).resolves.toBe('clipboard')
+    expect(deps.executeCommand).not.toHaveBeenCalled()
+    expect(deps.writeClipboard).toHaveBeenCalledWith('BRIEF')
+  })
+
+  it('target composer copies to the clipboard when the conversation id is missing', async () => {
+    const deps = mockDeps(['composer.openComposer'])
+    await expect(
+      openOptimizeChat('BRIEF', deps, undefined, {
+        target: 'composer',
+        composerId: '   ',
+      }),
+    ).resolves.toBe('clipboard')
+    expect(deps.executeCommand).not.toHaveBeenCalled()
+  })
+
+  it('opens that conversation and focuses the empty input', async () => {
+    const deps = mockDeps(['composer.openComposer', 'composer.newAgentChat'])
+    await expect(openConversationComposer('conv-1', deps)).resolves.toBe(true)
+    expect(deps.executeCommand).toHaveBeenCalledWith(
+      'composer.openComposer',
+      'conv-1',
+      { focusMainInputBox: true },
+    )
+    expect(deps.executeCommand).not.toHaveBeenCalledWith('composer.newAgentChat')
+  })
+
+  it('does not open a chat when the conversation id is missing', async () => {
+    const deps = mockDeps(['composer.openComposer'])
+    await expect(openConversationComposer('  ', deps)).resolves.toBe(false)
+    expect(deps.executeCommand).not.toHaveBeenCalled()
   })
 
   it('target new copies to the clipboard when new Agent chat is missing', async () => {

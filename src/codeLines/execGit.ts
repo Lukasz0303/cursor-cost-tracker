@@ -25,6 +25,7 @@ export function createExecGit(options: {
       timeout: options.timeoutMs,
       maxBuffer: options.maxBuffer,
       encoding: 'utf8',
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
     })
     return { stdout: result.stdout, stderr: result.stderr }
   }

@@ -1,4 +1,4 @@
-import { pickDefaultBranch } from './defaultBranch'
+import { originTrackingRefspec, pickDefaultBranch } from './defaultBranch'
 import {
   createExecGit,
   GIT_COLLECT_MAX_BUFFER,
@@ -137,6 +137,31 @@ async function defaultBranchRef(
   }
 }
 
+/**
+ * Landed lines are read from `origin/<branch>`, not from GitHub.
+ * A remote-tracking ref stays at the last fetch, so a PR already merged
+ * upstream is invisible until that ref moves. Update it first; offline
+ * or a missing remote keeps the previous ref.
+ */
+export async function refreshOriginBranch(
+  cwd: string,
+  branch: string,
+  execGit: NonNullable<RunGitMergedOptions['execGit']>,
+): Promise<void> {
+  const refspec = originTrackingRefspec(branch)
+  if (refspec === null) {
+    return
+  }
+  try {
+    await execGit(
+      ['fetch', '--no-tags', '--quiet', 'origin', refspec],
+      cwd,
+    )
+  } catch {
+    // Keep the last remote-tracking commit.
+  }
+}
+
 function gitIsoBound(ms: number): string {
   return new Date(ms).toISOString()
 }
@@ -244,6 +269,7 @@ async function collectOneGitRepo(
   }
   const { sinceMs, untilMs } = resolveBounds(options)
   const identity = await readGitAuthorIdentity(options.cwd, execGit)
+  await refreshOriginBranch(options.cwd, branch, execGit)
   const branchRef = await defaultBranchRef(options.cwd, branch, execGit)
   const listed = await listBranchAuthors(
     options.cwd,

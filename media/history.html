@@ -56,6 +56,40 @@
             </svg>
           </span>
         </a>
+        <button
+          type="button"
+          class="action-btn toolbar-icon-btn"
+          data-support-link="website"
+          title="Website"
+          aria-label="Website"
+          data-i18n-title="toolbar.website"
+          data-i18n-aria="toolbar.website"
+        >
+          <span class="bar-icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16">
+              <path
+                d="M8 1a7 7 0 1 0 .001 14.001A7 7 0 0 0 8 1zm5.9 6.5h-2.2a11 11 0 0 0-1.2-4.1 6 6 0 0 1 3.4 4.1zM8 2.1c.7.8 1.4 2.4 1.6 4.4H6.4C6.6 4.5 7.3 2.9 8 2.1zM2.1 7.5h2.2a11 11 0 0 1 1.2-4.1 6 6 0 0 0-3.4 4.1zm0 1h2.2a11 11 0 0 0 1.2 4.1 6 6 0 0 1-3.4-4.1zM8 13.9c-.7-.8-1.4-2.4-1.6-4.4h3.2c-.2 2-1 3.6-1.6 4.4zm2.5-.8a11 11 0 0 0 1.2-4.1h2.2a6 6 0 0 1-3.4 4.1z"
+              />
+            </svg>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="action-btn toolbar-icon-btn"
+          data-support-link="repository"
+          title="Repository"
+          aria-label="Repository"
+          data-i18n-title="toolbar.repository"
+          data-i18n-aria="toolbar.repository"
+        >
+          <span class="bar-icon" aria-hidden="true">
+            <svg viewBox="0 0 16 16">
+              <path
+                d="M4.7 5.3 2.1 8l2.6 2.7-.8.8L.5 8l3.4-3.5.8.8zm6.6 0 .8-.8L15.5 8l-3.4 3.5-.8-.8L13.9 8l-2.6-2.7zM9.2 3.2l-1.9 9.4-.9-.2 1.9-9.4.9.2z"
+              />
+            </svg>
+          </span>
+        </button>
         <span class="toolbar-version" title="Installed extension version" data-i18n-title="toolbar.versionTitle">v__EXTENSION_VERSION__</span>
         <button
           type="button"
@@ -174,6 +208,7 @@
             <tr>
               <th data-i18n="queries.time">TIME</th>
               <th data-i18n="queries.model">MODEL</th>
+              <th data-i18n="queries.context">Context</th>
               <th data-i18n="queries.cost">COST</th>
               <th data-i18n="queries.tokens">TOKENS</th>
               <th data-i18n="queries.inputOutput">INPUT / OUTPUT</th>
@@ -836,6 +871,72 @@
       <p class="chart-hint support-footer-note" data-i18n="support.footer">
         Checkout opens in your browser.
       </p>
+
+      <h3 class="support-section-title">
+        <svg class="support-section-icon is-web" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            d="M3.75 12h16.5M12 3.75c2.2 2.5 3.3 5.2 3.3 8.25s-1.1 5.75-3.3 8.25c-2.2-2.5-3.3-5.2-3.3-8.25s1.1-5.75 3.3-8.25Z"
+          />
+        </svg>
+        <span data-i18n="support.linksTitle">On the web</span>
+      </h3>
+      <div class="support-links">
+        <button
+          type="button"
+          class="support-link-card is-website"
+          data-support-link="website"
+          id="supportWebsite"
+          disabled
+          title="Opens in your browser"
+          data-i18n-title="support.opensInBrowser"
+        >
+          <span class="support-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                d="M3.75 12h16.5M12 3.75c2.2 2.5 3.3 5.2 3.3 8.25s-1.1 5.75-3.3 8.25c-2.2-2.5-3.3-5.2-3.3-8.25s1.1-5.75 3.3-8.25Z"
+              />
+            </svg>
+          </span>
+          <span class="support-link-kicker" data-i18n="support.websiteKicker">Website</span>
+          <span class="support-link-host">cursorcosttracker.com</span>
+          <span class="support-link-blurb" data-i18n="support.websiteBlurb">
+            Screenshots, install, and what the tracker shows — the public product page.
+          </span>
+          <span class="support-link-cta" data-i18n="support.websiteCta">Open website</span>
+        </button>
+        <button
+          type="button"
+          class="support-link-card is-repo"
+          data-support-link="repository"
+          id="supportRepository"
+          disabled
+          title="Opens in your browser"
+          data-i18n-title="support.opensInBrowser"
+        >
+          <span class="support-link-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path
+                fill="currentColor"
+                d="M9.4 16.6 4.8 12l4.6-4.6L8 6 2 12l6 6 1.4-1.4Zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4Z"
+              />
+            </svg>
+          </span>
+          <span class="support-link-kicker" data-i18n="support.repoKicker">Repository</span>
+          <span class="support-link-host">github.com/Lukasz0303/cursor-cost-tracker</span>
+          <span class="support-link-blurb" data-i18n="support.repoBlurb">
+            Source, issues, and releases for Cursor Cost Tracker.
+          </span>
+          <span class="support-link-cta" data-i18n="support.repoCta">Open repository</span>
+        </button>
+      </div>
 
       <h3 class="support-section-title">
         <span data-i18n="support.commentsTitle">Comments</span>

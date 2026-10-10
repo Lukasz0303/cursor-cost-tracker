@@ -1130,7 +1130,9 @@ export class PanelSession {
     let catalogSortKey = 'cost'
     let catalogSortDir = 'asc'
     let catalogActiveOnly = true
-    let catalogHideFast = true
+    let catalogHideFast = false
+    let catalogProvider = ''
+    let catalogCollapsedGroups = Object.create(null)
 
     const modelCatalogView = createModelCatalogView({
       get t() { return t },
@@ -1146,6 +1148,10 @@ export class PanelSession {
       set catalogActiveOnly(v) { catalogActiveOnly = v },
       get catalogHideFast() { return catalogHideFast },
       set catalogHideFast(v) { catalogHideFast = v },
+      get catalogProvider() { return catalogProvider },
+      set catalogProvider(v) { catalogProvider = v },
+      get catalogCollapsedGroups() { return catalogCollapsedGroups },
+      set catalogCollapsedGroups(v) { catalogCollapsedGroups = v },
       get lastStatsArgs() { return statsView.args },
       get renderStats() { return statsView.render },
     })

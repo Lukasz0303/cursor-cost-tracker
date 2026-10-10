@@ -66,6 +66,8 @@ export type WebviewMessage =
       timestamp?: number
       depth?: WebviewDepth
     }
+  | { type: 'openConversation'; id: string }
+  | { type: 'summarizeConversation'; id: string }
   | { type: 'setOkColor'; value: unknown }
   | { type: 'setWarnColor'; value: unknown }
   | { type: 'setHistoryLimit'; value: number }
@@ -258,6 +260,9 @@ export function parseWebviewMessage(raw: unknown): WebviewMessage | undefined {
         timestamp: timestampField(raw.timestamp),
         depth: depthField(raw.depth),
       }
+    case 'openConversation':
+    case 'summarizeConversation':
+      return { type, id: stringField(raw, 'id') }
     case 'setHistorySample':
       return {
         type,

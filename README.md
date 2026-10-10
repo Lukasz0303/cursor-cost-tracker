@@ -26,7 +26,7 @@
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.6-blue.svg" alt="Version 1.0.6">
+  <img src="https://img.shields.io/badge/version-1.0.7-blue.svg" alt="Version 1.0.7">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
   <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
@@ -41,7 +41,7 @@
 4. **Optimize** — ready prompts for the last red (**Warn at**) query, or **Play** on one red row. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 
-Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into a new Agent chat — savings appear after you press Start.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start.
 
 The panel has six tabs:
 
@@ -121,7 +121,7 @@ When a query lights up red (**Warn at**, default 1M tokens), **Optimize** builds
 Typical flow:
 
 1. A query goes red on the status bar or in Last N.
-2. **Run Optimize** (toolbar, default depth) pastes into a **new Agent chat** — or open this tab, expand a colored card, preview, and **Run** that depth.
+2. **Run Optimize** (toolbar, default depth) pastes into the **open Agent chat** — or open this tab, expand a colored card, preview, and **Run** that depth.
 3. You press **Start**. After the agent finishes, projected savings land in **`.ai/optimize-savings.md` inside this project only**.
 4. The top card shows **Projected save per similar request** (`0 / 0.00 $` until the first run; then mid tokens / USD, e.g. `~1.6M · ~0.97 $`). Expand it for the explanation and credited totals per project.
 
@@ -189,7 +189,7 @@ Comment, New feature, Bug report, or Other. Nickname and email come from the Cur
 
 ### 17. Play on a red query (1.0.6)
 
-On the queries list, a red TOKENS cell (`!` at or over Warn at) has a play button beside the number. Play pastes a numbers-only brief for that conversation into a new Agent chat and does not press Start. The extension does not read the chat.
+On the queries list, a red TOKENS cell (`!` at or over Warn at) has a play button beside the number. Play opens that conversation and pastes a billing brief there. It does not press Start. The extension does not read the chat; the open thread is the context.
 
 ### 18. Group by conversation (1.0.6)
 
@@ -223,7 +223,7 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Today / 7 days / Month range on the chart | — | Yes |
 | **Optimize** | | |
 | Ready prompt for the last red (Warn at) query | — | Yes |
-| Play on one red query (numbers only, new Agent chat) | — | Yes |
+| Play on one red query (opens that chat) | — | Yes |
 | Quick / Balanced / Deep depths | — | Yes |
 | Projected save in local `.ai/optimize-savings.md` | — | Yes |
 | Never reads the chat transcript | — | Yes |
@@ -277,9 +277,9 @@ Answer two questions without opening cursor.com:
 
 Third product goal: shrink **repeating expensive turns** in this project.
 
-- Targets the **last red query** (tokens ≥ **Warn at** in Settings), not just the newest cheap request. **Play** on a red TOKENS cell pastes a numbers-only brief for that conversation into a **new** Agent chat and does not press Start. Findings also show how many spikes are in the sample and the top cost model (context only).
+- Targets the **last red query** (tokens ≥ **Warn at** in Settings), not just the newest cheap request. **Play** on a red TOKENS cell opens that conversation and pastes a numbers-only brief for that conversation there, and does not press Start. Findings also show how many spikes are in the sample and the top cost model (context only).
 - Three depths: **Quick** (short — why the last turn burned, three next-message tips) / **Balanced** (default — pattern, plan, small rules snippet) / **Deep** (full playbook). Prompts come from usage metadata only (model, tokens, cost). No chat transcript is read by the extension. **Set default** on a card; toolbar **Run Optimize** always pastes that depth.
-- **Run** opens a **new Agent chat** and pastes the prompt; you press Start. Play on a red row does the same.
+- **Run** pastes into the **open Agent chat**; you press Start. Play on a red row opens that conversation and pastes there.
 - After Start, the agent writes projected savings to **`.ai/optimize-savings.md`** in the workspace (including **project** name + mid tokens/USD). The panel shows those numbers as **Projected save per similar request** (`0 / 0.00 $` until the first run). Expand the card for the explanation and credited totals per project (extension `globalState`). Projection file stays **local to the project**; lifetime ledger is global across workspaces.
 
 ### Last N Cursor queries
@@ -379,7 +379,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.6.vsix
+cursor --install-extension cursor-cost-tracker-1.0.7.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -549,7 +549,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.6.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.7.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).

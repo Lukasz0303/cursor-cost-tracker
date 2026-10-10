@@ -1,6 +1,6 @@
 # Tech stack — Cursor Cost Tracker
 
-Updated: 2026-10-05. Mapped to [prd.md](./prd.md). Current tree: **1.0.6**.
+Updated: 2026-10-10. Mapped to [prd.md](./prd.md). Current tree: **1.0.7** (`CHANGELOG.md` opens on 1.0.7; `package.json` still says 1.0.6 until the release bump).
 
 ## 1. Product
 
@@ -44,7 +44,7 @@ Updated: 2026-10-05. Mapped to [prd.md](./prd.md). Current tree: **1.0.6**.
 | Critical alert / Burn Rate Guard | modal once; toasts otherwise | 1.0.2 / 1.0.4 |
 | Model pricing, list price, Play, To date, chart day zoom | Statistics, queries table, Charts | 1.0.5–1.0.6 |
 | Group by conversation | queries toolbar + Settings (default off; CSV stays flat) | 1.0.6 |
-| Run Optimize and Play | new Agent chat | 1.0.6 |
+| Run Optimize and Play | open Agent chat / that conversation | 1.0.7 |
 | Settings | `contributes.configuration` (`cursorCost.*`) | current keys in the PRD §10 |
 | Commands | show history, refresh, open dashboard, open pricing, export CSV | palette |
 | Product site | static `site/` | GitHub Pages, cursorcosttracker.com |

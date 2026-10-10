@@ -7,7 +7,7 @@ Cursor does **not** install from the Microsoft Marketplace. Third-party extensio
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-cursor --install-extension ./cursor-cost-tracker-1.0.6.vsix
+cursor --install-extension ./cursor-cost-tracker-1.0.7.vsix
 ```
 
 Or: Extensions → Install from VSIX.
@@ -26,6 +26,6 @@ Listing requires `displayName`, `repository`, `license: MIT`, `"icon": "icon.png
 
 **README / Details tab:** Open VSX and Cursor show root [`README.md`](../../README.md). Screenshots live in [`screenshots/`](../../screenshots/) and use relative paths (`screenshots/status_bar.png`, …). `vsce` / `ovsx` rewrite those to GitHub raw URLs using `package.json` `repository` — so **`screenshots/` must be on the default branch** before (or with) the publish that should show them. Keep `screenshots/**` out of the VSIX (see `.vscodeignore`); the gallery loads images from GitHub, not from the package.
 
-`package.json` `homepage` is `https://cursorcosttracker.com/` (Open VSX / Cursor publisher verification). The page is `site/`, deployed by `.github/workflows/pages.yml`. Extension CI (`.github/workflows/ci.yml`) typechecks, tests, and builds; it does not publish a VSIX. Current package is `cursor-cost-tracker-1.0.6.vsix`. Root `CHANGELOG.md` opens on **1.0.6** (2026-10-05); there is no Unreleased section.
+`package.json` `homepage` is `https://cursorcosttracker.com/` (Open VSX / Cursor publisher verification). The page is `site/`, deployed by `.github/workflows/pages.yml`. Extension CI (`.github/workflows/ci.yml`) typechecks, tests, and builds; it does not publish a VSIX. Current package is `cursor-cost-tracker-1.0.7.vsix`. Root `CHANGELOG.md` opens on **1.0.7** (2026-10-10); there is no Unreleased section.
 
 Unofficial API: disclaimer in the README. Do not imply this is an official Cursor product.
