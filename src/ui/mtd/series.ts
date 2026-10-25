@@ -43,11 +43,15 @@ export function toMtdSeries(
   const perWorkingDay = paceElapsed > 0 ? total / paceElapsed : null
   const remaining = Math.max(0, weekdayTotal - elapsed)
   const left = ceiling === null ? null : Math.max(0, ceiling - total)
+  const tailPace = frames[frames.length - 1]?.paceCount ?? paceElapsed
+  // A chart clipped at today must not treat today as the end of the cycle.
+  // weekdayTotal is the full cycle, so the estimate does not jump to the cap
+  // on the last visible day.
   const activePaceTotal =
     resetIndex < 0
       ? weekdayTotal
       : activeBranchStartsAtReset
-        ? (frames[frames.length - 1]?.paceCount ?? paceElapsed)
+        ? Math.max(tailPace, weekdayTotal)
         : (frames[resetIndex - 1]?.paceCount ?? paceElapsed)
   const activeRemaining = Math.max(0, activePaceTotal - paceElapsed)
   const paceEnd =
@@ -68,6 +72,46 @@ export function toMtdSeries(
   const ideal: (number | null)[] = []
   const resetPaceCount =
     resetIndex >= 0 ? (frames[resetIndex]?.paceCount ?? 0) : 0
+  const segmentScale = new Map<number, number | null>()
+  const segmentStartAt = (index: number): number => {
+    let start = 0
+    for (let i = 1; i <= index; i++) {
+      if (frames[i]?.reset) {
+        start = i
+      }
+    }
+    return start
+  }
+  const scaleAt = (index: number): number | null => {
+    const start = segmentStartAt(index)
+    const cached = segmentScale.get(start)
+    if (cached !== undefined) {
+      return cached
+    }
+    if (start === activeStart) {
+      segmentScale.set(start, scale)
+      return scale
+    }
+    if (start > activeStart || scale === null) {
+      segmentScale.set(start, null)
+      return null
+    }
+    let branchSpent = 0
+    for (let i = start; i < frames.length; i++) {
+      if (i > start && frames[i]?.reset) {
+        break
+      }
+      const frame = frames[i]
+      if (frame !== undefined && !frame.future) {
+        branchSpent += frame.usd
+      }
+    }
+    const cap = ceiling ?? 100
+    const ratio = branchSpent * scale
+    const value = branchSpent > 0 ? Math.min(cap, Math.max(0, ratio)) / branchSpent : null
+    segmentScale.set(start, value)
+    return value
+  }
   let running = 0
   let prevPace: number | null = null
   for (let i = 0; i < frames.length; i++) {
@@ -82,12 +126,17 @@ export function toMtdSeries(
       if (frame.reset) {
         running = 0
       }
+      const branchScale = scaleAt(i)
       const value =
-        scale !== null
-          ? frame.usd * scale
-          : perWorkingDay !== null && frame.workingDayIndex !== null
+        branchScale !== null
+          ? frame.usd * branchScale
+          : i >= activeStart &&
+              perWorkingDay !== null &&
+              frame.workingDayIndex !== null
             ? perWorkingDay
-            : frame.usd
+            : i >= activeStart
+              ? frame.usd
+              : 0
       running += value
       day.push(value)
       used.push(running)
@@ -121,6 +170,34 @@ export function toMtdSeries(
       forecastValue =
         total +
         ((left ?? 0) * (frame.paceCount - paceElapsed)) / activeRemaining
+    }
+    if (i < activeStart && !frame.future) {
+      const branchScale = scaleAt(i)
+      let paceDays = 0
+      const start = segmentStartAt(i)
+      for (let j = start; j < frames.length; j++) {
+        if (j > start && frames[j]?.reset) {
+          break
+        }
+        const earlier = frames[j]
+        if (earlier !== undefined && earlier.paceCount > paceDays) {
+          paceDays = earlier.paceCount
+        }
+      }
+      let branchSpent = 0
+      for (let j = start; j < frames.length; j++) {
+        if (j > start && frames[j]?.reset) {
+          break
+        }
+        const earlier = frames[j]
+        if (earlier !== undefined && !earlier.future) {
+          branchSpent += earlier.usd
+        }
+      }
+      const closing =
+        branchScale !== null && branchSpent > 0 ? branchScale * branchSpent : 0
+      forecastValue =
+        paceDays > 0 ? (frame.paceCount * closing) / paceDays : null
     }
     // At reset: vertical drop from the prior cumulative to 0 (new cycle).
     if (frame.reset && prevPace !== null) {

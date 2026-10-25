@@ -1,0 +1,15 @@
+---
+description: After any shippable edit, rebuild the VSIX for the package.json version in the same turn
+alwaysApply: true
+---
+
+# Package the current version
+
+The file the user installs is `cursor-cost-tracker-<version>.vsix`. `npm run build` only refreshes `dist/extension.js` and `media/history.js`. It does not update the VSIX.
+
+- A turn that edits anything shipped in the VSIX (`src/**`, `media/**`, `package.json`, the icon) ends with one `npm run package`. Do not stop after `npm run build`. Do not tell the user to package later.
+- One Shell, `required_permissions: ["all"]`. The script builds, then `vsce package` names the file from `package.json`. Do not retry it in the sandbox and do not diagnose `cpus=0`.
+- `<version>` is `package.json` `"version"`. The last `CHANGELOG.md` release is the previous ship. Today that is **1.0.7**, so the working tree and the VSIX are **1.0.8**.
+- If the last changelog release is not 1.0.7, still package `package.json`. That version is the next one after the last release. Do not pick a version by sorting git tags (`v1.1.6` and `v1.0.6` point at the wrong commits).
+- Do not bump `package.json` while packaging unless the user asked for a bump and the version still equals the last changelog release.
+- This overrides “package in a later message” in the optimize-* rules. Those rules still limit how much product work goes in one turn. They do not skip the VSIX once the turn has edited shippable source. A docs-only or question-only turn does not package.

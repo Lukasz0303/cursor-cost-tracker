@@ -17,6 +17,6 @@ For this repo, multi-million-token turns usually come from **volume** (long Agen
 - Landing page already in this chat (“wygląda słabo”, preview died) is not another Agent loop — [optimize-site-preview.mdc](./optimize-site-preview.mdc) (new chat, ≤2 `site/` files, no PNG reads, no server restarts).
 - “Continue” / “kontynuj” after `!` is **not** a full leftover pass — follow [optimize-continue-after-warn.mdc](./optimize-continue-after-warn.mdc) (new chat or ≤5 paths / one section).
 - For MINOR “implement the plan” asks: follow [optimize-split-minor-features.mdc](./optimize-split-minor-features.mdc) — core+tests → UI wire → docs in separate turns.
-- Plan chat then “build the feature”: one phase per message — [optimize-plan-then-build.mdc](./optimize-plan-then-build.mdc). Do not ship all locales or VSIX in that same turn.
+- Plan chat then “build the feature”: one phase per message — [optimize-plan-then-build.mdc](./optimize-plan-then-build.mdc). Do not ship all locales in that same turn. Still package the VSIX before the turn ends — [package-current-version.mdc](./package-current-version.mdc).
 - For “did the alarm fire?” / burn-rate “stuck at $0” triage: follow [optimize-bug-triage.mdc](./optimize-bug-triage.mdc) — Ask first; Agent only on named hot-path files.
 - For `npm run package` / `vsce`: one Shell with `all` permissions first — do not diagnose sandbox (`cpus=0`) with extra reads/help loops.

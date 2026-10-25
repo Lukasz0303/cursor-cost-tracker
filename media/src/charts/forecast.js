@@ -15,6 +15,7 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   const formatMtdAmount = h.formatMtdAmount
   const compactPercent = h.compactPercent
   const compactCost = h.compactCost
+  const daily = h.mtdBarMode() === 'daily'
   clearSvg(svg)
   const width = 800
   const height = 280
@@ -58,10 +59,16 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   for (let i = 0; i < rawSeries.length; i++) {
     lines.push({
       label: String(rawSeries[i].label || t('mtd.used')),
-      tone: 'is-s' + (i % 4),
+      tone:
+        'is-s' +
+        ((Number.isFinite(Number(rawSeries[i].toneIndex))
+          ? Number(rawSeries[i].toneIndex)
+          : i) %
+          4),
       day: numbersOrNull(rawSeries[i].day),
       used: numbersOrNull(rawSeries[i].used),
       forecast: numbersOrNull(rawSeries[i].forecast),
+      forecastDay: numbersOrNull(rawSeries[i].forecastDay),
       ideal: numbersOrNull(rawSeries[i].ideal),
       runOutDate:
         rawSeries[i].runOutDate === null ||
@@ -84,13 +91,34 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
 
   let dataMax = 0
   for (let i = 0; i < lines.length; i++) {
-    dataMax = Math.max(
-      dataMax,
-      numericMax(lines[i].used),
-      numericMax(lines[i].forecast),
-    )
+    if (daily) {
+      dataMax = Math.max(
+        dataMax,
+        numericMax(lines[i].day),
+        numericMax(lines[i].forecastDay),
+      )
+    } else {
+      dataMax = Math.max(
+        dataMax,
+        numericMax(lines[i].used),
+        numericMax(lines[i].forecast),
+      )
+    }
   }
-  const capped = typeof max === 'number' && Number.isFinite(max) && max > 0
+  if (daily) {
+    for (let i = 0; i < points.length; i++) {
+      const allowance = points[i] && points[i].dayAllowanceUsd
+      if (
+        allowance !== null &&
+        allowance !== undefined &&
+        Number.isFinite(Number(allowance))
+      ) {
+        dataMax = Math.max(dataMax, Number(allowance))
+      }
+    }
+  }
+  const capped =
+    !daily && typeof max === 'number' && Number.isFinite(max) && max > 0
   const maxCum = capped ? max : niceMax(dataMax)
   const ticks = 4
   for (let t = 0; t <= ticks; t++) {
@@ -123,12 +151,14 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   const inner = Math.max(2, barW * 0.74)
   for (let i = 0; i < points.length; i++) {
     const cx = pointX(i, points.length, left, plotW)
+    const allowanceKey = daily ? 'dayAllowanceUsd' : 'allowanceUsd'
+    const rawPlan = points[i] && points[i][allowanceKey]
     const plan =
-      points[i] && points[i].allowanceUsd !== null && points[i].allowanceUsd !== undefined
-        ? Number(points[i].allowanceUsd)
+      rawPlan !== null && rawPlan !== undefined && Number.isFinite(Number(rawPlan))
+        ? Number(rawPlan)
         : null
     for (let s = 0; s < lines.length; s++) {
-      const usedVal = lines[s].used[i]
+      const usedVal = daily ? lines[s].day[i] : lines[s].used[i]
       if (usedVal === null || usedVal === undefined || !(usedVal > 0)) {
         continue
       }
@@ -184,29 +214,44 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
     }
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    appendLine(
-      svg,
-      lines[i].forecast,
-      maxCum,
-      left,
-      plotW,
-      top,
-      plotH,
-      'chart-line is-forecast ' + lines[i].tone,
-    )
-  }
-  for (let i = 0; i < lines.length; i++) {
-    appendLine(
-      svg,
-      lines[i].used,
-      maxCum,
-      left,
-      plotW,
-      top,
-      plotH,
-      'chart-line ' + lines[i].tone,
-    )
+  if (daily) {
+    for (let i = 0; i < lines.length; i++) {
+      appendLine(
+        svg,
+        lines[i].forecastDay,
+        maxCum,
+        left,
+        plotW,
+        top,
+        plotH,
+        'chart-line is-forecast ' + lines[i].tone,
+      )
+    }
+  } else {
+    for (let i = 0; i < lines.length; i++) {
+      appendLine(
+        svg,
+        lines[i].forecast,
+        maxCum,
+        left,
+        plotW,
+        top,
+        plotH,
+        'chart-line is-forecast ' + lines[i].tone,
+      )
+    }
+    for (let i = 0; i < lines.length; i++) {
+      appendLine(
+        svg,
+        lines[i].used,
+        maxCum,
+        left,
+        plotW,
+        top,
+        plotH,
+        'chart-line ' + lines[i].tone,
+      )
+    }
   }
 
   if (todayIdx >= 0) {
@@ -225,19 +270,20 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   const lastIdx = points.length - 1
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (todayIdx >= 0 && line.used[todayIdx] !== null) {
+    const todayValue = daily ? line.day[todayIdx] : line.used[todayIdx]
+    if (todayIdx >= 0 && todayValue !== null && todayValue !== undefined) {
       svg.appendChild(
         svgNode('circle', {
           class: 'chart-dot ' + line.tone,
           cx: String(pointX(todayIdx, points.length, left, plotW)),
           cy: String(
-            yAt(Math.min(line.used[todayIdx], maxCum), maxCum, top, plotH),
+            yAt(Math.min(todayValue, maxCum), maxCum, top, plotH),
           ),
           r: '3',
         }),
       )
     }
-    if (line.runOutDate) {
+    if (!daily && line.runOutDate) {
       let runIdx = -1
       for (let p = 0; p < points.length; p++) {
         if (points[p].date === line.runOutDate) {
@@ -274,7 +320,7 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
         setText(label, t('charts.out', { date: line.runOutDate }))
         svg.appendChild(label)
       }
-    } else {
+    } else if (!daily) {
       const raw = line.forecast[lastIdx]
       // Handle reset array [high, low] - use the low value
       const end = Array.isArray(raw) ? raw[1] : raw
@@ -284,6 +330,35 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
             class: 'chart-dot is-forecast ' + line.tone,
             cx: String(pointX(lastIdx, points.length, left, plotW)),
             cy: String(yAt(end, maxCum, top, plotH)),
+            r: '3',
+          }),
+        )
+      }
+    }
+  }
+
+  if (!daily) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const values = line.used
+      for (let p = 0; p < values.length; p++) {
+        const sample = values[p]
+        if (sample === null || sample === undefined || !Number.isFinite(Number(sample))) {
+          continue
+        }
+        const prev = p > 0 ? values[p - 1] : null
+        const next = p + 1 < values.length ? values[p + 1] : null
+        const joined =
+          (prev !== null && prev !== undefined && Number.isFinite(Number(prev))) ||
+          (next !== null && next !== undefined && Number.isFinite(Number(next)))
+        if (joined || p === todayIdx) {
+          continue
+        }
+        svg.appendChild(
+          svgNode('circle', {
+            class: 'chart-dot ' + line.tone,
+            cx: String(pointX(p, points.length, left, plotW)),
+            cy: String(yAt(Math.min(Number(sample), maxCum), maxCum, top, plotH)),
             r: '3',
           }),
         )

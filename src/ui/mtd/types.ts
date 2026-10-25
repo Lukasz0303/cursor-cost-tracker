@@ -56,6 +56,17 @@ export type MtdSeries = {
   runOutLabel: string
 }
 
+export type MtdFocusView = {
+  pool: 'all' | 'cursor' | 'other'
+  body: string
+  overPace: boolean
+  verdict: MtdVerdict
+  bars: PeriodBar[]
+  metrics: PeriodMetric[]
+  /** Lines the chart draws for this switch. `all` is the mean of the pools. */
+  series: MtdSeries[]
+}
+
 export type MtdPacePayload = {
   title: string
   /** Kept for layout compatibility; UI no longer shows a hero verdict. */
@@ -63,6 +74,8 @@ export type MtdPacePayload = {
   body: string
   bars: PeriodBar[]
   metrics: PeriodMetric[]
+  /** Per-quota slices for the Pro series switch. Absent on dollar plans. */
+  views?: MtdFocusView[]
   overPace: boolean
   verdict: MtdVerdict
   unit: MtdUnit

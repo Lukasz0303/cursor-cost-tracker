@@ -10,8 +10,14 @@ import {
   applyBudgetDayBasis,
   stripModelPrefix,
   sumMonthUsedUsd,
+  sumTodayUsedUsd,
 } from '../usage/parse'
-import type { UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
+import type { IncludedQuota, UsageQuery, UsageReady, UsageSnapshot } from '../usage/types'
+import {
+  includedPoolForModel,
+  includedPoolForQuotaName,
+} from '../includedPool/modelPool'
+import type { ForecastSeriesFocus } from './forecastSeriesFocus'
 import { buildBudgetTooltipMarkdown } from './statusBarTooltip'
 import { evaluateBurnRate } from '../burnRate/detect'
 import { formatPaceLabel, formatBurnSummary } from '../burnRate/copy'
@@ -94,12 +100,58 @@ function joinTooltip(parts: Array<string | null | undefined>): string {
   return parts.filter((part): part is string => Boolean(part && part.trim())).join(' · ')
 }
 
-function includedQuotaTooltip(data: UsageReady, locale = DEFAULT_LOCALE): string {
+function focusedQuotas(
+  quotas: IncludedQuota[],
+  focus: ForecastSeriesFocus,
+): IncludedQuota[] {
+  if (focus === 'all') {
+    return quotas
+  }
+  const matched = quotas.filter(
+    (quota) => includedPoolForQuotaName(quota.name) === focus,
+  )
+  return matched.length > 0 ? matched : quotas
+}
+
+function focusedQueries(
+  queries: UsageQuery[],
+  focus: ForecastSeriesFocus,
+): UsageQuery[] {
+  if (focus === 'all') {
+    return queries
+  }
+  return queries.filter((query) => includedPoolForModel(query.model) === focus)
+}
+
+function proTodaySpend(
+  data: UsageReady,
+  now: Date,
+  focus: ForecastSeriesFocus,
+): { todayUsd: number; monthUsd: number } {
+  if (focus === 'all') {
+    const todayUsd = data.todayUsedUsd ?? 0
+    return {
+      todayUsd,
+      monthUsd: Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd),
+    }
+  }
+  const queries = focusedQueries(data.recentQueries, focus)
+  const todayUsd = sumTodayUsedUsd(queries, now)
+  return {
+    todayUsd,
+    monthUsd: Math.max(sumMonthUsedUsd(queries, now), todayUsd),
+  }
+}
+
+function includedQuotaTooltip(
+  quotas: IncludedQuota[],
+  locale = DEFAULT_LOCALE,
+): string {
   const copy = catalogFor(locale).statusBar
-  if (data.includedQuotas.length === 0) {
+  if (quotas.length === 0) {
     return copy.includedUsage
   }
-  return data.includedQuotas
+  return quotas
     .map((quota) =>
       interpolate(copy.quotaUsed, {
         name: quota.name,
@@ -109,16 +161,22 @@ function includedQuotaTooltip(data: UsageReady, locale = DEFAULT_LOCALE): string
     .join(' · ')
 }
 
-function currentTooltip(data: UsageReady, locale = DEFAULT_LOCALE): string {
+function currentTooltip(
+  data: UsageReady,
+  locale = DEFAULT_LOCALE,
+  focus: ForecastSeriesFocus = 'cursor',
+): string {
   const copy = catalogFor(locale).statusBar
   if (data.spendDisplay === 'percent') {
+    const quotas = focusedQuotas(data.includedQuotas, focus)
+    const quotaText = includedQuotaTooltip(quotas, locale)
     const text = joinTooltip([
       data.email,
       data.plan,
       cycleEndLabel(data.billingCycleEnd, locale),
-      includedQuotaTooltip(data, locale),
+      quotaText,
     ])
-    return text === '' ? includedQuotaTooltip(data, locale) : text
+    return text === '' ? quotaText : text
   }
 
   const text = joinTooltip([
@@ -144,12 +202,18 @@ function todayTooltip(data: UsageReady, config: CursorCostConfig): string {
   return interpolate(copy.todayVsDays, { unit, days })
 }
 
-function currentText(data: UsageReady, locale = DEFAULT_LOCALE): string {
+function currentText(
+  data: UsageReady,
+  locale = DEFAULT_LOCALE,
+  focus: ForecastSeriesFocus = 'cursor',
+): string {
   if (data.isUnlimited) {
     return `$(credit-card) ${catalogFor(locale).statusBar.unlimited}`
   }
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
-    const averaged = proCurrentStatusText(data.includedQuotas)
+    const averaged = proCurrentStatusText(
+      focusedQuotas(data.includedQuotas, focus),
+    )
     if (averaged !== null) {
       return `$(credit-card) ${averaged}`
     }
@@ -176,14 +240,14 @@ function todayText(
   data: UsageReady,
   now: Date,
   budgetDayBasis: CursorCostConfig['budgetDayBasis'],
+  focus: ForecastSeriesFocus = 'cursor',
 ): string {
   if (isPercentPlan(data) && data.includedQuotas.length > 0) {
-    const todayUsd = data.todayUsedUsd ?? 0
-    const monthUsd = Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd)
+    const spend = proTodaySpend(data, now, focus)
     const averaged = proTodayStatusText(
-      data.includedQuotas,
-      todayUsd,
-      monthUsd,
+      focusedQuotas(data.includedQuotas, focus),
+      spend.todayUsd,
+      spend.monthUsd,
       dailyPacePercent(now, budgetDayBasis),
     )
     if (averaged !== null) {
@@ -201,6 +265,7 @@ function todayTone(
   data: UsageReady,
   now: Date,
   config: CursorCostConfig,
+  focus: ForecastSeriesFocus = 'cursor',
 ): SpendTone {
   const burn = evaluateBurnRate({
     queries: data.recentQueries,
@@ -215,9 +280,12 @@ function todayTone(
     return 'red'
   }
   if (isPercentPlan(data) && data.includedQuotas.length > 0) {
-    const todayUsd = data.todayUsedUsd ?? 0
-    const monthUsd = Math.max(sumMonthUsedUsd(data.recentQueries, now), todayUsd)
-    const avg = averageTodayPercent(data.includedQuotas, todayUsd, monthUsd)
+    const spend = proTodaySpend(data, now, focus)
+    const avg = averageTodayPercent(
+      focusedQuotas(data.includedQuotas, focus),
+      spend.todayUsd,
+      spend.monthUsd,
+    )
     const pace = dailyPacePercent(now, config.budgetDayBasis)
     if (avg === null || pace === null) {
       return 'green'
@@ -344,6 +412,7 @@ export function toStatusBarView(
   config: CursorCostConfig,
   refreshing = false,
   now: Date = new Date(),
+  focus: ForecastSeriesFocus = 'cursor',
 ): StatusBarView {
   const spinning = refreshing || snapshot.status === 'loading'
   const refresh = refreshItem(config, spinning)
@@ -402,17 +471,17 @@ export function toStatusBarView(
     {
       current: {
         visible: true,
-        text: currentText(data, config.language),
-        tooltip: currentTooltip(data, config.language),
+        text: currentText(data, config.language, focus),
+        tooltip: currentTooltip(data, config.language, focus),
         tone: currentTone(data),
         command: showHistoryCommand('stats', copy.showStats),
         accessibility: copy.currentAria,
       },
       today: {
         visible: todayVisible,
-        text: todayText(data, now, config.budgetDayBasis),
+        text: todayText(data, now, config.budgetDayBasis, focus),
         tooltip: todayTooltip(data, config),
-        tone: todayTone(data, now, config),
+        tone: todayTone(data, now, config, focus),
         command: showHistoryCommand('stats', copy.showStats),
         accessibility: copy.todayAria,
       },
@@ -493,6 +562,7 @@ export function toBudgetStatusItem(
   snapshot: UsageSnapshot,
   config: CursorCostConfig,
   now: Date = new Date(),
+  focus: ForecastSeriesFocus = 'cursor',
 ): StatusBarItemView {
   const parts = config.minimalMode ? [view.current] : [view.current, view.today]
   const item = joinStatusParts(parts, 'Cursor cost current and today', config.language)
@@ -507,6 +577,7 @@ export function toBudgetStatusItem(
       now,
       burnTooltipLine(data, config, now),
       config.language,
+      focus,
     ),
     tooltipMarkdown: true,
   }

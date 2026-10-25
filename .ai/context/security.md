@@ -7,6 +7,9 @@
 - **Forbidden:** `console.log` / output channel with token, cookie, JWT, or `sub`.
 - **Forbidden:** `postMessage` with token or raw cookie.
 - Webview: serialized rows (time, model, cost, tokens, kind, list price, numbers-only briefs, group labels). Chart day lists are that same loaded sample. No prompt text and no code.
+- Codex rows are the same kind of metadata (time, model, tokens, estimate). Rollout prompt text and tool output are not posted. The imported copy lives in extension global storage. Delete removes that copy only. Codex files are not uploaded.
+- The billed-spend donut posts aggregates only (label, dollars, query count, share) plus the sample’s date range and counts, and the credited Optimize total. It does not add the session cookie, the account email, or prompt text. Grade buckets are a local settings string (`cursorCost.spendMixBuckets`): length-capped `JSON.parse`, then Zod. No `eval`, no network. Invalid JSON keeps the last good list.
+- An OpenAI organization admin key, when the user connects Web, stays in Secret Storage. It is not a `cursorCost.*` setting, not in the webview, and not in logs. The source picker does not offer OpenAI API; a stored `openai-api` value is still accepted. The check calls `api.openai.com` and does not store usage buckets. A local JSONL path is a setting; this version does not import that file into the query table.
 - Composer titles and AI line totals come from local index keys and composer headers. Message `text` is not read. A grouped row label is that title, `#` plus eight id characters, or the Ungrouped bucket.
 
 ## SQLite
@@ -23,6 +26,7 @@
 ## Network
 
 - Usage and analytics: `cursor.com` only, with the session cookie, 15 s timeout.
+- OpenAI admin-key check: `api.openai.com` organization usage, only after the user connects. No product telemetry. Codex list prices are local.
 - Model prices: public Cursor docs markdown. No cookie.
 - Support → Write a message: `POST` to FormSubmit with nickname, topic, body, consent, and the account email. The session token is not in that body. The mail app stays closed.
 - No product telemetry.

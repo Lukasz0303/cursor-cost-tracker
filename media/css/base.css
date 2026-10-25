@@ -2164,3 +2164,84 @@ button.model-catalog-groups-toggle:focus-visible {
   white-space: nowrap;
 }/* cct-order: 783 */
 
+
+body.is-booting .toolbar {
+  position: relative;
+  z-index: 50;
+}/* cct-order: 784 */
+
+
+.boot-wait {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+}/* cct-order: 785 */
+
+
+.boot-wait[hidden] {
+  display: none !important;
+}/* cct-order: 786 */
+
+
+.boot-wait-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 24rem;
+  padding: 1.35rem 1.5rem 1.2rem;
+  text-align: center;
+  border: 1px solid var(--ctl-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--ctl-grad-top), var(--ctl-grad-bot)),
+    var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  box-shadow: inset 0 1px 0 var(--ctl-shine);
+}/* cct-order: 787 */
+
+
+.boot-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-bottom: 0.35rem;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+  border-top-color: var(--vscode-foreground);
+  animation: boot-spin 0.8s linear infinite;
+}/* cct-order: 788 */
+
+
+.boot-wait-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}/* cct-order: 789 */
+
+
+.boot-wait-hint {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: var(--vscode-font-size);
+}/* cct-order: 790 */
+
+
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}/* cct-order: 791 */
+
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-spinner {
+    animation: none;
+    border-top-color: var(--vscode-foreground);
+    opacity: 0.85;
+  }
+}/* cct-order: 792 */
+

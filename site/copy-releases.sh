@@ -51,9 +51,18 @@ for entry in os.listdir(src):
     images.sort(key=lambda item: item[0])
     if not images:
         continue
+    names = [name for _, name in images]
+    captions = {}
+    captions_path = os.path.join(path, "captions.json")
+    if os.path.isfile(captions_path):
+        with open(captions_path, encoding="utf-8") as handle:
+            loaded = json.load(handle)
+        if isinstance(loaded, dict):
+            captions = loaded
     releases.append({
         "version": entry,
-        "images": [name for _, name in images],
+        "images": names,
+        "captions": [captions.get(name) or "" for name in names],
     })
 
 releases.sort(key=lambda item: parse_version(item["version"]), reverse=True)

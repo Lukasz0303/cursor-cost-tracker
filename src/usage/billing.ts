@@ -15,7 +15,9 @@ import {
 import {
   isUnlimited,
   pickUsagePool,
+  readDollarQuotaBoard,
   readIncludedQuotas,
+  readQuotaBoard,
   spendDisplayFor,
 } from './pools'
 import { mapEventsPayload } from './events'
@@ -214,10 +216,14 @@ export function buildUsageReady(input: BuildUsageReadyInput): UsageReady {
   )
   const plan = membershipPlan(input.summary)
   const spendDisplay = spendDisplayFor(input.summary, plan)
-  // Team / Business / Enterprise pace on dollars. Drop included-quota percents
-  // even if the summary still carries Pro-style autoPercentUsed fields.
+  // Team / Business / Enterprise pace on dollars. The quota card uses that
+  // dollar pool. Pro Auto/API percents stay off even if the summary has them.
   const includedQuotas =
     spendDisplay === 'percent' ? readIncludedQuotas(input.summary) : []
+  const quotaBoard =
+    spendDisplay === 'percent'
+      ? readQuotaBoard(input.summary)
+      : readDollarQuotaBoard(input.summary)
   const pools = readBillingPoolLines(input.summary, plan)
 
   return {
@@ -225,6 +231,7 @@ export function buildUsageReady(input: BuildUsageReadyInput): UsageReady {
     plan,
     spendDisplay,
     includedQuotas,
+    quotaBoard,
     usedUsd,
     limitUsd,
     remainingUsd,

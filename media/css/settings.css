@@ -508,3 +508,40 @@
   color: var(--vscode-foreground);
   font-variant-numeric: tabular-nums;
 }
+
+.settings-spend-mix-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.85rem 0.95rem 0.95rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.4rem),
+    var(--card-fill);
+}/* cct-order: 606 */
+
+.settings-spend-mix-card > summary {
+  cursor: pointer;
+}/* cct-order: 607 */
+
+.settings-spend-mix textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 9rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 6px;
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: var(--vscode-editor-font-size, 12px);
+}/* cct-order: 608 */
+
+.settings-spend-mix-error {
+  color: var(--vscode-errorForeground);
+}/* cct-order: 609 */

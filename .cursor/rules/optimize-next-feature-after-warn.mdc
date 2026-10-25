@@ -16,7 +16,7 @@ This chat burned **~3.6M tokens / 2.55 $** (`grok-4.6-high`, cache **88%**) by s
 
 ## Still allowed
 
-- User names **only** VSIX / `npm run package` (one Shell `all`, no extra reads).
+- A package-only ask is one Shell `all`, no extra reads. A turn that already edited shippable source still packages before it ends — [package-current-version.mdc](./package-current-version.mdc).
 - Finish the **already-open** named leftover (≤5 paths, one section).
 - Quality of the current slice if the ask is still that same leftover.
 
@@ -24,5 +24,5 @@ This chat burned **~3.6M tokens / 2.55 $** (`grok-4.6-high`, cache **88%**) by s
 
 - [ ] New Composer chat after `!` for the next git/coding-stats feature
 - [ ] Goal + ≤5 paths; no “and also polyrepo while we’re here”
-- [ ] Package in its own message if they want VSIX
+- [ ] The VSIX is rebuilt in the same turn when source changed — [package-current-version.mdc](./package-current-version.mdc)
 - [ ] Optimize Deep in a **new** chat, not this one

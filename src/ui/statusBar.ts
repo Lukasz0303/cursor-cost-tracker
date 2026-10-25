@@ -9,6 +9,10 @@ import {
 } from '../config'
 import type { UsageService } from '../usage/service'
 import {
+  forecastSeriesFocus,
+  onDidChangeForecastSeriesFocus,
+} from './forecastSeriesFocus'
+import {
   RECENT_STATUS_SLOTS,
   toBudgetStatusItem,
   toStatusBarView,
@@ -124,6 +128,9 @@ export class StatusBarController implements vscode.Disposable {
       vscode.window.onDidChangeActiveColorTheme(() => {
         this.render()
       }),
+      onDidChangeForecastSeriesFocus(() => {
+        this.render()
+      }),
     )
     this.render()
   }
@@ -143,14 +150,18 @@ export class StatusBarController implements vscode.Disposable {
       colorSchemeFromKind(vscode.window.activeColorTheme.kind),
     )
     const painted = { ...config, ...colors }
+    const focus = forecastSeriesFocus()
+    const now = new Date()
     const view = toStatusBarView(
       this.service.getSnapshot(),
       painted,
       this.service.isRefreshing(),
+      now,
+      focus,
     )
     applyItem(
       this.budget,
-      toBudgetStatusItem(view, this.service.getSnapshot(), painted),
+      toBudgetStatusItem(view, this.service.getSnapshot(), painted, now, focus),
       painted,
     )
     applyItem(this.refresh, view.refresh, painted)

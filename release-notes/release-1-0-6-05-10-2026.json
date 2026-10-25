@@ -1,0 +1,45 @@
+{
+  "version": "1.0.6",
+  "date": "2026-10-05",
+  "gitTag": "v1.0.6",
+  "title": "Release notes — Cursor Cost Tracker (1.0.6)",
+  "intro": "Play on a red query, group-by-conversation, chart day detail, list-price makeup, a shared From–To sample, billing-cycle forecast, and Ukrainian.",
+  "sections": [
+    {
+      "name": "New features",
+      "items": [
+        "**Official website** — product page at cursorcosttracker.com (Cloudflare DNS → GitHub Pages). Open VSX install links stay on the site. `package.json` homepage points there for publisher verification.",
+        "**Play on a red query** — a red TOKENS cell (`!` at or over Warn at) has a play button. Play pastes a numbers-only brief into a new Agent chat and does not press Start. The extension does not read the transcript and does not write `.cursor/rules/`.",
+        "**Group by conversation** — queries toolbar switch, default off, also under Settings → Recent queries (`cursorCost.groupQueriesByConversation`). One collapsible row per local chat title; shared titles merge. No title shows `#` plus the first 8 characters. Requests without a conversation id land in Ungrouped. Play on a merged title uses the conversation that owns the dearest request. Export CSV stays a flat request list.",
+        "**Chart day** — click a daily tokens or cost bar for that day’s totals and an expandable query list from the loaded sample. Sample / Last 7 / Month zooms that series without another request to Cursor.",
+        "**List-price makeup** — expand a Last N row for catalog input / output / cache-write / cache-read dollars beside billed cost. Not the invoice.",
+        "**Cache $ saved** — Statistics sample estimates how much cache-read saved versus input list price.",
+        "**$ / landed line** — Coding stats shows window spend per 1k landed lines and per 1k AI lines when the sample has both cost and line totals.",
+        "**To date** — Settings → Recent queries: optional end day (`cursorCost.historyToDate`) with From date. One sample window for Last N, Statistics, Charts, and Coding stats.",
+        "**Optimized rows** — after Play or Run Optimize, matching queries stay marked. The queries toolbar Optimized filter shows those rows.",
+        "**Billing-cycle forecast** — Monthly cost forecast can follow a valid monthly Cursor billing cycle (`cursorCost.forecastWindow`). Calendar-month renewals show the reset marker and drop. Community: #11 by @milichev.",
+        "**Ukrainian** — Settings → Language adds Українська (`uk`), the 11th locale. The language list is alphabetical. Community: #10 by @milichev."
+      ]
+    },
+    {
+      "name": "Improvements / Fixes",
+      "items": [
+        "**Sample window** — one resolver (`historySample`) for Last N versus From–To (cap 10,000). Current, Today, Burn Rate Guard, Critical alert, and the monthly forecast series stay independent.",
+        "**Forecast chart** — renewal knee and run-out line styling when the cycle resets inside the calendar month. A model-catalog update no longer races the chart and leaves it blank.",
+        "**Run Optimize** — toolbar Run and a depth card’s Run open a new Agent chat, the same as Play. You still press Start.",
+        "**Panel colors** — a theme change or a new good/warn color updates the panel without reloading the session, chat titles, or savings.",
+        "**Optimize time** — the brief uses the same local clock as the queries TIME column, plus a short time-zone label.",
+        "**Conversation Optimize brief** — Play writes `.ai/optimize-savings.md` as the running project total: prior mid plus this conversation, and `run` one higher.",
+        "**Ignore store** — spike checks accept either a Set or a list of keys. Community: #9 by @milichev.",
+        "**CI** — GitHub Actions runs typecheck, unit tests, and the extension build on pull requests and on `main` / `release/**`."
+      ]
+    },
+    {
+      "name": "Notes",
+      "items": [
+        "The play button sits on a red TOKENS cell even when the usage event has no conversation id. In that case the brief is that one query. When an id is present, the brief covers every query in that conversation.",
+        "Spike Ignore on the Last N table, Today pace arrows, and the full model-cost simulator remain follow-ups."
+      ]
+    }
+  ]
+}

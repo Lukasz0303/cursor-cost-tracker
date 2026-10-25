@@ -15,13 +15,13 @@ The folder `docs/` stays local-only (social copy, gitignored). This site lives i
 | Public URL | https://cursorcosttracker.com/ (custom domain → GitHub Pages) |
 | Fallback Pages URL | https://lukasz0303.github.io/cursor-cost-tracker/ |
 
-Download count, version, and rating start from the fallback in the HTML (**1.0.7**) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it. Until 1.0.7 is on Open VSX, that request still shows the published version.
+Download count, version, and rating start from the fallback in the HTML (**1.0.8**) and refresh from `https://open-vsx.org/api/lukasz0303/cursor-cost-tracker` when the browser allows it. Until 1.0.8 is on Open VSX, that request still shows the published version.
 
 Screenshots are shown at their real aspect ratio. There is no walkthrough video.
 
 ## Release screenshots
 
-Put numbered PNGs in `screenshots/releases/<semver>/` (for example `screenshots/releases/1.0.6/1.png`). Preview and GitHub Pages run `site/copy-releases.sh`, which copies those folders and writes `releases-manifest.json`. The Screenshots section defaults to the highest semver and shows chips for every release folder. No HTML edit is needed when you add a version.
+Put numbered PNGs in `screenshots/releases/<semver>/` (for example `screenshots/releases/1.0.8/1.png`). 1.0.8 frames `7.png` and `8.png` are the Statistics billed-spend donut. Optional `captions.json` in that folder maps each file name to the English gallery caption. A locale can override it with `cap.<version>.<n>` in `site/i18n.js`. Preview and GitHub Pages run `site/copy-releases.sh`, which copies those folders and writes `releases-manifest.json` (images plus captions). The Screenshots section defaults to the highest semver and shows chips for every release folder.
 
 ## Preview locally
 

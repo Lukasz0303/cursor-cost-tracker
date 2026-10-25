@@ -36,8 +36,9 @@ function viewOf(
   snapshot: UsageSnapshot,
   config: CursorCostConfig = shown,
   refreshing = false,
+  focus: 'cursor' | 'other' | 'all' = 'cursor',
 ): ReturnType<typeof toStatusBarView> {
-  return toStatusBarView(snapshot, config, refreshing, FIXTURE_NOW)
+  return toStatusBarView(snapshot, config, refreshing, FIXTURE_NOW, focus)
 }
 
 describe('toStatusBarView', () => {
@@ -492,6 +493,8 @@ describe('status bar chips', () => {
         ],
       }),
       shown,
+      false,
+      'all',
     )
     // (33+31)/2 = 32. Sep 2026 has 22 weekdays → daily pace ≈ 4.5%.
     // Month spend = today → attributed = full cycle %; avg today = 32%.
@@ -502,6 +505,77 @@ describe('status bar chips', () => {
     expect(view.today.visible).toBe(true)
     expect(view.today.text).toBe('$(calendar) 32% / 4.5% (17.12 $)')
     expect(view.today.tone).toBe('red')
+  })
+
+  it('defaults Pro Current and Today to Cursor Models', () => {
+    const now = FIXTURE_NOW
+    const view = viewOf(
+      ready({
+        spendDisplay: 'percent',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 1, limit: 100, percent: 48 },
+          { name: 'Other Models', used: 1, limit: 100, percent: 23 },
+        ],
+        todayUsedUsd: 2.2,
+        recentQueries: [
+          {
+            timestamp: now.getTime(),
+            model: 'grok-4',
+            kind: null,
+            costUsd: 1.5,
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+          {
+            timestamp: now.getTime(),
+            model: 'gpt-5',
+            kind: null,
+            costUsd: 0.7,
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
+      }),
+      shown,
+    )
+    expect(view.current.text).toBe('$(credit-card) 48% / 100%')
+    expect(view.current.tooltip).toContain('Cursor Models 48% used')
+    expect(view.current.tooltip).not.toContain('Other Models')
+    expect(view.today.text).toBe('$(calendar) 48% / 4.5% (1.50 $)')
+    const other = viewOf(
+      ready({
+        spendDisplay: 'percent',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 1, limit: 100, percent: 48 },
+          { name: 'Other Models', used: 1, limit: 100, percent: 23 },
+        ],
+        todayUsedUsd: 2.2,
+        recentQueries: [
+          {
+            timestamp: now.getTime(),
+            model: 'gpt-5',
+            kind: null,
+            costUsd: 0.7,
+            tokens: 1,
+            inputTokens: 0,
+            outputTokens: 0,
+            cacheWriteTokens: 0,
+            cacheReadTokens: 0,
+          },
+        ],
+      }),
+      shown,
+      false,
+      'other',
+    )
+    expect(other.current.text).toBe('$(credit-card) 23% / 100%')
+    expect(other.today.text).toBe('$(calendar) 23% / 4.5% (0.70 $)')
   })
 
   it('attributes Today % from month spend so partial days average below cycle %', () => {
@@ -540,6 +614,8 @@ describe('status bar chips', () => {
         ],
       }),
       shown,
+      false,
+      'all',
     )
     expect(view.current.text).toBe('$(credit-card) 32% / 100%')
     // today/month * 32% ≈ 3.5%; daily pace 4.5%
@@ -560,7 +636,7 @@ describe('status bar chips', () => {
         todayUsedUsd: 4.86,
         dailyBudgetUsd: 0,
       })
-    const view = viewOf(snapshot, shown)
+    const view = viewOf(snapshot, shown, false, 'all')
     expect(view.current.text).toBe('$(credit-card) 4.5% / 100%')
     expect(view.current.tone).toBe('green')
     expect(view.today.text).toContain('/ 4.5%')
@@ -606,6 +682,8 @@ describe('status bar chips', () => {
         ],
       }),
       shown,
+      false,
+      'all',
     )
     expect(view.today.text).toBe('$(calendar) 4.7% / 4.5% (17.12 $)')
     expect(view.today.tone).toBe('red')

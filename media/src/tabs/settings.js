@@ -2,6 +2,50 @@
 import { messageType } from '../messages.js'
 import { bindBurnNumber as bindBurnNumberImpl } from './burnNumber.js'
 
+const SPEND_MIX_PLACEHOLDER = `{
+  "buckets": [
+    { "id": "cheap", "label": "Cheap", "match": ["luna", "haiku"] },
+    { "id": "balanced", "label": "Balanced", "match": ["terra", "sonnet"] },
+    { "id": "high", "label": "High", "match": ["sol", "opus"] }
+  ]
+}`
+
+let spendMixDirty = false
+
+function spendMixErrorEl() {
+  return document.getElementById('spendMixError')
+}
+
+function showSpendMixError(session, error) {
+  const errorEl = spendMixErrorEl()
+  if (!errorEl) {
+    return
+  }
+  if (typeof error === 'string' && error !== '') {
+    errorEl.hidden = false
+    session.setText(errorEl, error)
+    return
+  }
+  errorEl.hidden = true
+  session.setText(errorEl, '')
+}
+
+function syncSpendMixField(data, session) {
+  const input = document.getElementById('spendMixBuckets')
+  if (!input || !data.spendMix || typeof data.spendMix !== 'object') {
+    return
+  }
+  if (!input.placeholder) {
+    input.placeholder = SPEND_MIX_PLACEHOLDER
+  }
+  if (!spendMixDirty && document.activeElement !== input) {
+    input.value = typeof data.spendMix.raw === 'string' ? data.spendMix.raw : ''
+  }
+  if (!spendMixDirty) {
+    showSpendMixError(session, data.spendMix.error)
+  }
+}
+
 function renderSettings(data, r) {
   if (
     r.isSupportedLanguage(data.language) &&
@@ -226,6 +270,43 @@ function renderSettings(data, r) {
     r.applyHistoryTitle(data.historyLimit)
   }
   r.syncHistoryRangeUi()
+  const codexImportEl = document.getElementById('codexImportEnabled')
+  if (
+    typeof data.codexImportEnabled === 'boolean' &&
+    codexImportEl &&
+    document.activeElement !== codexImportEl
+  ) {
+    codexImportEl.checked = data.codexImportEnabled
+  }
+  const codexHomeEl = document.getElementById('codexHome')
+  if (
+    typeof data.codexHome === 'string' &&
+    codexHomeEl &&
+    document.activeElement !== codexHomeEl
+  ) {
+    r.fillIfIdle(codexHomeEl, data.codexHome)
+  }
+  const codexGroupSettingEl = document.getElementById(
+    'codexGroupByConversationSetting',
+  )
+  if (
+    typeof data.codexGroupByConversation === 'boolean' &&
+    codexGroupSettingEl &&
+    document.activeElement !== codexGroupSettingEl
+  ) {
+    codexGroupSettingEl.checked = data.codexGroupByConversation
+  }
+  const querySourceSettingEl = document.getElementById('querySourceSetting')
+  if (
+    (data.querySource === 'cursor' ||
+      data.querySource === 'codex-local' ||
+      data.querySource === 'openai-api') &&
+    querySourceSettingEl &&
+    document.activeElement !== querySourceSettingEl
+  ) {
+    querySourceSettingEl.value = data.querySource
+  }
+  syncSpendMixField(data, r)
 }
 
 export function createSettingsView(session) {
@@ -243,8 +324,198 @@ export function createSettingsView(session) {
   const refreshQueriesEl = document.getElementById('refreshQueries')
   const resetColorsEl = document.getElementById('resetColors')
   const settingsFormEl = document.getElementById('settingsForm')
+  const codexImportEnabledEl = document.getElementById('codexImportEnabled')
+  const codexHomeEl = document.getElementById('codexHome')
+  const codexGroupByConversationSettingEl = document.getElementById(
+    'codexGroupByConversationSetting',
+  )
+  const querySourceSettingEl = document.getElementById('querySourceSetting')
+  const codexResolvedHomeEl = document.getElementById('codexResolvedHome')
+  const codexRootNoteEl = document.getElementById('codexRootNote')
+  const codexStatusFactsEl = document.getElementById('codexStatusFacts')
+  const codexRescanEl = document.getElementById('codexRescan')
+  const codexForgetEl = document.getElementById('codexForget')
+  const codexSettingsCardEl = document.getElementById('codexSettingsCard')
   let debounceTimer = 0
   let colorTimer = 0
+  let forgetArmed = false
+
+  function resetForgetLabel() {
+    forgetArmed = false
+    if (codexForgetEl) {
+      session.setText(codexForgetEl, session.t('settings.codexDelete'))
+    }
+  }
+
+  function paintCodexStatus(status) {
+    if (!status) {
+      return
+    }
+    session.codexHostStatus = status
+    if (
+      typeof status.importEnabled === 'boolean' &&
+      codexImportEnabledEl &&
+      document.activeElement !== codexImportEnabledEl
+    ) {
+      codexImportEnabledEl.checked = status.importEnabled
+    }
+    if (codexRootNoteEl) {
+      const showNote =
+        status.pointedAtSessions === true || status.rootState === 'sessions-folder'
+      if (showNote) {
+        session.setText(codexRootNoteEl, session.t('settings.codexSessionsFolder'))
+        codexRootNoteEl.hidden = false
+      } else {
+        session.setText(codexRootNoteEl, '')
+        codexRootNoteEl.hidden = true
+      }
+    }
+    if (codexResolvedHomeEl) {
+      const lines = []
+      if (typeof status.resolvedHome === 'string' && status.resolvedHome) {
+        lines.push(session.t('settings.codexHomePath', { path: status.resolvedHome }))
+      }
+      if (typeof status.sessionsPath === 'string' && status.sessionsPath) {
+        lines.push(
+          session.t('settings.codexSessionsPath', { path: status.sessionsPath }),
+        )
+      }
+      if (
+        typeof status.archivedSessionsPath === 'string' &&
+        status.archivedSessionsPath
+      ) {
+        lines.push(
+          session.t('settings.codexArchivedPath', { path: status.archivedSessionsPath }),
+        )
+      }
+      codexResolvedHomeEl.textContent = ''
+      for (let i = 0; i < lines.length; i++) {
+        if (i > 0) {
+          codexResolvedHomeEl.appendChild(document.createElement('br'))
+        }
+        codexResolvedHomeEl.appendChild(document.createTextNode(lines[i]))
+      }
+      codexResolvedHomeEl.hidden = lines.length === 0
+    }
+    if (codexStatusFactsEl) {
+      if (status.importEnabled !== true && status.rolloutsOnDisk === true) {
+        session.setText(codexStatusFactsEl, session.t('codex.coverageImportOff'))
+      } else {
+        const sync =
+          typeof status.lastSyncAt === 'string' && status.lastSyncAt.length >= 16
+            ? status.lastSyncAt.slice(11, 16)
+            : '—'
+        session.setText(
+          codexStatusFactsEl,
+          session.t('settings.codexFacts', {
+            sessions: String(status.sessionCount || 0),
+            span: status.dateSpan || '—',
+            sync: sync,
+            parser: status.parserVersion || '—',
+            unrecognized: String(status.unrecognizedCount || 0),
+            skipped: String(status.ignoredCount || 0),
+          }),
+        )
+      }
+    }
+    renderCodexRates(status)
+  }
+
+  function renderCodexRates(status) {
+    const root = document.getElementById('codexRates')
+    if (!root || !status) {
+      return
+    }
+    if (document.activeElement && root.contains(document.activeElement)) {
+      return
+    }
+    const models = Array.isArray(status.models) ? status.models : []
+    const savedRates = Array.isArray(status.rates) ? status.rates : []
+    const listRates = Array.isArray(status.listRates) ? status.listRates : []
+    const signature = JSON.stringify({ models: models, rates: savedRates, listRates: listRates })
+    if (root.dataset.signature === signature) {
+      return
+    }
+    root.dataset.signature = signature
+    root.textContent = ''
+    const hint = document.createElement('p')
+    hint.className = 'settings-hint'
+    session.setText(hint, session.t('settings.codexRatesHint'))
+    root.appendChild(hint)
+    if (models.length === 0) {
+      return
+    }
+    const saved = Object.create(null)
+    for (let i = 0; i < savedRates.length; i++) {
+      if (savedRates[i] && savedRates[i].model) {
+        saved[savedRates[i].model] = savedRates[i]
+      }
+    }
+    const listed = Object.create(null)
+    for (let i = 0; i < listRates.length; i++) {
+      if (listRates[i] && listRates[i].model) {
+        listed[listRates[i].model] = listRates[i]
+      }
+    }
+    const fields = [
+      ['inputRate', 'settings.codexRateInput'],
+      ['cachedInputRate', 'settings.codexRateCached'],
+      ['outputRate', 'settings.codexRateOutput'],
+      ['reasoningRate', 'settings.codexRateReasoning'],
+      ['cacheWriteRate', 'settings.codexRateCacheWrite'],
+    ]
+    for (let i = 0; i < models.length; i++) {
+      const model = models[i]
+      const rate = saved[model] || {}
+      const fallback = listed[model] || {}
+      const row = document.createElement('div')
+      row.className = 'codex-rate-row'
+      row.dataset.model = model
+      const name = document.createElement('p')
+      name.className = 'codex-rate-model'
+      session.setText(name, model)
+      row.appendChild(name)
+      for (let f = 0; f < fields.length; f++) {
+        const label = document.createElement('label')
+        label.className = 'codex-rate-field'
+        const span = document.createElement('span')
+        session.setText(span, session.t(fields[f][1]))
+        const input = document.createElement('input')
+        input.type = 'text'
+        input.setAttribute('inputmode', 'decimal')
+        input.dataset.rate = fields[f][0]
+        input.value = rate[fields[f][0]] || ''
+        input.placeholder = fallback[fields[f][0]] || ''
+        input.spellcheck = false
+        label.appendChild(span)
+        label.appendChild(input)
+        row.appendChild(label)
+      }
+      root.appendChild(row)
+    }
+    const save = document.createElement('button')
+    save.type = 'button'
+    save.className = 'action-btn'
+    session.setText(save, session.t('settings.codexRatesSave'))
+    save.addEventListener('click', function () {
+      const rows = root.querySelectorAll('.codex-rate-row')
+      const payload = []
+      for (let i = 0; i < rows.length; i++) {
+        const item = { model: rows[i].dataset.model }
+        const inputs = rows[i].querySelectorAll('input')
+        for (let n = 0; n < inputs.length; n++) {
+          item[inputs[n].dataset.rate] = inputs[n].value.trim()
+        }
+        payload.push(item)
+      }
+      root.dataset.signature = ''
+      session.vscode.postMessage({
+        type: messageType['codex.setRates'],
+        rates: payload,
+      })
+    })
+    root.appendChild(save)
+  }
 
   function updateThresholdPreview() {
     session.setText(thresholdPreviewEl, session.tokenPreview(session.tokensFromKilo(session.thresholdEl.value)))
@@ -601,9 +872,121 @@ export function createSettingsView(session) {
         if (refreshQueriesEl.disabled) {
           return
         }
+        const source = session.querySource || 'cursor'
+        if (source === 'codex-local') {
+          session.vscode.postMessage({ type: messageType['codex.refresh'] })
+          return
+        }
+        if (source === 'openai-api') {
+          session.vscode.postMessage({ type: messageType['openai.refresh'] })
+          return
+        }
         session.vscode.postMessage({ type: messageType.refresh })
       })
     }
+    if (codexImportEnabledEl) {
+      codexImportEnabledEl.addEventListener('change', function () {
+        resetForgetLabel()
+        session.vscode.postMessage({
+          type: messageType.setCodexImportEnabled,
+          value: codexImportEnabledEl.checked === true,
+        })
+      })
+    }
+    function submitCodexHome() {
+      if (!codexHomeEl) {
+        return
+      }
+      resetForgetLabel()
+      session.vscode.postMessage({
+        type: messageType.setCodexHome,
+        value: String(codexHomeEl.value || '').trim(),
+      })
+    }
+    if (codexHomeEl) {
+      codexHomeEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          submitCodexHome()
+          codexHomeEl.blur()
+        }
+      })
+      codexHomeEl.addEventListener('change', submitCodexHome)
+      codexHomeEl.addEventListener('blur', submitCodexHome)
+    }
+    if (codexGroupByConversationSettingEl) {
+      codexGroupByConversationSettingEl.addEventListener('change', function () {
+        resetForgetLabel()
+        const value = codexGroupByConversationSettingEl.checked === true
+        const toolbar = document.getElementById('codexGroupBy')
+        if (toolbar) {
+          toolbar.checked = value
+          toolbar.setAttribute('aria-checked', value ? 'true' : 'false')
+        }
+        session.vscode.postMessage({
+          type: messageType.setCodexGroupByConversation,
+          value: value,
+        })
+      })
+    }
+    if (querySourceSettingEl) {
+      querySourceSettingEl.addEventListener('change', function () {
+        resetForgetLabel()
+        const value = querySourceSettingEl.value
+        if (
+          value !== 'cursor' &&
+          value !== 'codex-local' &&
+          value !== 'openai-api'
+        ) {
+          return
+        }
+        session.querySource = value
+        session.beginSourceWait()
+        session.vscode.postMessage({
+          type: messageType.setQuerySource,
+          value: value,
+        })
+      })
+    }
+    if (codexRescanEl) {
+      codexRescanEl.addEventListener('click', function () {
+        resetForgetLabel()
+        session.vscode.postMessage({ type: messageType['codex.refresh'] })
+      })
+    }
+    if (codexForgetEl) {
+      codexForgetEl.addEventListener('click', function () {
+        if (!forgetArmed) {
+          forgetArmed = true
+          session.setText(
+            codexForgetEl,
+            session.t('settings.codexDeleteConfirm'),
+          )
+          return
+        }
+        resetForgetLabel()
+        session.vscode.postMessage({ type: messageType['codex.forget'] })
+      })
+    }
+    if (codexSettingsCardEl) {
+      codexSettingsCardEl.addEventListener('click', function (event) {
+        if (event.target === codexForgetEl) {
+          return
+        }
+        if (forgetArmed) {
+          resetForgetLabel()
+        }
+      })
+    }
+    window.addEventListener('message', function (event) {
+      const data = event && event.data
+      if (!data || typeof data.type !== 'string') {
+        return
+      }
+      if (data.type === 'codex.status') {
+        paintCodexStatus(data)
+      }
+    })
     session.showWarningEl.addEventListener('change', function () {
       session.vscode.postMessage({
         type: messageType.setShowSpikeWarning,
@@ -881,6 +1264,41 @@ export function createSettingsView(session) {
       session.okColorEl.value = DEFAULT_OK
       session.warnColorEl.value = DEFAULT_WARN
       submitColors()
+    })
+    const spendMixInput = document.getElementById('spendMixBuckets')
+    const spendMixApply = document.getElementById('spendMixApply')
+    function submitSpendMix() {
+      if (!spendMixInput) {
+        return
+      }
+      session.vscode.postMessage({
+        type: messageType.setSpendMixBuckets,
+        value: spendMixInput.value,
+      })
+    }
+    if (spendMixInput) {
+      spendMixInput.placeholder = SPEND_MIX_PLACEHOLDER
+      spendMixInput.addEventListener('input', function () {
+        spendMixDirty = true
+        showSpendMixError(session, null)
+      })
+      spendMixInput.addEventListener('blur', submitSpendMix)
+    }
+    if (spendMixApply) {
+      spendMixApply.addEventListener('click', submitSpendMix)
+    }
+    window.addEventListener('message', function (event) {
+      const data = event && event.data
+      if (!data || data.type !== 'spendMixFeedback') {
+        return
+      }
+      if (typeof data.error === 'string' && data.error !== '') {
+        spendMixDirty = true
+        showSpendMixError(session, data.error)
+        return
+      }
+      spendMixDirty = false
+      showSpendMixError(session, null)
     })
     settingsFormEl.addEventListener('submit', function (event) {
       event.preventDefault()

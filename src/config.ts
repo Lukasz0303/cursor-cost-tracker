@@ -121,6 +121,29 @@ export function resolveStatusColors(
   }
 }
 
+export type QuerySource = 'cursor' | 'codex-local' | 'openai-api'
+
+export const DEFAULT_QUERY_SOURCE: QuerySource = 'cursor'
+
+export function parseQuerySource(value: unknown): QuerySource {
+  if (value === 'codex-local' || value === 'openai-api' || value === 'cursor') {
+    return value
+  }
+  return DEFAULT_QUERY_SOURCE
+}
+
+/** How the OpenAI API source connects when the chip is selected. */
+export type OpenaiConnectMode = 'local' | 'web'
+
+export const DEFAULT_OPENAI_CONNECT_MODE: OpenaiConnectMode = 'web'
+
+export function parseOpenaiConnectMode(value: unknown): OpenaiConnectMode {
+  if (value === 'local' || value === 'web') {
+    return value
+  }
+  return DEFAULT_OPENAI_CONNECT_MODE
+}
+
 export type CursorCostConfig = {
   pollIntervalMinutes: number
   showStatusBar: boolean
@@ -141,6 +164,17 @@ export type CursorCostConfig = {
   burnRateCriticalToast: boolean
   codeLinesInsight: boolean
   groupQueriesByConversation: boolean
+  /** Show Cursor CLI threads (no local chat title) on the queries list. */
+  showCliThreads: boolean
+  codexImportEnabled: boolean
+  /** Raw setting string; `resolveCodexRoot` expands and validates. */
+  codexHome: string
+  codexGroupByConversation: boolean
+  querySource: QuerySource
+  /** Local JSONL sink path for OpenAI API recorder. Empty = not connected (local mode). */
+  openaiSinkPath: string
+  /** `web` uses an admin key in Secret Storage; `local` uses `openaiSinkPath`. */
+  openaiConnectMode: OpenaiConnectMode
   historyLimit: number
   /** Local `YYYY-MM-DD`; `null` uses Last N (`historyLimit`). */
   historyFromDate: string | null
@@ -149,6 +183,8 @@ export type CursorCostConfig = {
   budgetDayBasis: BudgetDayBasis
   forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
+  /** Raw grade-bucket JSON. Empty uses the built-in example. */
+  spendMixBuckets: string
   language: Locale
   okColor: string
   warnColor: string
@@ -174,12 +210,21 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   burnRateCriticalToast: true,
   codeLinesInsight: true,
   groupQueriesByConversation: false,
+  showCliThreads: true,
+  codexImportEnabled: true,
+  /** `~/.codex` — macOS `$HOME/.codex`, Windows `%USERPROFILE%\.codex`. */
+  codexHome: '~/.codex',
+  codexGroupByConversation: true,
+  querySource: DEFAULT_QUERY_SOURCE,
+  openaiSinkPath: '',
+  openaiConnectMode: DEFAULT_OPENAI_CONNECT_MODE,
   historyLimit: DEFAULT_HISTORY_LIMIT,
   historyFromDate: null,
   historyToDate: null,
   budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
   forecastWindow: DEFAULT_FORECAST_WINDOW,
   optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
+  spendMixBuckets: '',
   language: DEFAULT_LOCALE,
   okColor: DEFAULT_OK_COLOR,
   warnColor: DEFAULT_WARN_COLOR,
@@ -208,6 +253,14 @@ export function parseHexColor(value: unknown, fallback: string): string {
     return `#${r}${r}${g}${g}${b}${b}`
   }
   return hex.slice(0, 7)
+}
+
+/** Drop a huge settings value. The schema itself rejects anything over 4 KB. */
+function readSpendMixBuckets(value: unknown): string {
+  if (typeof value !== 'string' || value.length > 8192) {
+    return ''
+  }
+  return value
 }
 
 export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
@@ -277,6 +330,33 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     codeLinesInsight: section.get('codeLinesInsight', true) === true,
     groupQueriesByConversation:
       section.get<boolean>('groupQueriesByConversation', false) === true,
+    showCliThreads: section.get<boolean>('showCliThreads', true) === true,
+    codexImportEnabled:
+      section.get<boolean>(
+        'codexImportEnabled',
+        DEFAULT_CURSOR_COST_CONFIG.codexImportEnabled,
+      ) === true,
+    codexHome: String(
+      section.get('codexHome', DEFAULT_CURSOR_COST_CONFIG.codexHome) ?? '',
+    ),
+    codexGroupByConversation:
+      section.get<boolean>(
+        'codexGroupByConversation',
+        DEFAULT_CURSOR_COST_CONFIG.codexGroupByConversation,
+      ) === true,
+    querySource: parseQuerySource(
+      section.get('querySource', DEFAULT_CURSOR_COST_CONFIG.querySource),
+    ),
+    openaiSinkPath: String(
+      section.get('openaiSinkPath', DEFAULT_CURSOR_COST_CONFIG.openaiSinkPath) ??
+        '',
+    ).trim(),
+    openaiConnectMode: parseOpenaiConnectMode(
+      section.get(
+        'openaiConnectMode',
+        DEFAULT_CURSOR_COST_CONFIG.openaiConnectMode,
+      ),
+    ),
     historyLimit: clampHistoryLimit(
       section.get('historyLimit', DEFAULT_CURSOR_COST_CONFIG.historyLimit),
     ),
@@ -291,6 +371,7 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     optimizeDepth: parseOptimizeDepth(
       section.get('optimizeDepth', DEFAULT_OPTIMIZE_DEPTH),
     ),
+    spendMixBuckets: readSpendMixBuckets(section.get('spendMixBuckets', '')),
     language: parseLocale(section.get('language', DEFAULT_LOCALE)),
     okColor: parseHexColor(
       section.get('okColor', DEFAULT_OK_COLOR),

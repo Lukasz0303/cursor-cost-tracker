@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-07T10:00:00.000Z","type":"token_usage_record","payload":{"thread_id":"thread-parent","session_id":"session-parent","turn_id":"turn-p1","response_id":"resp_shared","usage":{"input_tokens":10,"output_tokens":2,"total_tokens":12}}}
+{"timestamp":"2026-10-07T10:01:00.000Z","type":"token_usage_record","payload":{"thread_id":"thread-child","session_id":"session-child","turn_id":"turn-c1","response_id":"resp_shared","parent_thread_id":"thread-parent","usage":{"input_tokens":10,"output_tokens":2,"total_tokens":12}}}

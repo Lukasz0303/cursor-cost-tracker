@@ -2,7 +2,31 @@ import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import type { Database, SqlValue } from 'sql.js'
 import * as vscode from 'vscode'
+import { buildCodexCsv } from '../openaiHistory/exportCsv'
+import { runCodexCharts, runCodexLimitSeries } from '../openaiHistory/historyCharts'
+import {
+  collectCodexCsvRows,
+  listCodexChildren,
+  loadCodexDetails,
+  runCodexQuery,
+} from '../openaiHistory/historyQuery'
+import {
+  collectCodexOptimizeHints,
+  runCodexStats,
+} from '../openaiHistory/historyStats'
+import { buildCodexOptimizeBrief } from '../openaiHistory/optimizeBrief'
+import { listPriceFor } from '../openaiHistory/pricing/listPrices'
+import {
+  repriceUnpricedRequests,
+  saveModelRates,
+  type ModelRateInput,
+} from '../openaiHistory/pricing/reprice'
+import { discoverRolloutFiles, type FsDeps } from '../openaiHistory/codex/discover'
+import { resolveCodexRoot } from '../openaiHistory/codex/sourceRoot'
+import type { HistoryService, HistoryServiceOptions } from '../openaiHistory/historyService'
+import type { RequestStore } from '../openaiHistory/store/types'
 import {
   EXPORT_CSV_COMMAND,
   EXPORT_LEADERBOARD_CSV_COMMAND,
@@ -22,13 +46,28 @@ import { stripModelPrefix } from '../usage/parse'
 import {
   colorSchemeFromKind,
   parseBudgetDayBasis,
+  parseOpenaiConnectMode,
   parseOptimizeDepth,
+  parseQuerySource,
   patchCursorCostConfigOverlay,
   readCursorCostConfig,
   reconcileCursorCostConfigOverlay,
   resolveStatusColors,
   type CursorCostConfig,
+  type OpenaiConnectMode,
 } from '../config'
+import {
+  OPENAI_ADMIN_KEY_SECRET,
+  OPENAI_ADMIN_KEYS_URL,
+  verifyOpenaiAdminKey,
+} from '../openaiHistory/org/adminKey'
+import {
+  readOrgUsageSummary,
+  replaceOrgBuckets,
+  summarizeOrgRows,
+  type OrgUsageSummary,
+} from '../openaiHistory/org/buckets'
+import { importOrganizationUsage } from '../openaiHistory/org/client'
 import {
   isUnregisteredConfigError,
   persistedSettingKey,
@@ -67,7 +106,8 @@ import {
   postAuthorMessage,
 } from '../support/authorMessage'
 import { buildQueriesCsv } from './exportCsv'
-import { parseWebviewMessage } from '../webview/messages'
+import { setForecastSeriesFocus } from './forecastSeriesFocus'
+import { parseWebviewMessage, type WebviewMessage } from '../webview/messages'
 import {
   isLeaderboardMessage,
   LeaderboardHost,
@@ -156,13 +196,26 @@ function asConfigPatch(
     case 'burnRateCriticalToast':
     case 'codeLinesInsight':
     case 'groupQueriesByConversation':
+    case 'showCliThreads':
+    case 'codexImportEnabled':
+    case 'codexGroupByConversation':
       return { [key]: value === true }
+    case 'codexHome':
+      return { codexHome: String(value) }
+    case 'openaiSinkPath':
+      return { openaiSinkPath: String(value).trim() }
+    case 'openaiConnectMode':
+      return { openaiConnectMode: parseOpenaiConnectMode(value) }
+    case 'querySource':
+      return { querySource: parseQuerySource(value) }
     case 'budgetDayBasis':
       return { budgetDayBasis: parseBudgetDayBasis(value) }
     case 'forecastWindow':
       return { forecastWindow: parseForecastWindow(value) }
     case 'optimizeDepth':
       return { optimizeDepth: parseOptimizeDepth(value) }
+    case 'spendMixBuckets':
+      return { spendMixBuckets: typeof value === 'string' ? value : '' }
     case 'language':
       return { language: parseLocale(value) }
     case 'okColor':
@@ -193,12 +246,20 @@ const DATA_SETTING_KEYS = [
   'burnRateCriticalToast',
   'codeLinesInsight',
   'groupQueriesByConversation',
+  'showCliThreads',
+  'codexImportEnabled',
+  'codexHome',
+  'codexGroupByConversation',
+  'querySource',
+  'openaiSinkPath',
+  'openaiConnectMode',
   'historyLimit',
   'historyFromDate',
   'historyToDate',
   'budgetDayBasis',
   'forecastWindow',
   'optimizeDepth',
+  'spendMixBuckets',
   'language',
 ] as const
 
@@ -214,8 +275,49 @@ function colorSettingsOnly(event: vscode.ConfigurationChangeEvent): boolean {
   )
 }
 
+/** Wired from `extension.ts` after the sql.js store is ready. */
+export type CodexHost = {
+  history: HistoryService
+  options: HistoryServiceOptions
+  getStore: () => RequestStore
+  storePath: string
+  flush: () => Promise<void>
+  forget: () => Promise<void>
+  ownerId: string
+}
+
 export class HistoryPanel {
   private static current: HistoryPanel | undefined
+  private static codexHost: CodexHost | null = null
+
+  /** Repaint Codex after the background scan. Cursor usage keeps its own poll. */
+  static refreshOpenCodex(): void {
+    const panel = HistoryPanel.current
+    if (panel === undefined) {
+      return
+    }
+    const source = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    ).querySource
+    if (source !== 'codex-local') {
+      return
+    }
+    void panel.postCodexStatus()
+  }
+
+  static bindCodex(host: CodexHost): void {
+    HistoryPanel.codexHost = host
+    const panel = HistoryPanel.current
+    if (panel === undefined) {
+      return
+    }
+    const source = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    ).querySource
+    if (source === 'openai-api') {
+      void panel.postOpenaiStatus(null, true)
+    }
+  }
 
   static exportLeaderboard(): void {
     const panel = HistoryPanel.current
@@ -229,7 +331,14 @@ export class HistoryPanel {
     context: vscode.ExtensionContext,
     service: UsageService,
     tab: HistoryTab = 'queries',
+    options?: { forceCursorSource?: boolean },
   ): void {
+    if (options?.forceCursorSource === true) {
+      void vscode.workspace
+        .getConfiguration('cursorCost')
+        .update('querySource', 'cursor', vscode.ConfigurationTarget.Global)
+      patchCursorCostConfigOverlay({ querySource: 'cursor' })
+    }
     const version = resolveExtensionVersion(
       context.extensionUri.fsPath,
       context.extension?.packageJSON,
@@ -241,7 +350,9 @@ export class HistoryPanel {
     if (HistoryPanel.current) {
       HistoryPanel.current.panel.reveal(vscode.ViewColumn.Active)
       HistoryPanel.current.openTab(tab)
+      // Cursor payload only — opening on Codex must not refresh the usage API.
       HistoryPanel.current.publisher.postData()
+      void HistoryPanel.current.postSourceChrome()
       return
     }
     HistoryPanel.current = new HistoryPanel(context, service, version, tab)
@@ -251,6 +362,7 @@ export class HistoryPanel {
   private readonly panel: vscode.WebviewPanel
   private readonly globalState: vscode.Memento
   private readonly workspaceState: vscode.Memento
+  private readonly secrets: vscode.SecretStorage
   private readonly disposables: vscode.Disposable[] = []
   private pendingTab: HistoryTab
   private leaderboardScriptUri = ''
@@ -260,6 +372,8 @@ export class HistoryPanel {
   private readonly publisher: PanelPublisher
   private modelCatalog: ModelCatalogPayload | null = null
   private accountModels: AccountModel[] | null = null
+  private orgFetchedAt = 0
+  private orgRefreshTimer: ReturnType<typeof setTimeout> | undefined
 
   private constructor(
     context: vscode.ExtensionContext,
@@ -270,6 +384,7 @@ export class HistoryPanel {
     this.panelVersion = version
     this.globalState = context.globalState
     this.workspaceState = context.workspaceState
+    this.secrets = context.secrets
     this.pendingTab = initialTab
     const mediaRoot = vscode.Uri.joinPath(context.extensionUri, 'media')
     this.panel = vscode.window.createWebviewPanel(
@@ -336,11 +451,19 @@ export class HistoryPanel {
       readOptimizedTargets: () => this.readOptimizedTargets(),
       workspaceProject: () => this.workspaceProject(),
       creditOptimizeSavings: (markdown) => this.creditOptimizeSavings(markdown),
+      spendMixCatalog: () =>
+        (this.accountModels ?? []).map((model) => ({
+          id: model.id,
+          provider: model.provider,
+        })),
     })
     this.settingsRouter = new SettingsRouter({
       writeSetting: (key, value) => this.writeSetting(key, value),
       postData: () => {
         this.publisher.postData()
+      },
+      postSpendMixFeedback: (error) => {
+        void this.panel.webview.postMessage({ type: 'spendMixFeedback', error })
       },
       refresh: () => {
         void this.service.refresh()
@@ -408,19 +531,34 @@ export class HistoryPanel {
       case 'lockLeaderboard':
         void this.lockLeaderboard()
         return
-      case 'ready':
+      case 'ready': {
+        const boot = catalogFor(
+          readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+            .language,
+        ).boot
+        void this.panel.webview.postMessage({
+          type: 'boot',
+          title: boot.title,
+          hint: boot.hint,
+        })
         this.publisher.postData()
         this.publishModelCatalog(false)
         if (this.leaderboardUnlocked()) {
           this.leaderboard.publishChrome()
         }
         this.openTab(this.pendingTab)
+        void this.postSourceChrome()
         return
+      }
       case 'close':
         this.panel.dispose()
         return
       case 'refresh':
         void this.service.refresh()
+        void this.refreshOpenaiIfSelected()
+        return
+      case 'setForecastSeries':
+        setForecastSeriesFocus(message.value)
         return
       case 'refreshModelCatalog':
         this.publishModelCatalog(true)
@@ -480,11 +618,800 @@ export class HistoryPanel {
       case 'copyOptimizePrompt':
         void this.optimizeRouter.run('copy', message.depth)
         return
+      case 'setQuerySource':
+        void this.handleSetQuerySource(message.value)
+        return
+      case 'setCodexImportEnabled':
+        void this.writeSetting(
+          'codexImportEnabled',
+          message.value === true,
+        )
+        return
+      case 'setCodexHome':
+        void this.writeSetting(
+          'codexHome',
+          typeof message.value === 'string' ? message.value : '',
+        )
+        return
+      case 'setCodexGroupByConversation':
+        void this.writeSetting(
+          'codexGroupByConversation',
+          message.value === true,
+        )
+        return
+      case 'codex.refresh':
+        void this.handleCodexRefresh()
+        return
+      case 'codex.query':
+        void this.handleCodexQuery(message)
+        return
+      case 'codex.expand':
+        void this.handleCodexExpand(message.conversationId, message.accountScopeKey)
+        return
+      case 'codex.details':
+        void this.handleCodexDetails(message.requestId)
+        return
+      case 'codex.exportCsv':
+        void this.handleCodexExportCsv(message)
+        return
+      case 'codex.forget':
+        void this.handleCodexForget()
+        return
+      case 'codex.setRates':
+        void this.handleCodexSetRates(message.rates)
+        return
+      case 'openai.refresh':
+        void this.postOpenaiStatus()
+        return
+      case 'openai.setMode':
+        void this.handleOpenaiSetMode(message.value)
+        return
+      case 'openai.connect':
+        void this.handleOpenaiConnect(message.mode)
+        return
+      case 'openai.disconnect':
+        void this.handleOpenaiDisconnect()
+        return
+      case 'openai.openAdminKeys':
+        void vscode.env.openExternal(vscode.Uri.parse(OPENAI_ADMIN_KEYS_URL))
+        return
+      case 'codex.analyze':
+        void this.handleCodexAnalyze(message)
+        return
       default: {
         const unreachable: never = message
         return unreachable
       }
     }
+  }
+
+  private codex(): CodexHost | null {
+    return HistoryPanel.codexHost
+  }
+
+  private async postSourceChrome(): Promise<void> {
+    const source = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    ).querySource
+    if (source === 'openai-api') {
+      await this.postOpenaiStatus()
+      return
+    }
+    if (source === 'codex-local') {
+      await this.postCodexStatus()
+    }
+  }
+
+  private async handleSetQuerySource(value: unknown): Promise<void> {
+    const source = parseQuerySource(value)
+    await this.writeSetting('querySource', source)
+    // Do not call Cursor refresh when switching source.
+    if (source === 'cursor') {
+      this.publisher.postData()
+      return
+    }
+    if (source === 'openai-api') {
+      await this.postOpenaiStatus()
+      return
+    }
+    await this.postCodexStatus()
+  }
+
+  private async postOpenaiStatus(detail: string | null = null, force = false): Promise<void> {
+    const cfg = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    const mode = cfg.openaiConnectMode
+    const sinkPath = cfg.openaiSinkPath.trim()
+    const adminKey = await this.secrets.get(OPENAI_ADMIN_KEY_SECRET)
+    const trimmedKey = typeof adminKey === 'string' ? adminKey.trim() : ''
+    const hasAdminKey = trimmedKey.length > 0
+    const connected = mode === 'web' ? hasAdminKey : sinkPath.length > 0
+    let usage: OrgUsageSummary | null = null
+    let nextDetail = detail
+    if (mode === 'web' && hasAdminKey) {
+      const loaded = await this.loadOrgUsage(trimmedKey, force)
+      usage = loaded.usage
+      if (nextDetail === null && loaded.error) {
+        nextDetail = loaded.error
+      }
+      if (nextDetail === null && usage === null) {
+        nextDetail =
+          cfg.language === 'pl'
+            ? 'OpenAI nie zwróciło zużycia z ostatnich 30 dni.'
+            : 'OpenAI returned no usage for the last 30 days.'
+      }
+      this.armOrgRefresh()
+    } else if (this.orgRefreshTimer) {
+      clearTimeout(this.orgRefreshTimer)
+      this.orgRefreshTimer = undefined
+    }
+    void this.panel.webview.postMessage({
+      type: 'openai.status',
+      state: connected ? 'connected' : 'not-connected',
+      mode,
+      detail: nextDetail,
+      sinkPath: sinkPath.length > 0 ? sinkPath : null,
+      hasAdminKey,
+      usage,
+    })
+  }
+
+  private refreshOpenaiIfSelected(): void {
+    const source = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    ).querySource
+    if (source === 'openai-api') {
+      void this.postOpenaiStatus(null, true)
+    }
+  }
+
+  /** Organization aggregates only. The admin key stays in this function and is not posted. */
+  private async loadOrgUsage(
+    key: string,
+    force: boolean,
+  ): Promise<{ usage: OrgUsageSummary | null; error: string | null }> {
+    const stale = Date.now() - this.orgFetchedAt >= 15 * 60 * 1000
+    let error: string | null = null
+    let fetched: OrgUsageSummary | null = null
+    if (force || this.orgFetchedAt === 0 || stale) {
+      const imported = await importOrganizationUsage({ key })
+      this.orgFetchedAt = Date.now()
+      if (imported.error !== null) {
+        error = imported.error
+      } else {
+        fetched = summarizeOrgRows(imported.rows)
+        const host = this.codex()
+        const db = host ? (host.getStore() as unknown as { db?: Database }).db : undefined
+        if (host && db) {
+          try {
+            host.getStore().setLeaseRole('writer')
+            replaceOrgBuckets(db, imported.rows, new Date().toISOString())
+            await host.flush()
+          } catch {
+            error = 'Could not store organization usage.'
+          }
+        }
+      }
+    }
+    const host = this.codex()
+    const db = host ? (host.getStore() as unknown as { db?: Database }).db : undefined
+    if (host && db) {
+      try {
+        const stored = readOrgUsageSummary(db)
+        if (stored) {
+          return { usage: stored, error }
+        }
+      } catch {
+        return { usage: fetched, error }
+      }
+    }
+    return { usage: fetched, error }
+  }
+
+  private armOrgRefresh(): void {
+    if (this.orgRefreshTimer) {
+      clearTimeout(this.orgRefreshTimer)
+    }
+    this.orgRefreshTimer = setTimeout(() => {
+      this.orgRefreshTimer = undefined
+      if (HistoryPanel.current !== this) {
+        return
+      }
+      const source = readCursorCostConfig(
+        vscode.workspace.getConfiguration('cursorCost'),
+      ).querySource
+      if (source === 'openai-api') {
+        void this.postOpenaiStatus(null, true)
+      }
+    }, 15 * 60 * 1000)
+  }
+
+  private async handleOpenaiSetMode(mode: OpenaiConnectMode): Promise<void> {
+    await this.writeSetting('openaiConnectMode', mode)
+    await this.postOpenaiStatus()
+  }
+
+  private async handleOpenaiConnect(mode: OpenaiConnectMode): Promise<void> {
+    await this.writeSetting('openaiConnectMode', mode)
+    if (mode === 'local') {
+      const picked = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        openLabel: 'Use as OpenAI sink',
+        filters: { JSONL: ['jsonl', 'json'], 'All files': ['*'] },
+      })
+      const path = picked?.[0]?.fsPath?.trim() ?? ''
+      if (path.length === 0) {
+        await this.postOpenaiStatus()
+        return
+      }
+      await this.writeSetting('openaiSinkPath', path)
+      await this.postOpenaiStatus(null)
+      return
+    }
+    const existing = await this.secrets.get(OPENAI_ADMIN_KEY_SECRET)
+    const key = await vscode.window.showInputBox({
+      title: 'OpenAI organization admin key',
+      prompt:
+        'Paste an organization admin API key from platform.openai.com. Stored only in Secret Storage — never in settings or the panel.',
+      password: true,
+      ignoreFocusOut: true,
+      value: typeof existing === 'string' ? existing : '',
+      placeHolder: 'sk-admin-…',
+    })
+    if (key === undefined) {
+      await this.postOpenaiStatus()
+      return
+    }
+    const trimmed = key.trim()
+    if (trimmed.length === 0) {
+      await this.secrets.delete(OPENAI_ADMIN_KEY_SECRET)
+      await this.postOpenaiStatus('Admin key cleared.')
+      return
+    }
+    const check = await verifyOpenaiAdminKey(trimmed)
+    if (!check.ok) {
+      await this.postOpenaiStatus(check.message)
+      return
+    }
+    await this.secrets.store(OPENAI_ADMIN_KEY_SECRET, trimmed)
+    await this.postOpenaiStatus(null, true)
+  }
+
+  private async handleOpenaiDisconnect(): Promise<void> {
+    const cfg = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    if (cfg.openaiConnectMode === 'web') {
+      await this.secrets.delete(OPENAI_ADMIN_KEY_SECRET)
+    } else {
+      await this.writeSetting('openaiSinkPath', '')
+    }
+    await this.postOpenaiStatus(null)
+  }
+
+  private async handleCodexSetRates(rates: ModelRateInput[]): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Codex history is not ready.',
+      })
+      return
+    }
+    try {
+      host.getStore().setLeaseRole('writer')
+      saveModelRates(host.getStore(), rates)
+      await host.flush()
+      await this.postCodexStatus()
+    } catch {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Codex rates could not be saved.',
+      })
+    }
+  }
+
+  private async handleCodexRefresh(): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Codex history is not ready.',
+      })
+      return
+    }
+    try {
+      await host.history.refresh()
+      await host.flush()
+      await this.postCodexStatus()
+    } catch {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Codex refresh failed.',
+      })
+    }
+  }
+
+  private async handleCodexQuery(
+    message: Extract<WebviewMessage, { type: 'codex.query' }>,
+  ): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        correlationId: message.correlationId,
+        message: 'Codex history is not ready.',
+      })
+      return
+    }
+    try {
+      const newlyPriced = repriceUnpricedRequests(host.getStore())
+      if (newlyPriced > 0) {
+        await host.flush()
+      }
+      const config = readCursorCostConfig(
+        vscode.workspace.getConfiguration('cursorCost'),
+      )
+      const groupBy =
+        config.codexGroupByConversation && message.groupBy === 'conversation'
+          ? 'conversation'
+          : 'none'
+      const filter = {
+        from: message.from,
+        to: message.to,
+        accountScopeKey: message.accountScopeKey,
+        model: message.model,
+        status: message.status as Parameters<typeof runCodexQuery>[1]['status'],
+      }
+      const page = runCodexQuery(
+        host.getStore(),
+        {
+          correlationId: message.correlationId,
+          filterRevision: message.filterRevision,
+          ...filter,
+          groupBy,
+          sort: message.sort,
+          costBasis: message.costBasis,
+          cursor: message.cursor,
+          limit: message.limit,
+        },
+        {
+          spikeTokenThreshold: config.spikeTokenThreshold,
+          showSpikeWarning: config.showSpikeWarning,
+        },
+      )
+      const stats = runCodexStats(host.getStore(), filter, {
+        spikeTokenThreshold: config.spikeTokenThreshold,
+      })
+      const charts = runCodexCharts(host.getStore(), filter)
+      const limitSeries = runCodexLimitSeries(host.getStore())
+      void this.panel.webview.postMessage({
+        type: 'codex.result',
+        ...page,
+        stats,
+        charts,
+        limitSeries,
+      })
+    } catch {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        correlationId: message.correlationId,
+        message: 'Codex query failed.',
+      })
+    }
+  }
+
+  private async handleCodexAnalyze(
+    message: Extract<WebviewMessage, { type: 'codex.analyze' }>,
+  ): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Codex history is not ready.',
+      })
+      return
+    }
+    const config = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    let requestId =
+      typeof message.requestId === 'string' && message.requestId.trim() !== ''
+        ? message.requestId.trim()
+        : null
+    if (requestId === null) {
+      const stats = runCodexStats(
+        host.getStore(),
+        {
+          from: null,
+          to: null,
+          accountScopeKey: null,
+          model: null,
+          status: null,
+        },
+        { spikeTokenThreshold: config.spikeTokenThreshold },
+      )
+      requestId = stats.analyzeRequestId
+    }
+    if (requestId === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'No Codex request to analyze.',
+      })
+      return
+    }
+    const fields = loadCodexDetails(host.getStore(), requestId, 'estimated-api')
+    if (fields === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Request details are unavailable.',
+      })
+      return
+    }
+    const depth =
+      message.depth === 'quick' || message.depth === 'deep'
+        ? message.depth
+        : config.optimizeDepth === 'quick' || config.optimizeDepth === 'deep'
+          ? config.optimizeDepth
+          : 'balanced'
+    const hints = collectCodexOptimizeHints(host.getStore(), requestId)
+    const brief = buildCodexOptimizeBrief({
+      depth,
+      row: fields,
+      hints,
+    })
+    await this.pasteCodexBrief(brief, config.language)
+  }
+
+  /** Paste into the open Agent chat via focusComposer only — never openComposer. */
+  private async pasteCodexBrief(
+    brief: string,
+    language: CursorCostConfig['language'],
+  ): Promise<void> {
+    const previous = await vscode.env.clipboard.readText()
+    await vscode.env.clipboard.writeText(brief)
+    try {
+      const commands = await vscode.commands.getCommands(true)
+      if (commands.includes('composer.focusComposer')) {
+        await vscode.commands.executeCommand('composer.focusComposer')
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        await vscode.commands.executeCommand('editor.action.clipboardPasteAction')
+        return
+      }
+      vscode.window.showInformationMessage(
+        catalogFor(language).optimize.clipboard,
+      )
+    } catch {
+      vscode.window.showInformationMessage(
+        catalogFor(language).optimize.clipboard,
+      )
+    } finally {
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await vscode.env.clipboard.writeText(previous)
+    }
+  }
+
+  private async handleCodexExpand(
+    conversationId: string,
+    accountScopeKey: string,
+  ): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      return
+    }
+    const config = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    const rows = listCodexChildren(host.getStore(), {
+      conversationId,
+      accountScopeKey,
+      costBasis: 'estimated-api',
+      spikeTokenThreshold: config.spikeTokenThreshold,
+      showSpikeWarning: config.showSpikeWarning,
+    })
+    void this.panel.webview.postMessage({
+      type: 'codex.children',
+      conversationId,
+      accountScopeKey,
+      rows,
+    })
+  }
+
+  private async handleCodexDetails(requestId: string): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      return
+    }
+    const fields = loadCodexDetails(host.getStore(), requestId, 'estimated-api')
+    if (fields === null) {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Request details are unavailable.',
+      })
+      return
+    }
+    void this.panel.webview.postMessage({ type: 'codex.detail', fields })
+  }
+
+  private async handleCodexExportCsv(
+    message: Extract<WebviewMessage, { type: 'codex.exportCsv' }>,
+  ): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      void this.panel.webview.postMessage({
+        type: 'codex.exportReady',
+        correlationId: message.correlationId,
+        ok: false,
+      })
+      return
+    }
+    try {
+      const rows = collectCodexCsvRows(host.getStore(), {
+        correlationId: message.correlationId,
+        filterRevision: message.filterRevision,
+        from: message.from,
+        to: message.to,
+        accountScopeKey: message.accountScopeKey,
+        model: message.model,
+        status: message.status as Parameters<typeof collectCodexCsvRows>[1]['status'],
+        sort: message.sort,
+        costBasis: message.costBasis,
+      })
+      const csv = buildCodexCsv(rows)
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.joinPath(
+          vscode.Uri.file(homedir()),
+          'codex-requests.csv',
+        ),
+        filters: { CSV: ['csv'] },
+        saveLabel: catalogFor(
+          readCursorCostConfig(vscode.workspace.getConfiguration('cursorCost'))
+            .language,
+        ).alerts.export,
+      })
+      if (!uri) {
+        void this.panel.webview.postMessage({
+          type: 'codex.exportReady',
+          correlationId: message.correlationId,
+          ok: false,
+        })
+        return
+      }
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(csv, 'utf8'))
+      void this.panel.webview.postMessage({
+        type: 'codex.exportReady',
+        correlationId: message.correlationId,
+        ok: true,
+      })
+    } catch {
+      void this.panel.webview.postMessage({
+        type: 'codex.exportReady',
+        correlationId: message.correlationId,
+        ok: false,
+      })
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        correlationId: message.correlationId,
+        message: 'Codex CSV export failed.',
+      })
+    }
+  }
+
+  private async handleCodexForget(): Promise<void> {
+    const host = this.codex()
+    if (host === null) {
+      return
+    }
+    try {
+      await host.forget()
+      await this.postCodexStatus()
+    } catch {
+      void this.panel.webview.postMessage({
+        type: 'operation.error',
+        message: 'Could not delete imported Codex data.',
+      })
+    }
+  }
+
+  private async postCodexStatus(): Promise<void> {
+    const host = this.codex()
+    const config = readCursorCostConfig(
+      vscode.workspace.getConfiguration('cursorCost'),
+    )
+    const { readdir, realpath, stat } = await import('node:fs/promises')
+    const fsDeps: FsDeps = {
+      readdir: async (path) => readdir(path),
+      stat: async (path) => {
+        try {
+          const info = await stat(path)
+          return info.isDirectory() ? 'dir' : info.isFile() ? 'file' : 'missing'
+        } catch {
+          return 'missing'
+        }
+      },
+      sizeMtime: async (path) => {
+        const info = await stat(path)
+        return { size: info.size, mtimeMs: info.mtimeMs }
+      },
+      realpath: async (path) => realpath(path),
+    }
+    const root = await resolveCodexRoot({
+      codexHomeSetting: config.codexHome,
+      codexHomeEnv: process.env.CODEX_HOME,
+      homeDir: homedir(),
+      stat: fsDeps.stat,
+      realpath: fsDeps.realpath,
+      readdir: fsDeps.readdir,
+    })
+    const sessionsPath = !root.ok
+      ? null
+      : root.scanDirect
+        ? root.realpath
+        : join(root.realpath, 'sessions')
+    let archivedSessionsPath: string | null = null
+    if (root.ok && !root.scanDirect) {
+      const archived = join(root.realpath, 'archived_sessions')
+      if ((await fsDeps.stat(archived)) === 'dir') {
+        archivedSessionsPath = archived
+      }
+    }
+    let rolloutsOnDisk = false
+    if (root.ok) {
+      try {
+        const found = await discoverRolloutFiles(root.realpath, fsDeps, {
+          scanDirect: root.scanDirect,
+        })
+        rolloutsOnDisk = found.length > 0
+      } catch {
+        rolloutsOnDisk = false
+      }
+    }
+    let unrecognizedCount = 0
+    let ignoredCount = 0
+    let sessionCount = 0
+    let lastSyncAt: string | null = null
+    let parserVersion: string | null = null
+    let accounts: string[] = []
+    let models: string[] = []
+    let dateSpan: string | null = null
+    let partial = false
+    let rates: ModelRateInput[] = []
+
+    if (host !== null) {
+      const db = (host.getStore() as unknown as { db: Database }).db
+      const one = (sql: string, params: SqlValue[] = []): Record<string, SqlValue> | null => {
+        const stmt = db.prepare(sql)
+        try {
+          stmt.bind(params)
+          if (!stmt.step()) {
+            return null
+          }
+          return stmt.getAsObject()
+        } finally {
+          stmt.free()
+        }
+      }
+      const all = (sql: string): Record<string, SqlValue>[] => {
+        const stmt = db.prepare(sql)
+        const rows: Record<string, SqlValue>[] = []
+        try {
+          while (stmt.step()) {
+            rows.push(stmt.getAsObject())
+          }
+        } finally {
+          stmt.free()
+        }
+        return rows
+      }
+      const instance = one(
+        `SELECT unrecognized_lines, ignored_lines, last_scan_at, parser_version
+         FROM source_instances LIMIT 1`,
+      )
+      unrecognizedCount =
+        typeof instance?.unrecognized_lines === 'number'
+          ? instance.unrecognized_lines
+          : 0
+      ignoredCount =
+        typeof instance?.ignored_lines === 'number' ? instance.ignored_lines : 0
+      lastSyncAt =
+        typeof instance?.last_scan_at === 'string' ? instance.last_scan_at : null
+      parserVersion =
+        typeof instance?.parser_version === 'string'
+          ? instance.parser_version
+          : null
+      partial = unrecognizedCount > 0
+      const sessionRow = one(`SELECT COUNT(*) AS c FROM conversations`)
+      sessionCount = typeof sessionRow?.c === 'number' ? sessionRow.c : 0
+      accounts = all(
+        `SELECT DISTINCT account_scope_key AS k FROM requests ORDER BY k`,
+      )
+        .map((row) => (typeof row.k === 'string' ? row.k : ''))
+        .filter((k) => k !== '')
+      models = all(
+        `SELECT DISTINCT model AS k FROM requests WHERE model IS NOT NULL AND model != '' ORDER BY k`,
+      )
+        .map((row) => (typeof row.k === 'string' ? row.k : ''))
+        .filter((k) => k !== '')
+      const span = one(
+        `SELECT MIN(observed_at) AS a, MAX(observed_at) AS b FROM requests`,
+      )
+      if (typeof span?.a === 'string' && typeof span.b === 'string') {
+        dateSpan = `${span.a.slice(0, 10)} – ${span.b.slice(0, 10)}`
+      }
+      const seen = new Set<string>()
+      rates = all(
+        `SELECT model, input_rate, cached_input_rate, output_rate,
+                cache_write_rate, reasoning_rate, effective_from
+         FROM pricing_versions
+         ORDER BY model, effective_from DESC`,
+      ).flatMap((row) => {
+        const model = typeof row.model === 'string' ? row.model : ''
+        if (model === '' || seen.has(model)) {
+          return []
+        }
+        seen.add(model)
+        return [
+          {
+            model,
+            inputRate: typeof row.input_rate === 'string' ? row.input_rate : '',
+            cachedInputRate:
+              typeof row.cached_input_rate === 'string' ? row.cached_input_rate : '',
+            outputRate: typeof row.output_rate === 'string' ? row.output_rate : '',
+            cacheWriteRate:
+              typeof row.cache_write_rate === 'string' ? row.cache_write_rate : null,
+            reasoningRate:
+              typeof row.reasoning_rate === 'string' ? row.reasoning_rate : null,
+          },
+        ]
+      })
+    }
+
+    const rootState = !root.ok
+      ? root.reason
+      : !config.codexImportEnabled
+        ? 'import-off'
+        : 'ok'
+
+    void this.panel.webview.postMessage({
+      type: 'codex.status',
+      importEnabled: config.codexImportEnabled,
+      rootState,
+      partial,
+      unrecognizedCount,
+      ignoredCount,
+      rates,
+      listRates: models.flatMap((model) => {
+        const price = listPriceFor(model)
+        if (price === null) {
+          return []
+        }
+        return [
+          {
+            model,
+            inputRate: price.inputRate,
+            cachedInputRate: price.cachedInputRate,
+            outputRate: price.outputRate,
+            cacheWriteRate: price.cacheWriteRate,
+            reasoningRate: null,
+          },
+        ]
+      }),
+      sessionCount,
+      dateSpan,
+      lastSyncAt,
+      parserVersion,
+      accounts,
+      models,
+      remoteWindow: typeof vscode.env.remoteName === 'string' && vscode.env.remoteName !== '',
+      resolvedHome: root.ok ? root.realpath : null,
+      sessionsPath,
+      archivedSessionsPath,
+      pointedAtSessions: root.ok && root.pointedAtSessions,
+      rolloutsOnDisk,
+    })
   }
 
   private async writeSetting(
@@ -844,6 +1771,10 @@ export class HistoryPanel {
   }
 
   private dispose(): void {
+    if (this.orgRefreshTimer) {
+      clearTimeout(this.orgRefreshTimer)
+      this.orgRefreshTimer = undefined
+    }
     this.publisher.dispose()
     HistoryPanel.current = undefined
     for (const disposable of this.disposables) {

@@ -8,6 +8,7 @@ import {
   type BillingCycleRange,
   type ForecastWindow,
 } from '../../forecastWindow'
+import { historyDateRangeBounds } from '../../historyFromDate'
 import {
   localDayKey as dayKeyFromMs,
   localDayKeyFromParts,
@@ -293,6 +294,145 @@ export function chartFromFrames(
 
 export function resetDateForFrames(frames: DayFrame[]): string | null {
   return frames.find((frame) => frame.reset)?.date ?? null
+}
+
+/** Local midnight of the latest frame. That day is the end of the period. */
+function periodEndMs(frames: DayFrame[], now: Date): number | null {
+  let end: number | null = null
+  for (const frame of frames) {
+    const at = labeledDayMs(frame.date, now)
+    if (at === null) {
+      continue
+    }
+    if (end === null || at > end) {
+      end = at
+    }
+  }
+  return end
+}
+
+function labeledDayMs(label: string, now: Date): number | null {
+  const match = /^(\d{1,2})\.(\d{2})$/.exec(label)
+  if (match === null) {
+    return null
+  }
+  const day = Number(match[1])
+  const month = Number(match[2]) - 1
+  if (!Number.isInteger(day) || month < 0 || month > 11) {
+    return null
+  }
+  let year = now.getFullYear()
+  if (month > now.getMonth() + 1) {
+    year -= 1
+  } else if (month + 1 < now.getMonth()) {
+    year += 1
+  }
+  return new Date(year, month, day).getTime()
+}
+
+/**
+ * Chart axis for a set From date. The line starts on that local day and always
+ * runs through the end of the current period: the last frame, which is the
+ * last day of the calendar month or the last day of the billing cycle. A To
+ * date can extend the axis further. It does not cut the period short. Days
+ * before the current cycle keep that earlier cycle's spend and the current
+ * cycle starts again at zero.
+ */
+export function framesForHistoryRange(
+  frames: DayFrame[],
+  queries: UsageQuery[],
+  now: Date,
+  basis: BudgetDayBasis,
+  range: BillingCycleRange | null,
+  fromIso: string | null | undefined,
+  toIso: string | null | undefined,
+  pool?: IncludedModelPool | null,
+): DayFrame[] {
+  if (!fromIso) {
+    return frames
+  }
+  const bounds = historyDateRangeBounds(fromIso, toIso ?? null, now)
+  if (bounds === null) {
+    return frames
+  }
+  const end = new Date(bounds.endMs)
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime()
+  const drawEnd = Math.max(endDay, periodEndMs(frames, now) ?? endDay)
+  const cycleStart =
+    range === null
+      ? null
+      : new Date(
+          range.start.getFullYear(),
+          range.start.getMonth(),
+          range.start.getDate(),
+        ).getTime()
+  const buckets = new Map<string, DayFrame[]>()
+  for (const frame of frames) {
+    const list = buckets.get(frame.date) ?? []
+    list.push(frame)
+    buckets.set(frame.date, list)
+  }
+  const axis: DayFrame[] = []
+  let priorPace = 0
+  let priorDays = 0
+  for (
+    const date = new Date(bounds.startMs);
+    date.getTime() <= drawEnd;
+    date.setDate(date.getDate() + 1)
+  ) {
+    const label = dayLabel(date.getDate(), date.getMonth())
+    const weekday = !isWeekend(date.getFullYear(), date.getMonth(), date.getDate())
+    const paceDay = basis === 'calendarDays' || weekday
+    const beforeCycle = cycleStart !== null && date.getTime() < cycleStart
+    const bucket = buckets.get(label)
+    const existing =
+      !beforeCycle && bucket !== undefined && bucket.length > 0
+        ? bucket.shift()
+        : undefined
+    if (existing !== undefined) {
+      axis.push({
+        ...existing,
+        reset:
+          cycleStart !== null && priorDays > 0 && axis.length === priorDays
+            ? true
+            : existing.reset,
+      })
+      continue
+    }
+    if (paceDay) {
+      priorPace += 1
+    }
+    priorDays += 1
+    const key = forecastLocalDayKey(date)
+    let usd = 0
+    for (const query of queries) {
+      if (queryDayKey(query.timestamp) !== key) {
+        continue
+      }
+      if (range !== null && query.timestamp >= range.start.getTime()) {
+        continue
+      }
+      if (
+        pool !== undefined &&
+        pool !== null &&
+        includedPoolForModel(query.model) !== pool
+      ) {
+        continue
+      }
+      usd += query.costUsd
+    }
+    axis.push({
+      date: label,
+      weekday,
+      workingDayIndex: paceDay ? priorPace : null,
+      workingCount: priorPace,
+      future: false,
+      usd,
+      reset: false,
+      paceCount: priorPace,
+    })
+  }
+  return axis.length > 0 ? axis : frames
 }
 
 export function activeFrameUsed(frames: DayFrame[]): number {

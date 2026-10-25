@@ -895,3 +895,88 @@
   fill: var(--vscode-descriptionForeground);
   font-size: 10px;
 }
+
+/* cct-order: 355 */
+.chart-bar.is-uncached {
+  fill: var(--vscode-charts-blue, #3794ff);
+  opacity: 0.9;
+}
+
+/* cct-order: 356 */
+.chart-bar.is-cached {
+  fill: var(--vscode-charts-purple, #b180d7);
+  opacity: 0.9;
+}
+
+/* cct-order: 357 */
+.chart-bar.is-output {
+  fill: var(--vscode-charts-green, #89d185);
+  opacity: 0.95;
+}
+
+/* cct-order: 358 */
+.chart-legend-item.is-uncached::before {
+  background: var(--vscode-charts-blue, #3794ff);
+}
+
+/* cct-order: 359 */
+.chart-legend-item.is-cached::before {
+  background: var(--vscode-charts-purple, #b180d7);
+}
+
+/* cct-order: 360 */
+.chart-legend-item.is-output::before {
+  background: var(--vscode-charts-green, #89d185);
+}
+
+/* cct-order: 361 */
+.chart-limit-line {
+  fill: none;
+  stroke-width: 1.75;
+}
+
+/* cct-order: 362 */
+.chart-limit-line.is-5h,
+.chart-limit-dot.is-5h {
+  stroke: var(--vscode-charts-blue, #3794ff);
+  fill: var(--vscode-charts-blue, #3794ff);
+}
+
+/* cct-order: 363 */
+.chart-limit-line.is-7d,
+.chart-limit-dot.is-7d {
+  stroke: var(--vscode-charts-green, #89d185);
+  fill: var(--vscode-charts-green, #89d185);
+}
+
+/* cct-order: 364 */
+.chart-limit-line.is-other,
+.chart-limit-dot.is-other {
+  stroke: var(--vscode-charts-yellow, #cca700);
+  fill: var(--vscode-charts-yellow, #cca700);
+}
+
+/* cct-order: 365 */
+.chart-limit-line {
+  fill: none;
+}
+
+/* cct-order: 366 */
+.chart-limit-reset {
+  stroke: var(--vscode-descriptionForeground);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+/* cct-order: 367 */
+.chart-frame.is-compact {
+  display: flex;
+  justify-content: center;
+}
+
+/* cct-order: 368 */
+.chart-frame[hidden],
+.chart-svg[hidden],
+.chart-legend[hidden] {
+  display: none !important;
+}

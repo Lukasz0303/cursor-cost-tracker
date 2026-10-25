@@ -1,0 +1,22 @@
+---
+description: Statistics quota and lines cards — one visible change, package apart
+alwaysApply: false
+---
+
+# Statistics quota / lines cards
+
+This thread billed **11.66 $** across 10 requests on `grok-4.7-high` while repainting the same two Statistics cards. Output was **112,914** tokens. Request **#2** (the “think about the tiles” pass) was **3,863,970** tokens / **2.22 $**. Request **#3** (“build it and package”) was **6,034,832** tokens / **3.35 $**. Later turns reopened the same card for Dashboard bold-then-delete, sparkline hover, the last-conversation link, token/context colors, then the model row. **#7** was **4,502,762** tokens / **2.34 $**. After **2694** minutes idle, **#8** still continued here at **2,093,557** tokens / **1.44 $**. A package-only turn was **0.12 $**.
+
+## When the ask is these cards
+
+Files: `media/src/tabs/stats.js`, `media/css/stats.css`, and `media/src/tabs/queries.js` only for `latestConversation`. One message, one visible change.
+
+- Do not reopen `src/ui/mtd/pace.ts` or the forecast chart to restyle the gauge or the lines card. „Wszystkie” stays the mean of the two pool percents already in that file.
+- End the turn with one `npm run package` when the card edit ships. `npm run build` leaves the installed VSIX stale — [package-current-version.mdc](./package-current-version.mdc).
+- A design ask (“co tu pokazać”) stays a short answer. Do not explore pools, the status bar, and charts, then implement them on the next message in this thread.
+- Last-conversation facts (model, compact tokens, context %) stay in `latestConversation` / `latestConversationLink`. Do not redraw the sparkline or the gauge in that turn.
+
+## Still allowed
+
+- The one function the user named, plus the matching block in `media/css/stats.css`.
+- The same turn packages the VSIX after the card edit. A package-only ask is one Shell and no reads.

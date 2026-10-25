@@ -94,8 +94,13 @@ describe('toHistoryRows extras', () => {
       },
     )
     expect(rows[0]?.conversationTitle).toBe('Fix burn-rate toast')
+    expect(rows[0]?.cli).toBe(false)
+    expect(rows[0]?.kind).not.toBe('CLI')
     expect(rows[1]?.conversationTitle).toBe('')
+    expect(rows[1]?.cli).toBe(true)
+    expect(rows[1]?.kind).toBe('CLI')
     expect(rows[2]?.conversationTitle).toBe('')
+    expect(rows[2]?.cli).toBe(false)
   })
 
   it('marks a stored conversation and leaves other rows unmarked', () => {
@@ -167,6 +172,7 @@ describe('historyDataPayload', () => {
     expect(json.includes('WorkosCursorSessionToken')).toBe(false)
     expect(json.includes('Authorization')).toBe(false)
     expect(Object.keys(payload).sort()).toEqual([
+      'awaitingData',
       'billingCycleStart',
       'budgetDayBasis',
       'burnRate',
@@ -200,12 +206,15 @@ describe('historyDataPayload', () => {
       'periods',
       'pollIntervalMinutes',
       'queryGroups',
+      'quotaBoard',
       'recentQueryCount',
       'refreshing',
+      'showCliThreads',
       'showCriticalAlert',
       'showSpikeWarning',
       'showStatusBar',
       'showToday',
+      'spendMix',
       'spikeTokenThreshold',
       'stats',
       'statusBarPreview',
@@ -216,6 +225,8 @@ describe('historyDataPayload', () => {
     expect(payload.language).toBe('en')
     expect(payload.i18n.tabs.settings).toBe('Settings')
     expect(payload.optimizeDepth).toBe('balanced')
+    expect(payload.spendMix.empty).toBe(false)
+    expect(payload.spendMix.vendor.map((slice) => slice.label)).toEqual(['Cursor'])
     expect(payload.forecastWindow).toBe('calendarMonth')
     expect(payload.support).toEqual({
       buyMeACoffee: true,
@@ -321,6 +332,42 @@ describe('payloadForSnapshot', () => {
     )
     expect(payload.events).toHaveLength(1)
     expect(payload.message).toBeUndefined()
+  })
+
+  it('keeps the first-load wait only while usage is still loading and the table is empty', () => {
+    const waiting = payloadForSnapshot({ status: 'loading' }, [])
+    expect(waiting.awaitingData).toBe(true)
+    expect(waiting.message).toContain('moment')
+
+    const ready = payloadForSnapshot(
+      {
+        status: 'ready',
+        data: {
+          email: 'secret@example.com',
+          plan: 'pro',
+          spendDisplay: 'percent',
+          includedQuotas: [],
+          usedUsd: 0,
+          limitUsd: null,
+          remainingUsd: null,
+          todayUsedUsd: 0,
+          dailyBudgetUsd: null,
+          workingDaysLeft: null,
+          billingCycleStart: null,
+          billingCycleEnd: null,
+          isUnlimited: true,
+          includedLine: null,
+          onDemandLine: null,
+          recentQueries: [],
+        },
+      },
+      [],
+    )
+    expect(ready.awaitingData).toBe(false)
+
+    const cached = payloadForSnapshot({ status: 'loading' }, [query({ timestamp: 2 })])
+    expect(cached.awaitingData).toBe(false)
+    expect(cached.events).toHaveLength(1)
   })
 
   it('surfaces a generic error only when the table is empty', () => {

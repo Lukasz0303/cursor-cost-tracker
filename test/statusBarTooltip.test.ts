@@ -94,6 +94,10 @@ describe('buildBudgetTooltipMarkdown', () => {
         ],
         recentQueries: [],
       }),
+      new Date('2026-09-20T12:00:00'),
+      null,
+      'en',
+      'all',
     )
     expect(tooltip).toContain('<strong>Cursor Models</strong><br>14%<br><code>█░░░░░░░░░</code>')
     expect(tooltip).toContain('<strong>Other Models</strong><br>0%<br><code>░░░░░░░░░░</code>')

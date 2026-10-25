@@ -2,7 +2,9 @@ import { CURSOR_DASHBOARD_URL } from '../constants'
 import { cycleResetLabel, formatPercentUsed } from '../format'
 import { catalogFor } from '../i18n'
 import { DEFAULT_LOCALE, type Locale } from '../locale'
-import type { UsageReady } from '../usage/types'
+import type { IncludedQuota, UsageReady } from '../usage/types'
+import { includedPoolForQuotaName } from '../includedPool/modelPool'
+import type { ForecastSeriesFocus } from './forecastSeriesFocus'
 import { formatModelUsageTable, topModelsByCost } from './modelBreakdown'
 
 const BAR_WIDTH = 10
@@ -31,6 +33,7 @@ export function buildBudgetTooltipMarkdown(
   now: Date = new Date(),
   burnLine: string | null = null,
   locale: Locale = DEFAULT_LOCALE,
+  focus: ForecastSeriesFocus = 'cursor',
 ): string {
   const copy = catalogFor(locale)
   const lines: string[] = ['$(credit-card) **Cursor Cost**', '']
@@ -41,7 +44,7 @@ export function buildBudgetTooltipMarkdown(
     lines.push('')
   }
 
-  const meters = metersFrom(data, locale)
+  const meters = metersFrom(data, locale, focus)
   if (meters.length > 0) {
     lines.push(metersTable(meters))
     lines.push('')
@@ -85,12 +88,29 @@ function identityLine(data: UsageReady): string | null {
   return `<p>${parts.join(' · ')}</p>`
 }
 
-function metersFrom(data: UsageReady, locale: Locale = DEFAULT_LOCALE): Meter[] {
+function quotasForFocus(
+  quotas: IncludedQuota[],
+  focus: ForecastSeriesFocus,
+): IncludedQuota[] {
+  if (focus === 'all') {
+    return quotas
+  }
+  const matched = quotas.filter(
+    (quota) => includedPoolForQuotaName(quota.name) === focus,
+  )
+  return matched.length > 0 ? matched : quotas
+}
+
+function metersFrom(
+  data: UsageReady,
+  locale: Locale = DEFAULT_LOCALE,
+  focus: ForecastSeriesFocus = 'cursor',
+): Meter[] {
   const copy = catalogFor(locale).statusBar
   const meters: Meter[] = []
 
   if (data.spendDisplay === 'percent' && data.includedQuotas.length > 0) {
-    for (const quota of data.includedQuotas) {
+    for (const quota of quotasForFocus(data.includedQuotas, focus)) {
       meters.push({
         label: quota.name,
         value: formatPercentUsed(quota.percent),

@@ -231,6 +231,55 @@ export function contextRecord(
   return out
 }
 
+/**
+ * Folder name on a composer header. Same workspace stamp Coding stats uses.
+ * Does not return chat text.
+ */
+export function projectFromComposerHeader(
+  raw: string,
+  fallbackId: string,
+): { id: string; project: string } | null {
+  const parsed = parseJson(raw)
+  if (!isRecord(parsed)) {
+    return null
+  }
+  const id = cleanId(parsed.composerId) ?? cleanId(fallbackId)
+  if (id === undefined) {
+    return null
+  }
+  const workspace = parsed.workspaceIdentifier
+  if (!isRecord(workspace) || !isRecord(workspace.uri)) {
+    return null
+  }
+  const uri = workspace.uri
+  const path =
+    typeof uri.fsPath === 'string' && uri.fsPath.trim() !== ''
+      ? uri.fsPath
+      : typeof uri.path === 'string'
+        ? uri.path
+        : ''
+  const project = folderLabel(path)
+  if (project === '') {
+    return null
+  }
+  return { id, project }
+}
+
+function folderLabel(path: string): string {
+  let normalized = path.trim().replace(/\\/g, '/')
+  if (/^file:/i.test(normalized)) {
+    normalized = normalized.replace(/^file:\/\//i, '')
+    try {
+      normalized = decodeURIComponent(normalized)
+    } catch {
+      // keep the stripped URI path
+    }
+  }
+  const parts = normalized.split('/').filter((part) => part !== '' && part !== '.')
+  const last = parts[parts.length - 1] ?? ''
+  return last.length > 80 ? last.slice(0, 80) : last
+}
+
 export function titleRecord(
   titles: ReadonlyMap<string, string>,
 ): Record<string, string> {

@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-07T09:00:00.000Z","type":"session_meta","payload":{"session_id":"session-aaa","thread_id":"thread-aaa","creator_account_id":"acct-111"}}
+{"timestamp":"2026-10-07T09:00:01.000Z","type":"session_meta","payload":{"session_id":"session-aaa","thread_id":"thread-aaa","creator_account_id":"acct-111"}}

@@ -43,6 +43,7 @@ export type PanelPublisherDeps = {
   readOptimizedTargets: () => OptimizedTargets
   workspaceProject: () => { key: string; label: string }
   creditOptimizeSavings: (markdown: string | null) => Promise<LifetimeSavings>
+  spendMixCatalog: () => { id: string; provider: string }[]
 }
 
 /**
@@ -65,6 +66,7 @@ export class PanelPublisher {
   } | null = null
   private optimizeSavingsMarkdown: string | null = null
   private conversationTitles: Record<string, string> = {}
+  private conversationProjects: Record<string, string> = {}
   private conversationContext: Record<string, ComposerContextMeter> = {}
   private conversationAccountSpend = false
 
@@ -174,6 +176,7 @@ export class PanelPublisher {
       return
     }
     this.conversationTitles = titleRecord(local.titles)
+    this.conversationProjects = titleRecord(local.projects)
     this.conversationContext = contextRecord(local.context)
     const savedAuthors = parseStoredAuthorChoice(
       this.deps.workspaceState.get(CODE_LINES_AUTHORS_STATE_KEY),
@@ -243,6 +246,8 @@ export class PanelPublisher {
         budgetDayBasis: config.budgetDayBasis,
         forecastWindow: config.forecastWindow,
         optimizeDepth: config.optimizeDepth,
+        spendMixBuckets: config.spendMixBuckets,
+        spendMixCatalog: this.deps.spendMixCatalog(),
         burnRateGuard: config.burnRateGuard,
         burnRateWindowMinutes: config.burnRateWindowMinutes,
         burnRateWarningUsd: config.burnRateWarningUsd,
@@ -253,12 +258,14 @@ export class PanelPublisher {
         codeLinesInsight: config.codeLinesInsight,
         codeLines,
         groupQueriesByConversation: config.groupQueriesByConversation,
+        showCliThreads: config.showCliThreads,
         language: config.language,
         optimizeSavingsMarkdown: this.optimizeSavingsMarkdown,
         optimizeProjectLabel: project.label,
         optimizeLifetimeSavings: lifetime,
         optimizedTargets: this.deps.readOptimizedTargets(),
         conversationTitles: this.conversationTitles,
+        spendMixProjects: this.conversationProjects,
         conversationContext: this.conversationContext,
         refreshing: overrides?.refreshing ?? this.deps.service.isRefreshing(),
         modelCatalog: this.deps.catalogForView(),

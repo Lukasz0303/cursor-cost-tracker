@@ -19,6 +19,7 @@ import {
 } from '../spikes/criticalAlert'
 import { clampSpikeTokenThreshold } from '../spikes/threshold'
 import { clampPollIntervalMinutes, clampRecentQueryCount } from '../clamps'
+import { resolveSpendMixBuckets } from '../spendMix/schema'
 import type { WebviewFlag, WebviewMessage } from '../webview/messages'
 
 const SETTINGS_TYPES = [
@@ -36,6 +37,7 @@ const SETTINGS_TYPES = [
   'setBurnRateCriticalToast',
   'setCodeLinesInsight',
   'setGroupQueriesByConversation',
+  'setShowCliThreads',
   'setCodeLinesAuthors',
   'setShowStatusBar',
   'setShowToday',
@@ -45,6 +47,7 @@ const SETTINGS_TYPES = [
   'setBudgetDayBasis',
   'setForecastWindow',
   'setOptimizeDepth',
+  'setSpendMixBuckets',
   'setLanguage',
   'setOkColor',
   'setWarnColor',
@@ -65,6 +68,7 @@ export function isSettingsMessage(message: WebviewMessage): message is SettingsM
 export type SettingsRouterDeps = {
   writeSetting: (key: string, value: string | number | boolean) => Promise<void>
   postData: () => void
+  postSpendMixFeedback: (error: string | null) => void
   refresh: () => void
   updateWorkspaceState: (key: string, value: unknown) => Thenable<void>
 }
@@ -143,6 +147,9 @@ export class SettingsRouter {
       case 'setGroupQueriesByConversation':
         void this.deps.writeSetting('groupQueriesByConversation', message.value)
         return
+      case 'setShowCliThreads':
+        void this.deps.writeSetting('showCliThreads', message.value)
+        return
       case 'setCodeLinesAuthors': {
         const parsed = parseStoredAuthorChoice({
           emails: message.emails,
@@ -200,6 +207,23 @@ export class SettingsRouter {
           parseOptimizeDepth(message.value),
         )
         return
+      case 'setSpendMixBuckets': {
+        const raw = typeof message.value === 'string' ? message.value : ''
+        const saved = readCursorCostConfig(
+          vscode.workspace.getConfiguration('cursorCost'),
+        ).spendMixBuckets
+        const previous = resolveSpendMixBuckets(saved)
+        const resolved = resolveSpendMixBuckets(raw, previous.buckets)
+        if (resolved.error !== null) {
+          this.deps.postSpendMixFeedback(resolved.error)
+          return
+        }
+        const next = raw.trim() === '' ? '' : raw
+        void this.deps.writeSetting('spendMixBuckets', next).then(() => {
+          this.deps.postSpendMixFeedback(null)
+        })
+        return
+      }
       case 'setLanguage':
         void this.deps.writeSetting('language', parseLocale(message.value))
         return

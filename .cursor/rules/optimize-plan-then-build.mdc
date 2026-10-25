@@ -12,7 +12,7 @@ This chat burned **~4.5M tokens / 3.21 $** (`grok-4.7-high`, cache **89%**) by p
 - **Phase 1:** `src/<feature>/` + its Vitest files only.
 - **Phase 2:** host + `media/history.*` only when that message names those paths. Do not also rewrite every catalog.
 - **Locales:** `en` + `pl` in the wire turn. Other catalogs are the **next** message. A `UiCatalog` type error is not permission to script-patch every locale in the same turn.
-- **VSIX / version / CHANGELOG** stay a later short message. Do not bundle them with the first build.
+- **Version / CHANGELOG** stay a later short message. The VSIX for the current `package.json` version is still built at the end of a turn that edited shippable source — [package-current-version.mdc](./package-current-version.mdc).
 
 ## After a red Warn-at (`!`) in this chat
 
@@ -23,4 +23,4 @@ This chat burned **~4.5M tokens / 3.21 $** (`grok-4.7-high`, cache **89%**) by p
 ## Still allowed
 
 - One phase whose paths are in the user message.
-- A later message that is only `npm run package` (one Shell).
+- The same turn still ends with one `npm run package` when it edited shippable source — [package-current-version.mdc](./package-current-version.mdc).

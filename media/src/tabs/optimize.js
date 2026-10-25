@@ -562,8 +562,99 @@ export function createOptimizeView(session) {
     }
   }
 
+  function renderCodexOptimize(payload) {
+    if (!optimizeViewEl || !optimizeSummaryEl) {
+      return
+    }
+    const hints = payload && Array.isArray(payload.hints) ? payload.hints : []
+    const empty = !payload || hints.length === 0
+    if (optimizeEmptyEl) {
+      optimizeEmptyEl.hidden = true
+    }
+    if (optimizeContentEl) {
+      optimizeContentEl.hidden = false
+    }
+    if (runOptimizeToolbarEl) {
+      runOptimizeToolbarEl.disabled = !payload || !payload.analyzeRequestId
+    }
+    syncOptimizeDefaultUi(session.optimizeDepth)
+    if (optimizeProjectedUsdEl) {
+      session.setText(optimizeProjectedUsdEl, '—')
+      optimizeProjectedUsdEl.classList.remove('is-ok')
+    }
+    if (optimizeProjectedTokensEl) {
+      session.setText(optimizeProjectedTokensEl, '—')
+    }
+    if (optimizeNoteEl) {
+      session.setText(optimizeNoteEl, session.t('codex.optimizeForecastNote'))
+    }
+    if (optimizeFindingsEl) {
+      while (optimizeFindingsEl.firstChild) {
+        optimizeFindingsEl.removeChild(optimizeFindingsEl.firstChild)
+      }
+      if (empty) {
+        const li = document.createElement('li')
+        session.setText(li, session.t('codex.optimizeNoHints'))
+        optimizeFindingsEl.appendChild(li)
+      } else {
+        for (let i = 0; i < hints.length; i++) {
+          const li = document.createElement('li')
+          session.setText(li, hints[i])
+          optimizeFindingsEl.appendChild(li)
+        }
+      }
+    }
+    const depths = ['quick', 'balanced', 'deep']
+    for (let i = 0; i < depths.length; i++) {
+      const key = depths[i]
+      const body = document.querySelector('[data-prompt-body="' + key + '"]')
+      const summary = document.querySelector(
+        '[data-prompt-summary="' + key + '"]',
+      )
+      const preview = session.t('codex.optimizeBriefPreview', { depth: key })
+      if (body) {
+        session.setText(body, preview)
+      }
+      if (summary) {
+        session.setText(summary, promptMetaLabel(key, preview))
+      }
+      const runBtn = document.querySelector('[data-run-depth="' + key + '"]')
+      if (runBtn) {
+        runBtn.disabled = !payload || !payload.analyzeRequestId
+      }
+    }
+  }
+
+  function postCodexAnalyze(depth) {
+    const payload = session.codexStats
+    session.vscode.postMessage({
+      type: messageType['codex.analyze'],
+      requestId: payload && payload.analyzeRequestId
+        ? payload.analyzeRequestId
+        : undefined,
+      depth: depth,
+    })
+  }
+
   function renderOptimize(optimize) {
     if (!optimizeViewEl || !optimizeSummaryEl) {
+      return
+    }
+    if (session.querySource === 'openai-api') {
+      if (optimizeEmptyEl) {
+        optimizeEmptyEl.hidden = false
+        session.setText(optimizeEmptyEl, session.t('source.openaiEmpty'))
+      }
+      if (optimizeContentEl) {
+        optimizeContentEl.hidden = true
+      }
+      if (runOptimizeToolbarEl) {
+        runOptimizeToolbarEl.disabled = true
+      }
+      return
+    }
+    if (session.querySource === 'codex-local') {
+      renderCodexOptimize(session.codexStats)
       return
     }
     const empty = !optimize || optimize.empty === true
@@ -671,6 +762,10 @@ export function createOptimizeView(session) {
         if (runBtn) {
           const raw = runBtn.getAttribute('data-run-depth')
           const value = raw === 'quick' || raw === 'deep' ? raw : 'balanced'
+          if (session.querySource === 'codex-local') {
+            postCodexAnalyze(value)
+            return
+          }
           session.vscode.postMessage({ type: messageType.runOptimize, depth: value })
         }
       })
@@ -681,9 +776,28 @@ export function createOptimizeView(session) {
           session.optimizeDepth === 'quick' || session.optimizeDepth === 'deep'
             ? session.optimizeDepth
             : 'balanced'
+        if (session.querySource === 'codex-local') {
+          postCodexAnalyze(depth)
+          return
+        }
         session.vscode.postMessage({ type: messageType.runOptimize, depth: depth })
       })
     }
+    window.addEventListener('message', function (event) {
+      const data = event && event.data
+      if (!data || typeof data.type !== 'string') {
+        return
+      }
+      if (data.type === 'codex.result' && data.stats) {
+        session.codexStats = data.stats
+        if (session.querySource === 'codex-local') {
+          renderCodexOptimize(session.codexStats)
+        }
+      }
+      if (data.type === 'openai.status' && session.querySource === 'openai-api') {
+        renderOptimize({ empty: true })
+      }
+    })
     if (optimizeSavingsVizEl) {
       optimizeSavingsVizEl.addEventListener('mousemove', function (event) {
         if (!pointerOverSpark(event)) {

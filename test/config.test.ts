@@ -7,6 +7,7 @@ import {
   DEFAULT_WARN_COLOR_LIGHT,
   colorSchemeFromKind,
   parseHexColor,
+  parseQuerySource,
   resolveStatusColors,
   type ConfigSection,
 } from '../src/config'
@@ -163,6 +164,35 @@ describe('cursorCostConfigFrom', () => {
     expect(config.language).toBe('zh-cn')
   })
 
+  it('reads Codex settings without canonicalizing codexHome', () => {
+    const config = cursorCostConfigFrom({
+      get(key: string, defaultValue: any) {
+        if (key === 'codexImportEnabled') {
+          return true
+        }
+        if (key === 'codexHome') {
+          return '~/custom-codex'
+        }
+        if (key === 'codexGroupByConversation') {
+          return false
+        }
+        if (key === 'querySource') {
+          return 'codex-local'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.codexImportEnabled).toBe(true)
+    expect(config.codexHome).toBe('~/custom-codex')
+    expect(config.codexGroupByConversation).toBe(false)
+    expect(config.querySource).toBe('codex-local')
+  })
+
+  it('parseQuerySource falls back to cursor', () => {
+    expect(parseQuerySource('openai-api')).toBe('openai-api')
+    expect(parseQuerySource('nope')).toBe('cursor')
+  })
+
   it('reads historyFromDate from settings', () => {
     const config = cursorCostConfigFrom({
       get(key: string, defaultValue: any) {
@@ -237,6 +267,24 @@ describe('cursorCostConfigFrom', () => {
       },
     })
     expect(config.budgetDayBasis).toBe('workingDays')
+  })
+
+  it('keeps the spend mix JSON string and drops a non-string', () => {
+    const config = cursorCostConfigFrom({
+      get(key: string, defaultValue: any) {
+        if (key === 'spendMixBuckets') {
+          return '{"buckets":[]}'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.spendMixBuckets).toBe('{"buckets":[]}')
+    const empty = cursorCostConfigFrom({
+      get(_key: string, defaultValue: any) {
+        return defaultValue
+      },
+    })
+    expect(empty.spendMixBuckets).toBe('')
   })
 
   it('reads optimizeDepth from settings', () => {
