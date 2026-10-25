@@ -846,7 +846,8 @@ h1, h2, h3 {
   border-color: var(--mint-border);
   transform: translateY(-2px);
 }
-.tile-wide { grid-column: 1 / -1; }
+.tile-wide,
+.tile-span { grid-column: 1 / -1; }
 .tile-wide {
   grid-template-columns: minmax(240px, 0.9fr) 1.1fr;
   align-items: center;
