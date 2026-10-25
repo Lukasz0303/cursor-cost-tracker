@@ -2,9 +2,9 @@
 
 **Product:** VS Code / Cursor extension  
 **Repo:** `cursor-cost-tracker` (standalone, MIT)  
-**Document version:** 2.21  
-**Date:** 2026-10-10  
-**Status:** Product decision through **1.0.7**  
+**Document version:** 2.22  
+**Date:** 2026-10-23  
+**Status:** Product decision through **1.0.8**  
 **Canonical location:** this file (`.ai/context/prd.md`)  
 **Polish translation:** [prd.pl.md](./prd.pl.md)
 
@@ -69,7 +69,7 @@ Right side (`StatusBarAlignment.Right`).
 … │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  ↻  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │
 ```
 
-**Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current is the **average** of included-quota percents vs 100% (`32% / 100%` when Cursor Models and Other Models are 33% and 31%). Today is the **average** of today’s attributed % vs even daily pace, with today’s dollar sum in parentheses (`3.5% / 4.5% (17.12 $)`).
+**Team / company:** Current is the dollar pool (`used $ / limit $`). **Personal Pro / Pro+:** Current follows the forecast focus. **All** is the **average** of included-quota percents vs 100% (`32% / 100%` when Cursor Models and Other Models are 33% and 31%). The starting choice is **Cursor Models**, so Current and Today show that quota until the user picks All or Other. Today is that set’s today % vs even daily pace, with today’s dollar sum in parentheses (`3.5% / 4.5% (17.12 $)`). The status bar stays on Cursor when the history panel is showing Codex or OpenAI API.
 
 Order is **Current**, **Today**, **Refresh**, then the newest queries. `cursorCost.recentQueryCount` controls how many query chips are shown (**1–10**, default **3**). Current+Today share one chip (priorities far from Ln/Col ~100). Refresh sits after that chip so it stays visible when query chips overflow. Each recent query is its **own** item so only a spike is red — VS Code cannot color part of one item. Each query is `cost - compact tokens`. Prefix `!` when that query has `tokens >= cursorCost.spikeTokenThreshold` (default **1_000_000**) and `cursorCost.showSpikeWarning` is on. Click Current / Today opens Last N on the **Statistics** tab. A recent-query chip opens the **queries list**. Refresh fetches from cursor.com on demand. Export CSV is on the Last N toolbar, not the status bar.
 
@@ -120,6 +120,14 @@ No **auto-repair**, workspace LLM scan, or chat-transcript analysis. Spike Ignor
 
 **Play on a red query (1.0.6, retargeted in 1.0.7):** a red TOKENS cell has Play. Since 1.0.7 the host opens that conversation (`composer.openComposer` with its id) and pastes a numbers-only brief for that conversation into the open chat; it does not press Start. No conversation id → the brief is that one query. Grouping uses the usage-event id only (no time-gap guess). The extension does not read prompt text or code. Rows touched by Play or Run Optimize are stored in `globalState` `cursorCost.optimizedTargets`. The queries toolbar **Optimized** filter shows those rows.
 
+**Source (1.0.8):** the history panel has **Cursor**, **Codex local**, and **OpenAI API** (`cursorCost.querySource`, default `cursor`). Current, Today, and a recent-query chip open the panel on Cursor and write the source back to `cursor`. The status bar does not show Codex.
+
+**Codex local (1.0.8):** sessions are read from Codex home on this computer (`cursorCost.codexHome`, default `~/.codex`; empty uses `CODEX_HOME` when that directory exists). Import is on by default (`cursorCost.codexImportEnabled`). Files are not uploaded and Codex login is not opened. A Remote SSH window reads this computer, not the SSH host. Queries, Statistics, and Charts use the same From–To sample as Cursor. Columns: time, model, context, cost, tokens, input, cached, output, reasoning. Group by thread (`cursorCost.codexGroupByConversation`, default **true**) is separate from the Cursor switch. Context is the newest request’s input share of the 1.05 million token window: up under 60%, red at 60% or more. A token `!` uses the same Warn at threshold. Dollars are an OpenAI standard-list estimate (long-context rate above 272k input). A rate saved in Settings replaces that list. The table total shows the estimate. It is not an invoice. Export CSV stays flat. Daily token and cost charts include empty days. The limit chart is that window in percent, from the From date through the reset, with a 100% ceiling. The Cursor dollar forecast and the coding-stats lines chart stay on Cursor. Play and Run paste a billing brief into the open Agent chat and do not submit it. **Optimized** matches a saved analysis only. The extension does not read the prompt. Rescan re-reads the files. Delete is two steps and removes only the imported copy.
+
+**OpenAI API (1.0.8):** the source can be selected. Until the user connects, the panel says this extension does not see other programs’ calls. Web checks an organization admin key and keeps it in Secret Storage. Local file stores a JSONL path (`cursorCost.openaiSinkPath`, mode `cursorCost.openaiConnectMode`). This version does not list those calls in the query table.
+
+**Quota and forecast focus (1.0.8):** Statistics shows a quota card (included Auto and API share on Pro, used and remaining, on-demand on or off, personal spend cap) and accepted lines for today and the selected period. Dollar plans use the dollar pool on that card. The monthly forecast can follow All, Cursor Models, or Other Models. Current and Today follow that choice. The starting choice is Cursor Models.
+
 **List price (1.0.6):** expanding a query row shows catalog input / output / cache-write / cache-read dollars beside billed cost. That is the price table, not the invoice. The Statistics sample also shows about how much cache-read saved versus input list price.
 
 **Group by conversation (1.0.6):** `cursorCost.groupQueriesByConversation` defaults to **false**. The queries toolbar switch and Settings → Recent queries stay in sync. On: one collapsed row per local chat title (request count and totals); expand for the same six columns. Chats that share a title merge (trim, collapsed whitespace, case-insensitive). An id with no title is labelled `#` plus the first 8 characters. Requests with no conversation id land in **Ungrouped** and do not get a Play brief. **Over Warn at**, the spike `!`, and Play still apply. Play on a merged-title row uses the conversation id that owns the dearest request. Export CSV stays flat. Titles come from the local index. The extension does not invent groups from time gaps and does not read prompt text. Statistics, Charts, and Optimize are not grouped.
@@ -157,7 +165,7 @@ Quick Pick as default click, Activity Bar, blocking modal on the history click p
 | A7 | developer | a tooltip with plan and cycle date | I get context without the table |
 
 v1.1 leftovers still open: table **Ignore**, 80%/90% spend alerts, Copy stats. The `!` and the threshold setting shipped earlier.  
-**1.0.2–1.0.7** (what the tree does now) is §5.2 and the history table in [codebase-snapshot.md](./codebase-snapshot.md): forecast, critical alert, Optimize, Burn Rate Guard, Coding stats, **11 UI languages** (Ukrainian added after 1.0.4), model pricing, billing-cycle forecast, Play, list price, To date, group by conversation, chart day detail.
+**1.0.2–1.0.8** (what the tree does now) is §5.2 and the history table in [codebase-snapshot.md](./codebase-snapshot.md): forecast, critical alert, Optimize, Burn Rate Guard, Coding stats, **11 UI languages** (Ukrainian added after 1.0.4), model pricing, billing-cycle forecast, Play, list price, To date, group by conversation, chart day detail, Codex local history, quota card, and forecast focus.
 
 ### 7b. User stories (v1.1 — token spike)
 
@@ -245,6 +253,12 @@ File map: [architecture.md](./architecture.md). What each version added: [codeba
 | `cursorCost.burnRateCriticalToast` | true | off = remember episode without a toast |
 | `cursorCost.codeLinesInsight` | true | Coding stats on Statistics and Charts (landed / AI · All on Cursor) |
 | `cursorCost.groupQueriesByConversation` | false | Fold the queries list into one collapsible row per local chat title. Shared titles merge. No id → **Ungrouped**. Export CSV stays flat |
+| `cursorCost.codexImportEnabled` | true | Read local Codex rollout files on this computer. Does not upload them |
+| `cursorCost.codexHome` | `~/.codex` | Codex parent directory (the folder that contains `sessions/`). Empty uses `CODEX_HOME` when that directory exists |
+| `cursorCost.codexGroupByConversation` | true | Fold Codex requests into one row per thread. Separate from the Cursor group switch |
+| `cursorCost.querySource` | `cursor` | `cursor`, `codex-local`, or `openai-api`. Current, Today, and a recent chip write this back to `cursor` |
+| `cursorCost.openaiConnectMode` | `web` | `web` (organization admin key in Secret Storage) or `local` (JSONL path). Neither fills the query table in 1.0.8 |
+| `cursorCost.openaiSinkPath` | (empty) | Absolute JSONL path when connect mode is `local` |
 | `cursorCost.language` | `en` | 11 locales: en, pl, zh-cn, fr, de, ja, ko, pt-br, ru, es, uk. Independent of the VS Code / Cursor display language |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignored when From date is set |
 | `cursorCost.historyFromDate` | (empty) | local `YYYY-MM-DD`; Settings **From date**; empty = Last N |
@@ -272,7 +286,8 @@ Activation: `onStartupFinished`.
 | **after 1.0.5** | Ukrainian (11th locale); billing-cycle forecast window |
 | **1.0.6** | cursorcosttracker.com; Play and Run Optimize into a new Agent chat; list price; cache $ saved; $ / 1k lines; To date; `historySample`; Optimized filter; group by conversation (default off); chart day detail and Sample / Last 7 / Month zoom |
 | **1.0.7** | Run Optimize pastes into the open Agent chat; Play opens that conversation and pastes the billing brief there |
-| **Still open** | table Ignore + bang recompute; 80/90% spend alerts; Copy stats; Today pace arrows; model-cost simulator; Secret Storage |
+| **1.0.8** | Codex local history on the same From–To window; OpenAI API connect card (no query rows yet); Statistics quota card; forecast focus drives Current and Today |
+| **Still open** | table Ignore + bang recompute; 80/90% spend alerts; Copy stats; Today pace arrows; model-cost simulator; manual Cursor token in Secret Storage; importing an OpenAI JSONL or admin usage into the query table |
 
 ---
 
@@ -322,10 +337,10 @@ Unofficial API / `state.vscdb` → isolate in `src/usage/`, show N/A. Session: `
 
 ## 14. Open
 
-Panel copy ships in 11 locales; English is the default. Open VSX is how Cursor users install. Homepage is `https://cursorcosttracker.com/`. Still open: table Ignore, 80/90% spend alerts, Copy stats, Today pace arrows, model-cost simulator, Secret Storage.
+Panel copy ships in 11 locales; English is the default. Open VSX is how Cursor users install. Homepage is `https://cursorcosttracker.com/`. Still open: table Ignore, 80/90% spend alerts, Copy stats, Today pace arrows, model-cost simulator, a manual Cursor token in Secret Storage, and filling the query table from OpenAI API.
 
 ---
 
 ## 15. Summary
 
-Cursor/VS Code extension, tree version **1.0.7**. Bar: Current + Today + sync + 1–10 queries + **spike `!`**. Click Current/Today: Statistics; query chip: queries list. Play on a red row pastes a numbers-only brief. The queries list can fold into one row per local chat title (default off). Spike Ignore store exists; the table button does not. Optimize is metadata only (no transcript). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Usage logic in `src/usage/`.
+Cursor/VS Code extension, tree version **1.0.8**. Bar: Current + Today + sync + 1–10 queries + **spike `!`**. Pro Current/Today follow the forecast focus (start: Cursor Models). Click Current/Today: Statistics on Cursor; query chip: queries list on Cursor. The history panel can switch to local Codex (same From–To window; dollars are an API estimate) or an OpenAI API connect card that does not fill the table. Play on a red Cursor row pastes a numbers-only brief. The queries list can fold into one row per local chat title (default off). Spike Ignore store exists; the table button does not. Optimize is metadata only (no transcript). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Usage logic in `src/usage/`. Codex logic in `src/openaiHistory/`.

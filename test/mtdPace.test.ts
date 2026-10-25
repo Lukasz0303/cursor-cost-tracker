@@ -244,18 +244,18 @@ describe('toMtdPace', () => {
       [query({ timestamp: now.getTime(), costUsd: 10 })],
       { now },
     )
-    // 3 weekdays so far. Even pace = 3 × (100 / 22) ≈ 13.6%. Used 21% → runs out early.
+    // 3 weekdays so far. Even pace = 3 × (100 / 22) ≈ 13.6%.
+    // Wszystkie is the mean of the pools: (21 + 0) / 2 = 10.5%, under that pace.
     expect(stats.unit).toBe('percent')
     expect(stats.title).toBe('Monthly cost forecast')
     expect(stats.value).toBe('')
-    expect(stats.verdict).toBe('over')
-    expect(stats.overPace).toBe(true)
+    expect(stats.verdict).toBe('ok')
+    expect(stats.overPace).toBe(false)
     expect(stats.max).toBe(100)
-    expect(stats.bars[0]?.label).toBe('Cursor Models')
-    expect(stats.bars[0]?.value).toContain('Runs out')
-    expect(stats.bars[0]?.value).toContain('21% used')
-    expect(stats.bars[1]?.label).toBe('Other Models')
-    expect(stats.bars[1]?.value).toContain('Lasts the month')
+    expect(stats.bars).toHaveLength(1)
+    expect(stats.bars[0]?.label).toBe('All')
+    expect(stats.bars[0]?.value).toContain('Lasts the month')
+    expect(stats.bars[0]?.value).toContain('10.5% used')
     expect(stats.metrics.map((row) => row.id)).toEqual([
       'mtdForecast',
       'mtdPace',
@@ -267,27 +267,25 @@ describe('toMtdPace', () => {
       'mtdDaysLeft',
       'mtdLeft',
     ])
-    expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe('79%')
+    expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe('89.5%')
+    expect(stats.metrics.find((row) => row.id === 'mtdLeft')?.hint).toContain('All')
     expect(stats.metrics.find((row) => row.id === 'mtdDaily')?.value).toBe('4.5%')
-    expect(stats.metrics.find((row) => row.id === 'mtdAvg')?.value).toBe('7%')
-    expect(stats.metrics.find((row) => row.id === 'mtdForecast')?.value).toBe(
-      '154%',
+    expect(stats.metrics.find((row) => row.id === 'mtdAvg')?.value).toBe('3.5%')
+    expect(stats.metrics.find((row) => row.id === 'mtdForecast')?.value).toBe('77%')
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Under')
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.tone).toBe('ok')
+    expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toBe(
+      'Lasts the month',
     )
-    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Over')
-    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.tone).toBe('over')
-    expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toContain(
-      'Cursor Models',
-    )
-    expect(stats.metrics.find((row) => row.id === 'mtdToLast')?.value).toBe(
-      '4.2%',
-    )
+    expect(stats.metrics.find((row) => row.id === 'mtdToLast')?.value).toBe('4.7%')
     expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.value).toBe(
       '19',
     )
     expect(stats.metrics.find((row) => row.id === 'mtdDaysLeft')?.label).toBe(
       'Working days left',
     )
-    expect(stats.body).toContain('working-day pace')
+    expect(stats.body).toContain('All')
+    expect(stats.body).toContain('lasts the month')
     expect(stats.series.map((line) => line.label)).toEqual([
       'Cursor Models',
       'Other Models',
@@ -299,6 +297,25 @@ describe('toMtdPace', () => {
     expect(stats.series[1]?.forecast[2]).toBe(0)
     expect(stats.series[1]?.forecast[29]).toBeCloseTo(100)
     expect(stats.series[1]?.runOutDate).toBeNull()
+    const cursorView = stats.views?.find((view) => view.pool === 'cursor')
+    const otherView = stats.views?.find((view) => view.pool === 'other')
+    expect(stats.views?.find((view) => view.pool === 'all')?.bars).toHaveLength(1)
+    expect(stats.views?.find((view) => view.pool === 'all')?.series[0]?.used[2]).toBe(
+      10.5,
+    )
+    expect(cursorView?.bars.map((bar) => bar.label)).toEqual(['Cursor Models'])
+    expect(cursorView?.body).not.toContain('Other Models')
+    expect(cursorView?.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe(
+      '79%',
+    )
+    expect(otherView?.bars.map((bar) => bar.label)).toEqual(['Other Models'])
+    expect(otherView?.body).not.toContain('Cursor Models')
+    expect(otherView?.metrics.find((row) => row.id === 'mtdLeft')?.value).toBe(
+      '100%',
+    )
+    expect(otherView?.metrics.find((row) => row.id === 'mtdForecast')?.value).toBe(
+      '0%',
+    )
     // Ideal from today: leftover 79% / 19 remaining weekdays.
     expect(stats.series[0]?.ideal[2]).toBe(21)
     expect(stats.series[0]?.ideal[1]).toBeNull()
@@ -708,5 +725,55 @@ describe('billing-cycle forecast windows', () => {
     expect(stats.series[0]?.forecast[resetIndex]).toEqual([100, 0])
     // Next pace day climbs one step from 0 (not two steps / prior day-1 pace).
     expect(stats.series[0]?.forecast[resetIndex + 1]).toBeCloseTo(3)
+  })
+
+  it('draws the previous billing period inside the query range', () => {
+    const now = new Date(2026, 9, 24, 12, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: new Date(2026, 8, 30, 12, 0, 0).toISOString(),
+        billingCycleEnd: new Date(2026, 9, 30, 12, 0, 0).toISOString(),
+        includedQuotas: [
+          { name: 'Cursor Models', used: 72, limit: 100, percent: 72 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 10, 10, 0, 0).getTime(),
+          costUsd: 40,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 10, 10, 0, 0).getTime(),
+          costUsd: 30,
+          model: 'cursor-default',
+        }),
+      ],
+      {
+        now,
+        forecastWindow: 'billingCycle',
+        historyFromDate: '2026-09-01',
+      },
+    )
+    expect(stats.forecast[0]?.date).toBe('1.09')
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.10')
+    const sept10 = stats.forecast.findIndex((point) => point.date === '10.09')
+    const oct10 = stats.forecast.findIndex((point) => point.date === '10.10')
+    const today = stats.forecast.findIndex((point) => point.date === '24.10')
+    const reset = stats.series[0]?.forecast.findIndex((value) => Array.isArray(value)) ?? -1
+    expect(sept10).toBeGreaterThanOrEqual(0)
+    expect(oct10).toBeGreaterThan(sept10)
+    expect(reset).toBeGreaterThan(sept10)
+    expect(reset).toBeLessThan(oct10)
+    expect(stats.series[0]?.used[sept10]).toBeCloseTo(96)
+    expect(stats.series[0]?.used[oct10]).toBeCloseTo(72)
+    expect(stats.series[0]?.used[reset]).toBeLessThan(stats.series[0]?.used[sept10] ?? 0)
+    const todayForecast = stats.series[0]?.forecast[today]
+    const todayValue = Array.isArray(todayForecast) ? todayForecast[1] : todayForecast
+    expect(todayValue).toBeCloseTo(72)
+    expect(stats.series[0]?.used[stats.forecast.length - 1]).toBeNull()
   })
 })

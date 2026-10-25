@@ -23,7 +23,8 @@ The token **never** goes to the webview.
 | `src/usage/api.ts` | fetch summary + events, timeout |
 | `src/usage/parse.ts` | cents, pools, Pro percents vs team dollars, tokens, daily budget |
 | `src/usage/service.ts` | polling, cache, EventEmitter, AbortController |
-| `src/ui/statusBar.ts` | Budget chip + Refresh + 1–10 recent-query items (default 3) |
+| `src/ui/forecastSeriesFocus.ts` | Which included quota Current, Today, and the Pro forecast follow (`cursor` / `other` / `all`; start is `cursor`) |
+| `src/ui/statusBar.ts` | Budget chip + Refresh + 1–10 recent-query items (default 3). Follows the forecast focus |
 | `src/ui/statusBarTooltip.ts` | Hover card for Current/Today (meters, aligned model table) |
 | `src/ui/historyPanel.ts` | WebviewPanel lifecycle; theme and ok/warn colors post without reloading the session |
 | `src/ui/panelPublisher.ts` | Full data paint vs color-only paint |
@@ -68,6 +69,7 @@ The token **never** goes to the webview.
 | `src/version.ts` | installed version from `package.json` (webview label) |
 | `media/history.html\|css\|js` | Last N + Statistics + Charts + Optimize + Support + Settings. Edit `media/src/` (entry `main.js`); esbuild writes `media/history.js` |
 | `src/pricing/` | Public model price table, per-query list-price split, cache $ saved |
+| `src/openaiHistory/` | Local Codex import (Codex home, zstd via `fzstd`), sql.js store in global storage, queries, groups, CSV, statistics, limit-window charts, OpenAI list-price estimate. `org/adminKey.ts` checks an organization admin key in Secret Storage and does not store usage buckets |
 | `src/usage/conversationId.ts` | Usage-event conversation id |
 | `src/usage/groupConversations.ts` | Group by conversation id (Optimize brief) and by normalized title (queries table); no time-gap guessing |
 | `src/usage/conversationTitles.ts` | Local title for the brief |
@@ -91,7 +93,8 @@ If you change the directory layout, update this file and `shared.mdc`.
 3. Status bar, the critical-alert controller, and the burn-rate controller subscribe to the snapshot.
 4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', … }` (no token): events, the `historySample` window (Last N or From–To), `groupQueriesByConversation` and `queryGroups` (local titles only), forecast window and renewal marker, model catalog, list-price splits, optimized targets, burn rate, and coding stats. Settings also receives `statusBarPreview` and every `cursorCost.*` value. Billing-cycle availability comes from the usage-summary cycle dates.
 5. Refresh (status bar, queries toolbar, or command) → `service.refresh()`. Export CSV saves that same sample. Run Optimize posts into the host, which pastes the depth prompt into the open Agent chat; Play opens that conversation and pastes the numbers-only brief there. Chart day detail and Sample / Last 7 / Month filter the series already in the webview.
+6. The history panel source is `cursorCost.querySource` (`cursor`, `codex-local`, `openai-api`). Current, Today, and a recent-query chip force the source back to `cursor`. Codex reads rollout files on this computer into the extension store and paints its own rows, statistics, and charts for the same From–To window. The Cursor dollar forecast and coding-stats lines chart stay on Cursor. OpenAI API shows a connect card; the admin key stays in Secret Storage and the query table stays empty in this version.
 
 ## 4. MVP boundaries
 
-Do not add: Activity Bar, React, history TreeView, localhost calls, or a manual token in settings (Secret Storage is still open). `IgnoreStore` exists; wiring table **Ignore** + bang recompute is still remaining. Today pace arrows and the model-cost simulator are not built. Optimize, Play, and group-by-conversation use usage metadata and local titles only — no transcript analysis / auto-fix.
+Do not add: Activity Bar, React, history TreeView, localhost calls, or a manual Cursor token in settings. An OpenAI organization admin key may live in Secret Storage; it is not the Cursor session. `IgnoreStore` exists; wiring table **Ignore** + bang recompute is still remaining. Today pace arrows and the model-cost simulator are not built. Optimize, Play, and group-by-conversation use usage metadata and local titles only — no transcript analysis / auto-fix. Codex import does not read prompt text.

@@ -10,7 +10,16 @@
     <title>Last 1000 Cursor queries</title>
     <link rel="stylesheet" href="{{cssUri}}" />
   </head>
-  <body>
+  <body class="is-booting">
+    <div id="bootWait" class="boot-wait" role="status" aria-live="polite" aria-busy="true">
+      <div class="boot-wait-card">
+        <span class="boot-spinner" aria-hidden="true"></span>
+        <p class="boot-wait-title" data-i18n="boot.title">Loading your data</p>
+        <p class="boot-wait-hint" data-i18n="boot.hint">
+          The first open can take a moment. Please wait.
+        </p>
+      </div>
+    </div>
     <header class="toolbar">
       <nav class="tabs" aria-label="History views" data-i18n-aria="toolbar.historyViews">
         <button type="button" id="tabQueries" class="tab is-active">
@@ -135,7 +144,33 @@
         </button>
       </div>
     </header>
+    <div id="sourceSwitch" class="source-switch" role="group" aria-label="Source" data-i18n-aria="source.aria">
+      <span class="source-switch-label" data-i18n="source.label">Source</span>
+      <button type="button" class="source-pill is-pressed" id="sourceCursor" data-source="cursor" aria-pressed="true" data-i18n="source.cursor">Cursor</button>
+      <button type="button" class="source-pill" id="sourceCodex" data-source="codex-local" aria-pressed="false" data-i18n="source.codex">Codex local</button>
+      <button type="button" class="source-pill" id="sourceOpenai" data-source="openai-api" aria-pressed="false" hidden data-i18n="source.openai">OpenAI API</button>
+    </div>
+    <p id="codexCoverage" class="codex-coverage" hidden></p>
+    <div id="openaiEmpty" class="openai-connect" hidden>
+      <p class="openai-connect-lead" data-i18n="source.openaiEmpty">
+        OpenAI API is not connected. This extension does not see other programs’ calls by itself.
+      </p>
+      <div class="openai-connect-modes" role="group" aria-label="OpenAI connect mode" data-i18n-aria="source.openaiModeAria">
+        <button type="button" class="source-pill" id="openaiModeWeb" data-mode="web" aria-pressed="true" data-i18n="source.openaiModeWeb">Web</button>
+        <button type="button" class="source-pill" id="openaiModeLocal" data-mode="local" aria-pressed="false" data-i18n="source.openaiModeLocal">Local file</button>
+      </div>
+      <p id="openaiConnectHint" class="openai-connect-hint" data-i18n="source.openaiHintWeb">
+        Connect with an organization admin key from platform.openai.com. The key stays in Secret Storage.
+      </p>
+      <div class="openai-connect-actions">
+        <button type="button" class="action-btn" id="openaiConnectBtn" data-i18n="source.openaiConnect">Connect</button>
+        <button type="button" class="action-btn" id="openaiOpenKeysBtn" data-i18n="source.openaiOpenKeys">Open admin keys</button>
+        <button type="button" class="action-btn" id="openaiDisconnectBtn" hidden data-i18n="source.openaiDisconnect">Disconnect</button>
+      </div>
+      <p id="openaiConnectStatus" class="openai-connect-status" hidden></p>
+    </div>
     <section id="queriesView">
+      <div id="cursorQueriesChrome">
       <div class="view-actions">
         <label
           class="spike-switch spike-switch-warn"
@@ -178,7 +213,7 @@
         <label
           class="spike-switch spike-switch-group"
           for="groupByConversation"
-          title="Fold requests into one row per chat title. Export CSV stays flat."
+          title="Fold requests into one row per chat title. Threads without a title fold into one row per hour. Export CSV stays flat."
           data-i18n-title="queries.groupByConversationTitle"
         >
           <span class="spike-switch-text" data-i18n="queries.groupByConversation">Group by conversation</span>
@@ -194,15 +229,34 @@
             </span>
           </span>
         </label>
+        <label
+          class="spike-switch spike-switch-cli"
+          for="showCliThreads"
+          title="Show Cursor CLI threads. They have no chat title and fold into one row per hour. Turn off to hide them."
+          data-i18n-title="queries.showCliThreadsTitle"
+        >
+          <span class="spike-switch-text" data-i18n="queries.showCliThreads">CLI threads</span>
+          <span class="spike-switch-control">
+            <input
+              type="checkbox"
+              id="showCliThreads"
+              role="switch"
+              aria-checked="true"
+              checked
+            />
+            <span class="spike-switch-track" aria-hidden="true">
+              <span class="spike-switch-thumb"></span>
+            </span>
+          </span>
+        </label>
         <a class="action-btn" href="{{exportCsvHref}}" data-i18n="queries.exportCsv">Export CSV</a>
       </div>
       <p id="status" hidden></p>
       <p id="empty" hidden data-i18n="queries.empty">No queries yet</p>
       <p id="groupTitlesHint" class="queries-hint" hidden data-i18n="queries.groupNoTitles">
-        Chat titles come from local Cursor storage. Rows fall back to the
-        conversation id when no title is available.
+        Threads without a local title are Cursor CLI. They fold into one row per hour.
       </p>
-      <div class="table-wrap">
+      <div class="table-wrap" id="cursorTableWrap">
         <table>
           <thead>
             <tr>
@@ -217,6 +271,98 @@
           </thead>
           <tbody id="rows"></tbody>
         </table>
+      </div>
+      </div>
+      <div id="codexQueriesChrome" hidden>
+        <div class="view-actions codex-toolbar">
+          <label class="spike-switch spike-switch-warn" for="codexFilterSpikes" data-i18n-title="queries.overWarnTitle">
+            <span class="spike-switch-text" data-i18n="queries.overWarn">Over Warn at</span>
+            <span class="spike-switch-control">
+              <input type="checkbox" id="codexFilterSpikes" role="switch" aria-checked="false" />
+              <span class="spike-switch-track" aria-hidden="true"><span class="spike-switch-thumb"></span></span>
+            </span>
+          </label>
+          <label class="spike-switch spike-switch-optimized" for="codexFilterOptimized" data-i18n-title="queries.optimizedTitle">
+            <span class="spike-switch-text" data-i18n="queries.optimized">Optimized</span>
+            <span class="spike-switch-control">
+              <input type="checkbox" id="codexFilterOptimized" role="switch" aria-checked="false" />
+              <span class="spike-switch-track" aria-hidden="true"><span class="spike-switch-thumb"></span></span>
+            </span>
+          </label>
+          <label class="spike-switch spike-switch-group" for="codexGroupBy" data-i18n-title="queries.groupByConversationTitle">
+            <span class="spike-switch-text" data-i18n="queries.groupByConversation">Group by conversation</span>
+            <span class="spike-switch-control">
+              <input type="checkbox" id="codexGroupBy" role="switch" aria-checked="true" />
+              <span class="spike-switch-track" aria-hidden="true"><span class="spike-switch-thumb"></span></span>
+            </span>
+          </label>
+          <label class="spike-switch spike-switch-cli" for="codexShowCliThreads" data-i18n-title="queries.showCliThreadsTitle">
+            <span class="spike-switch-text" data-i18n="queries.showCliThreads">CLI threads</span>
+            <span class="spike-switch-control">
+              <input type="checkbox" id="codexShowCliThreads" role="switch" aria-checked="true" checked />
+              <span class="spike-switch-track" aria-hidden="true"><span class="spike-switch-thumb"></span></span>
+            </span>
+          </label>
+          <button type="button" class="action-btn" id="codexExportCsv" data-i18n="queries.exportCsv">Export CSV</button>
+          <select id="codexDatePreset" class="codex-filter" hidden data-i18n-aria="codex.datePresetAria" aria-label="Date">
+            <option value="all" data-i18n="codex.dateAll">All imported</option>
+            <option value="7" data-i18n="codex.dateLast7">Last 7 days</option>
+            <option value="month" data-i18n="codex.dateMonth">This month</option>
+            <option value="custom" data-i18n="codex.dateCustom">Custom</option>
+          </select>
+          <input type="date" id="codexFromDate" class="codex-filter" hidden aria-label="From" />
+          <input type="date" id="codexToDate" class="codex-filter" hidden aria-label="To" />
+          <select id="codexAccount" class="codex-filter" hidden aria-label="Account" data-i18n-aria="codex.accountAria">
+            <option value="" data-i18n="codex.accountAll">All accounts</option>
+          </select>
+          <select id="codexModel" class="codex-filter" hidden aria-label="Model" data-i18n-aria="codex.modelAria">
+            <option value="" data-i18n="codex.modelAll">All models</option>
+          </select>
+          <select id="codexStatus" class="codex-filter" hidden aria-label="Status" data-i18n-aria="codex.statusAria">
+            <option value="" data-i18n="codex.statusAll">All statuses</option>
+            <option value="completed">completed</option>
+            <option value="failed">failed</option>
+            <option value="cancelled">cancelled</option>
+            <option value="incomplete">incomplete</option>
+            <option value="unknown">unknown</option>
+          </select>
+          <select id="codexSort" class="codex-filter" hidden aria-label="Sort" data-i18n-aria="codex.sortAria">
+            <option value="time-desc" data-i18n="codex.sortTime">Newest</option>
+            <option value="cost-desc" data-i18n="codex.sortCost">Cost</option>
+            <option value="input-desc" data-i18n="codex.sortInput">Input</option>
+            <option value="tokens-desc" data-i18n="codex.sortTokens">Tokens</option>
+          </select>
+        </div>
+        <p id="codexEmpty" hidden data-i18n="codex.empty">No Codex requests yet</p>
+        <p id="codexRateBanner" class="codex-rate-banner" hidden></p>
+        <div class="table-wrap codex-table-wrap">
+          <table class="codex-table">
+            <thead>
+              <tr>
+                <th class="codex-sticky" id="codexColTime">TIME</th>
+                <th class="codex-col-model" data-i18n="queries.model">MODEL</th>
+                <th data-i18n="queries.context">Context</th>
+                <th class="codex-num" data-i18n="queries.cost">COST</th>
+                <th class="codex-num" data-i18n="queries.tokens">TOKENS</th>
+                <th class="codex-num" data-i18n="codex.colInput">INPUT</th>
+                <th class="codex-num" data-i18n="codex.colCached">CACHED</th>
+                <th class="codex-num" data-i18n="codex.colOutput">OUTPUT</th>
+                <th class="codex-num" data-i18n="codex.colReasoning">REASONING</th>
+                <th data-i18n="queries.kind">KIND</th>
+              </tr>
+            </thead>
+            <tbody id="codexRows"></tbody>
+          </table>
+        </div>
+        <button type="button" id="codexLoadMore" class="action-btn" hidden data-i18n="codex.loadMore">Load more</button>
+        <aside id="codexDrawer" class="codex-drawer" hidden>
+          <div class="codex-drawer-head">
+            <strong data-i18n="codex.drawerTitle">Request details</strong>
+            <button type="button" id="codexDrawerClose" class="action-btn" data-i18n="codex.drawerClose">Close</button>
+            <button type="button" id="codexDrawerCopy" class="action-btn" data-i18n="codex.drawerCopy">Copy details</button>
+          </div>
+          <pre id="codexDrawerBody" class="codex-drawer-body"></pre>
+        </aside>
       </div>
     </section>
     <section id="statsView" hidden>
@@ -312,15 +458,20 @@
           One bar per calendar day (oldest → newest). Height is that day's
           token usage.
         </p>
-        <div class="chart-legend">
+        <div class="chart-legend" id="tokenChartLegend">
           <span class="chart-legend-item is-bar is-day" data-i18n="charts.bars">Bars</span>
+        </div>
+        <div class="chart-legend" id="codexTokenLegend" hidden>
+          <span class="chart-legend-item is-bar is-uncached" data-i18n="charts.legendUncached">Input without cache</span>
+          <span class="chart-legend-item is-bar is-cached" data-i18n="charts.legendCached">Cached input</span>
+          <span class="chart-legend-item is-bar is-output" data-i18n="charts.legendOutput">Output</span>
         </div>
         <div class="chart-frame">
           <svg
             id="chartTokens"
             class="chart-svg"
             viewBox="0 0 800 280"
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
             role="img"
             aria-label="Cumulative daily tokens over time"
             data-i18n-aria="charts.tokensAria"
@@ -338,12 +489,13 @@
         <div class="chart-legend">
           <span class="chart-legend-item is-bar is-day" data-i18n="charts.bars">Bars</span>
         </div>
+        <p id="chartCostEmpty" class="stats-note" hidden></p>
         <div class="chart-frame">
           <svg
             id="chartCost"
             class="chart-svg"
             viewBox="0 0 800 280"
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
             role="img"
             aria-label="Cumulative daily cost over time"
             data-i18n-aria="charts.costAria"
@@ -351,6 +503,26 @@
         </div>
       </article>
       </div>
+      <article class="chart-card" id="codexLimitChartCard" hidden>
+        <h2 data-i18n="charts.codexLimitTitle">Limit windows</h2>
+        <p class="chart-hint" data-i18n="charts.codexLimitHint">
+          Used percent at each measurement. The line stops at the last sample.
+          The mark is the reset.
+        </p>
+        <p id="codexLimitEmpty" class="stats-note" hidden data-i18n="charts.codexLimitEmpty">
+          No limit measurements in the imported files.
+        </p>
+        <div class="chart-frame">
+          <svg
+            id="chartCodexLimits"
+            class="chart-svg"
+            viewBox="0 0 800 280"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label="Codex limit windows"
+          ></svg>
+        </div>
+      </article>
       <article class="chart-card" id="codeLinesChartCard">
         <h2 data-i18n="charts.codeLinesTitle">AI vs git lines</h2>
         <p class="chart-hint" id="codeLinesChartHint" data-i18n="charts.codeLinesHint">
@@ -376,7 +548,7 @@
           ></svg>
         </div>
       </article>
-      <p class="chart-hint period-cards-note" data-i18n="charts.periodNote">
+      <p class="chart-hint period-cards-note" id="chartsPeriodNote" data-i18n="charts.periodNote">
         Today, this month, and all time are from the Last N loaded queries —
         not the full Cursor dashboard.
       </p>
@@ -1616,14 +1788,30 @@
                 <span data-i18n="settings.groupQueries">Group by conversation</span>
                 <span class="settings-hint" data-i18n="settings.groupQueriesHint">
                   Fold the queries list into one collapsible row per chat title.
-                  Chats sharing a title merge into one row; requests without a
-                  conversation id land in Ungrouped. Export CSV stays flat.
+                  Chats sharing a title merge into one row. Threads without a
+                  title (Cursor CLI) fold into one row per hour. Requests without
+                  a conversation id land in Ungrouped. Export CSV stays flat.
                 </span>
               </span>
               <input
                 type="checkbox"
                 id="groupQueriesByConversation"
                 class="settings-switch"
+              />
+            </label>
+            <label class="settings-row" for="showCliThreadsSetting">
+              <span class="settings-copy">
+                <span data-i18n="settings.showCliThreads">CLI threads</span>
+                <span class="settings-hint" data-i18n="settings.showCliThreadsHint">
+                  Show Cursor CLI threads in the queries list. They have no chat
+                  title and, when grouping is on, fold into one row per hour.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                id="showCliThreadsSetting"
+                class="settings-switch"
+                checked
               />
             </label>
             <label class="settings-row" for="historyLimit">
@@ -1665,6 +1853,61 @@
                 <button type="button" id="fromLast30Setting" data-i18n="settings.last30Days">Last 30 days</button>
                 <button type="button" id="fromBillingCycleSetting" data-i18n="settings.thisBillingCycle">This billing cycle</button>
                 <button type="button" id="clearFromDateSetting" data-i18n="settings.useShowLast">Use Show last</button>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+        <fieldset id="codexSettingsCard">
+          <h3 class="settings-card-title" data-i18n="settings.codexTitle">Codex</h3>
+          <div class="settings-group">
+            <label class="settings-row" for="codexImportEnabled">
+              <span class="settings-copy">
+                <span data-i18n="settings.codexImport">Import local Codex sessions</span>
+                <span class="settings-hint" data-i18n="settings.codexImportHint">
+                  Read rollout files under Codex home on this computer. On by default.
+                </span>
+              </span>
+              <input type="checkbox" id="codexImportEnabled" class="settings-switch" checked />
+            </label>
+            <label class="settings-row" for="codexHome">
+              <span class="settings-copy">
+                <span data-i18n="settings.codexHome">Codex home</span>
+                <span class="settings-hint" data-i18n="settings.codexHomeHint">
+                  Default is ~/.codex: on macOS that is your home directory plus .codex, on Windows %USERPROFILE%\.codex. Clear the field to use CODEX_HOME when that directory exists. Do not point this at the sessions folder.
+                </span>
+              </span>
+              <input type="text" id="codexHome" spellcheck="false" />
+            </label>
+            <label class="settings-row" for="codexGroupByConversationSetting">
+              <span class="settings-copy">
+                <span data-i18n="settings.codexGroup">Group Codex by thread</span>
+                <span class="settings-hint" data-i18n="settings.codexGroupHint">
+                  Fold Codex requests into one row per thread. Separate from Cursor grouping.
+                </span>
+              </span>
+              <input type="checkbox" id="codexGroupByConversationSetting" class="settings-switch" />
+            </label>
+            <label class="settings-row" for="querySourceSetting">
+              <span class="settings-copy">
+                <span data-i18n="settings.querySource">Query source</span>
+                <span class="settings-hint" data-i18n="settings.querySourceHint">
+                  Which source the history panel shows.
+                </span>
+              </span>
+              <select id="querySourceSetting">
+                <option value="cursor" data-i18n="source.cursor">Cursor</option>
+                <option value="codex-local" data-i18n="source.codex">Codex local</option>
+                <option value="openai-api" hidden data-i18n="source.openai">OpenAI API</option>
+              </select>
+            </label>
+            <div id="codexRates" class="codex-rates"></div>
+            <p class="settings-hint" id="codexRootNote" hidden></p>
+            <p class="settings-hint" id="codexResolvedHome" hidden></p>
+            <p class="settings-hint" id="codexStatusFacts"></p>
+            <div class="settings-row settings-row-end">
+              <div class="settings-inline-actions">
+                <button type="button" id="codexRescan" data-i18n="settings.codexRescan">Rescan</button>
+                <button type="button" id="codexForget" data-i18n="settings.codexDelete">Delete imported Codex data</button>
               </div>
             </div>
           </div>

@@ -84,17 +84,55 @@ describe('toQueryGroups', () => {
     expect(groups[0]?.rangeLabel).toContain('→')
   })
 
-  it('labels an untitled conversation by id and buckets missing ids', () => {
+  it('folds untitled CLI threads into one row per local hour', () => {
+    const hour12 = new Date(2026, 9, 3, 12, 10, 0).getTime()
+    const hour12later = new Date(2026, 9, 3, 12, 40, 0).getTime()
+    const namedAt = new Date(2026, 9, 3, 12, 50, 0).getTime()
+    const hour13 = new Date(2026, 9, 3, 13, 5, 0).getTime()
+    const groups = toQueryGroups(
+      [
+        query({ timestamp: hour13, conversationId: 'cccc1111aaaa' }),
+        query({ timestamp: namedAt, conversationId: 'named-one' }),
+        query({ timestamp: hour12later, conversationId: 'bbbb2222bbbb' }),
+        query({ timestamp: hour12, conversationId: 'aaaa3333aaaa' }),
+        query({ timestamp: hour12 - 60_000 }),
+      ],
+      { titles: { 'named-one': 'Real chat', aaaa3333aaaa: '#aaaa3333' } },
+    )
+
+    expect(groups.map((group) => group.title)).toEqual([
+      '3.10.2026, 13:00–14:00',
+      'Real chat',
+      '3.10.2026, 12:00–13:00',
+      'Ungrouped',
+    ])
+    expect(groups[0]?.cli).toBe(true)
+    expect(groups[0]?.kind).toBe('CLI')
+    expect(groups[0]?.ids).toEqual(['cccc1111aaaa'])
+    expect(groups[1]?.cli).toBe(false)
+    expect(groups[1]?.kind).not.toBe('CLI')
+    expect(groups[2]?.cli).toBe(true)
+    expect(groups[2]?.named).toBe(false)
+    expect(groups[2]?.ids).toEqual(['bbbb2222bbbb', 'aaaa3333aaaa'])
+    expect(groups[2]?.queryCount).toBe(2)
+    expect(groups[3]?.cli).toBe(false)
+    expect(groups[3]?.ids).toEqual([])
+    expect(groups[3]?.optimizable).toBe(false)
+  })
+
+  it('keeps one CLI thread on the hour of its newest request', () => {
+    const early = new Date(2026, 9, 3, 12, 10, 0).getTime()
+    const late = new Date(2026, 9, 3, 13, 5, 0).getTime()
     const groups = toQueryGroups([
-      query({ timestamp: DAY + 1000, conversationId: 'ab12cd34ef56' }),
-      query({ timestamp: DAY }),
+      query({ timestamp: late, conversationId: 'thread-a' }),
+      query({ timestamp: early, conversationId: 'thread-a' }),
     ])
 
-    expect(groups[0]?.title).toBe('#ab12cd34')
-    expect(groups[0]?.named).toBe(false)
-    expect(groups[1]?.title).toBe('Ungrouped')
-    expect(groups[1]?.ids).toEqual([])
-    expect(groups[1]?.optimizable).toBe(false)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.title).toBe('3.10.2026, 13:00–14:00')
+    expect(groups[0]?.queryCount).toBe(2)
+    expect(groups[0]?.ids).toEqual(['thread-a'])
+    expect(groups[0]?.cli).toBe(true)
   })
 
   it('marks a group when any request is over Warn at and honours the toggle', () => {

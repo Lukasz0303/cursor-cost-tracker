@@ -26,7 +26,7 @@
 <p align="center">
   <a href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker"><img src="https://img.shields.io/badge/Open%20VSX-cursor--cost--tracker-purple.svg" alt="Open VSX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/version-1.0.7-blue.svg" alt="Version 1.0.7">
+  <img src="https://img.shields.io/badge/version-1.0.8-blue.svg" alt="Version 1.0.8">
   <img src="https://img.shields.io/badge/Contributions-welcome-brightgreen.svg" alt="Contributions welcome">
   <a href="https://buymeacoffee.com/lzzzielinsn"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
@@ -41,7 +41,7 @@
 4. **Optimize** — ready prompts for the last red (**Warn at**) query, or **Play** on one red row. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 
-Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. Both stay on **Cursor** usage. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start. The history panel can also show **local Codex** sessions (an API estimate, not an invoice) or an **OpenAI API** connect card that does not list those calls yet.
 
 The panel has six tabs:
 
@@ -50,7 +50,7 @@ The panel has six tabs:
 - **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
 - **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
 - **Support** — Buy Me a Coffee; **Write a message** to the author (Comment / feature / bug / other).
-- **Settings** — **Language** (11 locales, including Ukrainian); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); forecast window; Optimize depth; Group by conversation; Show last / From / To; Auto-refresh.
+- **Settings** — **Language** (11 locales, including Ukrainian); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); forecast window; Optimize depth; Group by conversation; Show last / From / To; Auto-refresh; **Codex** (import, home, group by thread, rates).
 
 If you are already signed in to Cursor, there is nothing to configure.
 
@@ -244,6 +244,8 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Today / This month / All time mix cards | Website | Yes |
 | Model pricing (docs + Last N counts + CursorBench) | Website | Yes |
 | Export recent queries as CSV | — | Yes |
+| Local Codex sessions in the history panel (same From–To window; API estimate) | — | Yes |
+| OpenAI API calls listed in the query table | — | Not yet |
 | Support → Write a message to the author | — | Yes |
 | **Setup · language** | | |
 | UI language (11 locales) | — | Yes |
@@ -258,7 +260,7 @@ Not in scope: payments, hosted team dashboards, other IDEs, estimating cost *bef
 
 ### Real-time status bar (primary)
 
-Always-on **Current** (Pro: mean included % vs 100% such as `32% / 100%`; Team: used vs dollar cap), **Today** (Pro: mean today % / daily pace with today’s `$`, e.g. `3.5% / 4.5% (17.12 $)`; Team: spend vs daily budget, or `—` when there is no cap), and **1–10 newest queries** (`cost - tokens`, default 3). Click Current or Today for **Statistics** (forecast). Click a query chip for the Last N list. A query at or above your token warning (default **1,000,000**, configurable) shows `!` in red. **Unlimited** plans show the cycle total and hide Today. Refresh stays on the bar. Export CSV does not.
+Always-on **Current** (Pro: the forecast focus, starting at **Cursor Models**; **All** is the mean of included % such as `32% / 100%`; Team: used vs dollar cap), **Today** (that same Pro set as today % / daily pace with today’s `$`, e.g. `3.5% / 4.5% (17.12 $)`; Team: spend vs daily budget, or `—` when there is no cap), and **1–10 newest queries** (`cost - tokens`, default 3). Click Current or Today for **Statistics** (forecast) on Cursor. Click a query chip for the Last N list on Cursor. A query at or above your token warning (default **1,000,000**, configurable) shows `!` in red. **Unlimited** plans show the cycle total and hide Today. Refresh stays on the bar. Export CSV does not. The bar does not switch to Codex.
 
 Colors: **Team** is **green** within the dollar pool and **red** at or over the cap (or when Today is over the daily budget). **Pro** Current/Today stay green. Recent queries go **red** on a token spike. Defaults are darker on a light theme so they stay readable.
 
@@ -288,7 +290,11 @@ Click a **recent-query chip** (or Command Palette **Show Usage History**) to ope
 
 `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
-Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. **Model pricing** on the Last N toolbar. No intermediate menu.
+Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. Above them, **Cursor** / **Codex local** / **OpenAI API**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. **Model pricing** on the Last N toolbar. No intermediate menu.
+
+### Codex local
+
+**Codex local** reads sessions already on this computer (Codex home, default `~/.codex`). Import is on by default. Files stay on this machine. The list uses the same **From** / **To** dates as Cursor. Columns add context, cached input, and reasoning. Context is the newest request’s share of the 1.05 million token window. Dollars are an OpenAI list-price estimate (a saved rate in Settings wins). The table total shows that estimate. It is not an invoice. Statistics and Charts follow the same dates. The limit chart is that window in percent through its reset. The Cursor dollar forecast and the coding-stats lines chart stay on Cursor. **OpenAI API** can check an organization admin key (kept in Secret Storage) or remember a JSONL path. Those calls are not listed in the query table in this version.
 
 ### Statistics
 
@@ -379,7 +385,7 @@ Local VSIX:
 Or from a terminal:
 
 ```bash
-cursor --install-extension cursor-cost-tracker-1.0.7.vsix
+cursor --install-extension cursor-cost-tracker-1.0.8.vsix
 ```
 
 Search **Cursor Cost Tracker** in **Cursor → Extensions**, or open the [Open VSX page](https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker).
@@ -408,7 +414,7 @@ A `!` prefixes a recent query (and the table **TOKENS** cell) when that query is
 
 ## History panel
 
-The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** and optional **To date** load that local range (empty To means through today). **Group by conversation** is off until you turn it on. **Forecast window** is calendar month or billing cycle. **Auto-refresh** is 1–60 minutes.
+The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** and optional **To date** load that local range (empty To means through today) for Cursor and for Codex. **Group by conversation** is off until you turn it on. Codex grouping is a separate switch, on by default. **Forecast window** is calendar month or billing cycle. **Auto-refresh** is 1–60 minutes. **Codex** holds import, home, rates, Rescan, and a two-step delete of the imported copy.
 
 | TIME | MODEL | COST | TOKENS | INPUT / OUTPUT | KIND |
 |------|-------|------|--------|----------------|------|
@@ -459,6 +465,12 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.burnRateCriticalToast` | `true` | Off = remember the episode without a toast |
 | `cursorCost.codeLinesInsight` | `true` | Coding stats on Statistics and Charts (AI vs git · All on Cursor) |
 | `cursorCost.groupQueriesByConversation` | `false` | Fold the queries list into one collapsible row per local chat title. Shared titles merge. No conversation id → **Ungrouped**. Export CSV stays flat |
+| `cursorCost.codexImportEnabled` | `true` | Read local Codex sessions on this computer. Does not upload them |
+| `cursorCost.codexHome` | `~/.codex` | Folder that contains `sessions/`. Empty uses `CODEX_HOME` when that directory exists |
+| `cursorCost.codexGroupByConversation` | `true` | One Codex row per thread. Separate from the Cursor group switch |
+| `cursorCost.querySource` | `cursor` | `cursor`, `codex-local`, or `openai-api`. Current, Today, and a recent chip return this to `cursor` |
+| `cursorCost.openaiConnectMode` | `web` | `web` (admin key in Secret Storage) or `local` (JSONL path). The query table stays empty in 1.0.8 |
+| `cursorCost.openaiSinkPath` | (empty) | Absolute JSONL path when connect mode is `local` |
 | `cursorCost.language` | `en` | Panel, status bar, and toasts. Independent of the VS Code / Cursor display language |
 | `cursorCost.historyLimit` | `1000` | Newest queries to load (100–10,000). Settings tab: **Show last**. Ignored when From date is set |
 | `cursorCost.historyFromDate` | (empty) | Local `YYYY-MM-DD`; load from that day. Empty uses Show last |
@@ -498,7 +510,10 @@ The access token never leaves the extension host. It is not sent to the webview,
 You can install the VSIX, but usage data requires Cursor’s local session. Without it the bar shows a sign-in message instead of numbers.
 
 **Are the numbers an invoice?**  
-No. This tool uses unofficial Cursor usage APIs and a local session file. Cursor may change either without notice. Treat the overlay as a convenience, not a billing statement.
+No. This tool uses unofficial Cursor usage APIs and a local session file. Cursor may change either without notice. Treat the overlay as a convenience, not a billing statement. Codex dollars are an OpenAI list-price estimate (or a rate you saved). They are not an OpenAI invoice.
+
+**Does OpenAI API show my other apps’ calls?**  
+Not in this version. The source can store an organization admin key or a local JSONL path. The query table stays empty until a later import. Codex local is the source that lists sessions already on this computer.
 
 ---
 
@@ -549,7 +564,7 @@ Cursor installs third-party extensions from **[Open VSX](https://open-vsx.org/)*
 ```bash
 npm run build
 npx @vscode/vsce package --no-dependencies
-npx ovsx publish cursor-cost-tracker-1.0.7.vsix -p %OVSX_PAT%
+npx ovsx publish cursor-cost-tracker-1.0.8.vsix -p %OVSX_PAT%
 ```
 
 `engines.vscode` must be **≤** the VS Code version in Cursor **Help → About**, or Cursor hides the extension in search. Keep `LICENSE`, **`icon.png`**, and **`CHANGELOG.md`** inside the VSIX (Changelog tab on Open VSX / Cursor Extensions). Marketplace listing uses `"icon": "icon.png"` (PNG, at least 128×128).

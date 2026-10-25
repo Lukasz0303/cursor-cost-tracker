@@ -21,12 +21,29 @@ export type IncludedQuota = {
   percent: number
 }
 
+/** Pro included pool, or the Team / Business / Enterprise dollar pool. */
+export type QuotaBoard = {
+  autoPercent: number | null
+  apiPercent: number | null
+  totalPercent: number | null
+  used: number | null
+  limit: number | null
+  remaining: number | null
+  onDemandEnabled: boolean | null
+  onDemandCapUsd: number | null
+  onDemandUsedUsd: number | null
+  /** Dollar cycle pool. Omitted when `used` / `limit` are Pro request units. */
+  amount?: 'usd'
+}
+
 export type UsageReady = {
   email: string | null
   plan: string | null
   /** Team / company: dollar pool. Personal Pro: included-quota percents. */
   spendDisplay: SpendDisplay
   includedQuotas: IncludedQuota[]
+  /** Present on Pro percent plans. Omitted by older snapshots. */
+  quotaBoard?: QuotaBoard | null
   usedUsd: number
   limitUsd: number | null
   remainingUsd: number | null

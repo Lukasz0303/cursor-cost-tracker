@@ -30,6 +30,7 @@ import {
   MTD_PERCENT_MAX,
   type DayFrame,
   type MtdPaceOptions,
+  type MtdFocusView,
   type MtdPacePayload,
   type MtdSeries,
   type MtdUnit,
@@ -39,12 +40,14 @@ import {
   activeFrameUsed,
   chartFromFrames,
   elapsedFrameDays,
+  framesForHistoryRange,
   resetDateForFrames,
   toForecastFrames,
   toMtdDays,
   todayIndex,
 } from './frames'
 import { lastPaceDate, toMtdSeries } from './series'
+import { averageNumber } from '../proPercentSummary'
 
 function newestQueries(queries: UsageQuery[], limit: number): UsageQuery[] {
   return [...queries]
@@ -561,13 +564,6 @@ export function toMtdPace(
   if (primary !== undefined) {
     const daily = weekdayTotal > 0 ? MTD_PERCENT_MAX / weekdayTotal : null
     const allowance = daily === null || elapsed <= 0 ? null : elapsed * daily
-    const used = Math.max(0, primary.percent)
-    const avg = elapsed > 0 ? used / elapsed : null
-    const forecastEom =
-      avg === null || weekdayTotal <= 0 ? null : avg * weekdayTotal
-    const overPace =
-      allowance !== null &&
-      quotas.some((quota) => Math.max(0, quota.percent) > allowance + 0.005)
     const series = quotas.map((quota, index) =>
       toMtdSeries(
         quotaSeriesId(quota.name, index),
@@ -588,64 +584,205 @@ export function toMtdPace(
       ),
     )
     const today = todayIndex(frames)
-    const answer =
-      elapsed <= 0
-        ? {
-            verdict: 'ok' as const,
-            body: noDaysBody(basis, locale),
-          }
-        : percentVerdict(series, overPace, frames, basis, locale)
-    const bars: PeriodBar[] = series.map((line, index) => {
-      const cycleUsed = Math.max(0, quotas[index]?.percent ?? 0)
-      const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
-      const todayText =
-        daily === null
-          ? ''
-          : interpolate(copy.todayChunk, {
-              today: formatPercentPoint(todayUsed),
-              budget: formatPercentPoint(daily),
-            })
-      return {
-        label: line.label,
-        value: interpolate(copy.usedAmount, {
-          runOut: line.runOutLabel,
-          used: formatPercentPoint(cycleUsed),
-          today: todayText,
-        }),
-        percent: Math.min(100, Math.round(cycleUsed)),
+    const focusView = (
+      pool: 'all' | 'cursor' | 'other',
+      focusSeries: MtdSeries[],
+      focusQuotas: IncludedQuota[],
+    ): MtdFocusView | null => {
+      if (focusSeries.length === 0 || focusQuotas.length === 0) {
+        return null
       }
-    })
-    const remainingPct = Math.max(0, MTD_PERCENT_MAX - used)
-    const metrics = buildPaceMetrics({
-      elapsed,
-      remaining,
-      avg,
-      forecastEom,
-      daily,
-      allowance,
-      used,
-      leftover: remainingPct,
-      overPace,
-      unit: 'percent',
+      const lead = focusQuotas[0]
+      if (lead === undefined) {
+        return null
+      }
+      const focusUsed = Math.max(0, lead.percent)
+      const focusAvg = elapsed > 0 ? focusUsed / elapsed : null
+      const focusForecast =
+        focusAvg === null || weekdayTotal <= 0 ? null : focusAvg * weekdayTotal
+      const focusOver =
+        allowance !== null &&
+        focusQuotas.some((quota) => Math.max(0, quota.percent) > allowance + 0.005)
+      const focusAnswer =
+        elapsed <= 0
+          ? {
+              verdict: 'ok' as const,
+              body: noDaysBody(basis, locale),
+            }
+          : percentVerdict(focusSeries, focusOver, frames, basis, locale)
+      const focusBars: PeriodBar[] = focusSeries.map((line, index) => {
+        const cycleUsed = Math.max(0, focusQuotas[index]?.percent ?? 0)
+        const todayUsed = today < 0 ? 0 : (line.day[today] ?? 0)
+        const todayText =
+          daily === null
+            ? ''
+            : interpolate(copy.todayChunk, {
+                today: formatPercentPoint(todayUsed),
+                budget: formatPercentPoint(daily),
+              })
+        return {
+          label: line.label,
+          value: interpolate(copy.usedAmount, {
+            runOut: line.runOutLabel,
+            used: formatPercentPoint(cycleUsed),
+            today: todayText,
+          }),
+          percent: Math.min(100, Math.round(cycleUsed)),
+        }
+      })
+      return {
+        pool,
+        body: focusAnswer.body,
+        overPace: focusAnswer.verdict !== 'ok',
+        verdict: focusAnswer.verdict,
+        bars: focusBars,
+        series: focusSeries,
+        metrics: buildPaceMetrics({
+          elapsed,
+          remaining,
+          avg: focusAvg,
+          forecastEom: focusForecast,
+          daily,
+          allowance,
+          used: focusUsed,
+          leftover: Math.max(0, MTD_PERCENT_MAX - focusUsed),
+          overPace: focusOver,
+          unit: 'percent',
+          basis,
+          remainingPct: Math.max(0, MTD_PERCENT_MAX - focusUsed),
+          quotaLabel: lead.name,
+          locale,
+          series: focusSeries,
+        }),
+      }
+    }
+    const paired = series.map((line, index) => ({
+      line,
+      quota: quotas[index],
+    }))
+    const views = (['all', 'cursor', 'other'] as const)
+      .map((pool) => {
+        const rows =
+          pool === 'all'
+            ? paired
+            : paired.filter(
+                (row) =>
+                  row.quota !== undefined &&
+                  includedPoolForQuotaName(row.quota.name) === pool,
+              )
+        let lines = rows.map((row) => row.line)
+        let quotas = rows.flatMap((row) => (row.quota ? [row.quota] : []))
+        if (pool === 'all' && quotas.length > 1) {
+          const avg = averageNumber(quotas.map((quota) => Math.max(0, quota.percent)))
+          if (avg !== null) {
+            lines = [
+              toMtdSeries(
+                'all',
+                copy.seriesAll,
+                avg,
+                frames,
+                elapsed,
+                MTD_PERCENT_MAX,
+                weekdayTotal,
+                locale,
+              ),
+            ]
+            quotas = [
+              {
+                name: copy.seriesAll,
+                used: avg,
+                limit: MTD_PERCENT_MAX,
+                percent: avg,
+              },
+            ]
+          }
+        }
+        return focusView(pool, lines, quotas)
+      })
+      .filter((view): view is MtdFocusView => view !== null)
+    const shown = views.find((view) => view.pool === 'all') ?? views[0]
+    const bars = shown?.bars ?? []
+    const metrics = shown?.metrics ?? []
+    const chartFrames = framesForHistoryRange(
+      frames,
+      sample,
+      now,
       basis,
-      remainingPct,
-      quotaLabel: primary.name,
-      locale,
-      series,
-    })
+      range,
+      historyFromDate,
+      historyToDate,
+    )
+    const chartSeries =
+      chartFrames === frames
+        ? series
+        : series.map((line, index) =>
+            toMtdSeries(
+              line.id,
+              line.label,
+              Math.max(0, quotas[index]?.percent ?? 0),
+              framesForHistoryRange(
+                toForecastFrames(
+                  sample,
+                  now,
+                  basis,
+                  forecastWindow,
+                  range,
+                  includedPoolForQuotaName(quotas[index]?.name ?? line.label),
+                ),
+                sample,
+                now,
+                basis,
+                range,
+                historyFromDate,
+                historyToDate,
+                includedPoolForQuotaName(quotas[index]?.name ?? line.label),
+              ),
+              elapsed,
+              MTD_PERCENT_MAX,
+              weekdayTotal,
+              locale,
+            ),
+          )
+    const chartById = new Map(chartSeries.map((line) => [line.id, line]))
+    const allAverage = averageNumber(quotas.map((quota) => Math.max(0, quota.percent)))
+    const chartViews =
+      chartFrames === frames
+        ? views
+        : views.map((view) => ({
+            ...view,
+            series:
+              view.pool === 'all' &&
+              view.series.length === 1 &&
+              view.series[0]?.id === 'all' &&
+              allAverage !== null
+                ? [
+                    toMtdSeries(
+                      'all',
+                      view.series[0]?.label ?? '',
+                      allAverage,
+                      chartFrames,
+                      elapsed,
+                      MTD_PERCENT_MAX,
+                      weekdayTotal,
+                      locale,
+                    ),
+                  ]
+                : view.series.map((line) => chartById.get(line.id) ?? line),
+          }))
     return {
       title: copy.title,
       value: '',
-      body: answer.body,
+      body: shown?.body ?? '',
       bars,
       metrics,
-      overPace: answer.verdict !== 'ok',
-      verdict: answer.verdict,
+      views: chartViews,
+      overPace: shown?.overPace ?? false,
+      verdict: shown?.verdict ?? 'ok',
       unit: 'percent',
       max: MTD_PERCENT_MAX,
-      chart: chartFromFrames(frames, null),
-      forecast: toMtdDays(frames, daily),
-      series,
+      chart: chartFromFrames(chartFrames, null),
+      forecast: toMtdDays(chartFrames, daily),
+      series: chartSeries,
       forecastWindow,
       billingCycleAvailable,
       resetDate,
@@ -733,6 +870,30 @@ export function toMtdPace(
     series,
   })
 
+  const chartFrames = framesForHistoryRange(
+    frames,
+    sample,
+    now,
+    basis,
+    range,
+    historyFromDate,
+    historyToDate,
+  )
+  const chartSeries =
+    chartFrames === frames
+      ? series
+      : [
+          toMtdSeries(
+            series[0]?.id ?? 'spend',
+            series[0]?.label ?? copy.spend,
+            used,
+            chartFrames,
+            elapsed,
+            monthCap,
+            weekdayTotal,
+            locale,
+          ),
+        ]
   return {
     title: copy.title,
     value: '',
@@ -743,9 +904,9 @@ export function toMtdPace(
     verdict: answer.verdict,
     unit: 'usd',
     max: null,
-    chart: chartFromFrames(frames, paceBudget),
-    forecast: toMtdDays(frames, paceBudget),
-    series,
+    chart: chartFromFrames(chartFrames, paceBudget),
+    forecast: toMtdDays(chartFrames, paceBudget),
+    series: chartSeries,
     forecastWindow,
     billingCycleAvailable,
     resetDate,

@@ -2,9 +2,9 @@
 
 **Produkt:** rozszerzenie VS Code / Cursor  
 **Repo:** `cursor-cost-tracker` (samodzielne, MIT)  
-**Wersja dokumentu:** 2.21  
-**Data:** 2026-10-10  
-**Status:** decyzja produktowa do **1.0.7**  
+**Wersja dokumentu:** 2.22  
+**Data:** 2026-10-23  
+**Status:** decyzja produktowa do **1.0.8**  
 **Wersja angielska (kanoniczna dla implementacji):** [prd.md](./prd.md)
 
 Przy rozjeździe z [prd.md](./prd.md) wygrywa wersja angielska.
@@ -70,7 +70,7 @@ Prawa strona belki (`StatusBarAlignment.Right`).
 … │  $(credit-card) 3.79 $ / 250.00 $  │  $(calendar) 3.79 $ / 11.19 $  │  ↻  │  0.03 $ - 64.8k  │  0.10 $ - 237.0k  │  ! 1.20 $ - 1.2M  │
 ```
 
-**Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current to **średnia** procentów included vs 100% (`32% / 100%` przy 33% i 31%). Today to **średnia** dzisiejszego % vs dzienny pace, z sumą `$` w nawiasie (`3.5% / 4.5% (17.12 $)`).
+**Plan firmowy:** Current to pula dolarowa (`used $ / limit $`). **Pro / Pro+:** Current idzie za fokusem prognozy. **Wszystkie** to **średnia** procentów included vs 100% (`32% / 100%` przy 33% i 31%). Start to **Cursor Models**, więc Current i Today pokazują tę pulę, dopóki użytkownik nie wybierze Wszystkie albo Other. Today to ten sam zbiór: dzisiejsze % vs dzienny pace, z sumą `$` w nawiasie (`3.5% / 4.5% (17.12 $)`). Belka zostaje na Cursorze, gdy panel historii pokazuje Codex albo OpenAI API.
 
 Kolejność: **Current**, **Today**, **Refresh**, potem najnowsze zapytania. `cursorCost.recentQueryCount` określa liczbę chipów zapytań (**1–10**, domyślnie **3**). Current+Today to jeden chip (priorytety daleko od Ln/Col ~100). Refresh siedzi zaraz za tym chipem, żeby nie znikał gdy belka się przepełnia. Każde ostatnie zapytanie to **osobny** element, żeby czerwień była tylko przy spike — VS Code nie koloruje fragmentu jednego itemu. Każde zapytanie: `cost - compact tokens`. Prefiks `!` gdy `tokens >= cursorCost.spikeTokenThreshold` (domyślnie **1_000_000**) i `cursorCost.showSpikeWarning` jest włączone. Klik Current / Today otwiera Last N na zakładce **Statistics**. Chip zapytania otwiera **listę zapytań**. Refresh pobiera dane z cursor.com na żądanie. Export CSV jest na pasku Last N, nie na belce.
 
@@ -121,6 +121,14 @@ Bez **Advise**, auto-naprawy i rady „co obciąć w tej konwersacji”. Store I
 
 **Play na czerwonym zapytaniu (1.0.6, od 1.0.7 z nowym celem):** czerwona komórka TOKENS ma Play. Od 1.0.7 host otwiera tę konwersację (`composer.openComposer` z jej id) i wkleja brief samych liczb tej konwersacji do otwartego czatu; nie wciska Start. Brak id konwersacji → brief to to jedno zapytanie. Grupowanie używa tylko id z eventu (bez zgadywania po przerwie w czasie). Rozszerzenie nie czyta treści promptu ani kodu. Wiersze po Play albo Run Optimize trafiają do `globalState` `cursorCost.optimizedTargets`. Filtr **Optimized** na pasku zapytań pokazuje te wiersze.
 
+**Źródło (1.0.8):** panel historii ma **Cursor**, **Codex local** i **OpenAI API** (`cursorCost.querySource`, domyślnie `cursor`). Current, Today i chip ostatniego zapytania otwierają panel na Cursorze i zapisują źródło z powrotem na `cursor`. Belka nie pokazuje Codexu.
+
+**Codex lokalnie (1.0.8):** sesje są czytane z katalogu Codex na tym komputerze (`cursorCost.codexHome`, domyślnie `~/.codex`; puste pole używa `CODEX_HOME`, gdy ten katalog istnieje). Import jest włączony domyślnie (`cursorCost.codexImportEnabled`). Pliki nie są wysyłane i login Codexu nie jest otwierany. Okno Remote SSH czyta ten komputer, nie host SSH. Zapytania, Statistics i Charts używają tej samej próbki From–To co Cursor. Kolumny: czas, model, kontekst, koszt, tokeny, input, cached, output, reasoning. Grupowanie wątku (`cursorCost.codexGroupByConversation`, domyślnie **true**) jest osobne od przełącznika Cursora. Kontekst to udział inputu najnowszego żądania w oknie 1,05 miliona tokenów: w górę poniżej 60%, na czerwono od 60%. `!` przy tokenach używa tego samego progu Warn at. Dolary to szacunek z cennika standardowego OpenAI (stawka długiego kontekstu powyżej 272k inputu). Stawka zapisana w Settings zastępuje ten cennik. Wiersz sumy pokazuje szacunek. To nie jest faktura. Eksport CSV zostaje płaski. Wykresy dzienne tokenów i kosztu obejmują puste dni. Wykres limitu to to okno w procentach, od daty From do resetu, z sufitem 100%. Prognoza dolarowa Cursora i wykres linii kodu zostają na Cursorze. Play i Run wklejają brief rozliczeniowy do otwartego czatu Agent i go nie wysyłają. **Optimized** pasuje tylko do zapisanej analizy. Rozszerzenie nie czyta promptu. Rescan czyta pliki ponownie. Usunięcie jest dwustopniowe i kasuje tylko zaimportowaną kopię.
+
+**OpenAI API (1.0.8):** źródło można wybrać. Zanim użytkownik się połączy, panel mówi, że rozszerzenie samo nie widzi wywołań innych programów. Web sprawdza klucz administratora organizacji i trzyma go w Secret Storage. Plik lokalny zapisuje ścieżkę JSONL (`cursorCost.openaiSinkPath`, tryb `cursorCost.openaiConnectMode`). Ta wersja nie wstawia tych wywołań do tabeli zapytań.
+
+**Limit i fokus prognozy (1.0.8):** Statistics pokazuje kartę limitu (udział Auto i API w puli included na Pro, zużyte i pozostałe, on-demand włączony albo wyłączony, osobisty cap wydatku) oraz zaakceptowane linie na dziś i na wybrany okres. Plany dolarowe używają na tej karcie puli dolarowej. Prognoza miesiąca może iść za Wszystkie, Cursor Models albo Other Models. Current i Today idą za tym wyborem. Start to Cursor Models.
+
 **Cena katalogowa (1.0.6):** rozwinięcie wiersza pokazuje dolary katalogowe input / output / cache-write / cache-read obok kosztu zafakturowanego. To tabela cen, nie faktura. Próbka Statistics pokazuje też, ile cache-read zaoszczędził względem ceny input.
 
 **Grupowanie rozmów (1.0.6):** `cursorCost.groupQueriesByConversation` domyślnie **false**. Przełącznik na pasku zapytań i Settings → Recent queries są zsynchronizowane. Włączone: jeden zwinięty wiersz na lokalny tytuł czatu (liczba requestów i sumy); rozwinięcie pokazuje te same sześć kolumn. Czaty o tym samym tytule łączą się (trim, zbite białe znaki, bez rozróżniania wielkości liter). Id bez tytułu to `#` plus pierwsze 8 znaków. Request bez id konwersacji trafia do **Ungrouped** i nie dostaje briefu Play. **Over Warn at**, `!` przy spike i Play nadal działają. Play na złączonym tytule bierze id konwersacji, która ma najdroższy request. Export CSV zostaje płaski. Tytuły pochodzą z lokalnego indeksu. Rozszerzenie nie zgaduje czatów po przerwie w czasie i nie czyta treści promptu. Statistics, Charts i Optimize nie są grupowane.
@@ -158,7 +166,7 @@ Quick Pick jako domyślny klik, Activity Bar, blokujący modal na ścieżce klik
 | A7 | programista | tooltip z planem i datą cyklu | mieć kontekst bez tabeli |
 
 Z v1.1 nadal otwarte: **Ignore** w tabeli, alerty 80%/90% wydatków, Copy stats. `!` i próg są już w produkcie.  
-**1.0.2–1.0.7** (to, co jest w drzewie) opisuje §5.2 i tabela historii w [codebase-snapshot.md](./codebase-snapshot.md): prognoza, alert krytyczny, Optimize, Burn Rate Guard, Coding stats, **11 języków UI** (ukraiński doszedł po 1.0.4), cennik modeli, prognoza cyklu rozliczeniowego, Play, cena katalogowa, To date, grupowanie rozmów, szczegóły dnia na wykresie.
+**1.0.2–1.0.8** (to, co jest w drzewie) opisuje §5.2 i tabela historii w [codebase-snapshot.md](./codebase-snapshot.md): prognoza, alert krytyczny, Optimize, Burn Rate Guard, Coding stats, **11 języków UI** (ukraiński doszedł po 1.0.4), cennik modeli, prognoza cyklu rozliczeniowego, Play, cena katalogowa, To date, grupowanie rozmów, szczegóły dnia na wykresie, lokalna historia Codex, karta limitu i fokus prognozy.
 
 ### 7b. User stories (v1.1 — spike tokenów)
 
@@ -246,6 +254,12 @@ Mapa plików: [architecture.md](./architecture.md). Co doszło w której wersji:
 | `cursorCost.burnRateCriticalToast` | true | wyłączone = zapamiętaj epizod bez tosta |
 | `cursorCost.codeLinesInsight` | true | Coding stats na Statistics i Charts (landed / AI · All on Cursor) |
 | `cursorCost.groupQueriesByConversation` | false | Zwiń listę zapytań do jednego wiersza na lokalny tytuł czatu. Wspólne tytuły się łączą. Brak id → **Ungrouped**. Export CSV zostaje płaski |
+| `cursorCost.codexImportEnabled` | true | Czyta lokalne pliki rollout Codex na tym komputerze. Nie wysyła ich |
+| `cursorCost.codexHome` | `~/.codex` | Katalog nadrzędny Codex (ten, w którym jest `sessions/`). Puste pole używa `CODEX_HOME`, gdy ten katalog istnieje |
+| `cursorCost.codexGroupByConversation` | true | Zwiń żądania Codex do jednego wiersza na wątek. Osobno od grupowania Cursora |
+| `cursorCost.querySource` | `cursor` | `cursor`, `codex-local` albo `openai-api`. Current, Today i chip zapytania zapisują to z powrotem na `cursor` |
+| `cursorCost.openaiConnectMode` | `web` | `web` (klucz administratora organizacji w Secret Storage) albo `local` (ścieżka JSONL). W 1.0.8 żadne nie wypełnia tabeli zapytań |
+| `cursorCost.openaiSinkPath` | (puste) | Bezwzględna ścieżka JSONL, gdy tryb połączenia to `local` |
 | `cursorCost.language` | `en` | 11 locale: en, pl, zh-cn, fr, de, ja, ko, pt-br, ru, es, uk. Niezależnie od języka VS Code / Cursor |
 | `cursorCost.historyLimit` | 1000 | min 100, max 10_000; Settings **Show last**; ignorowane gdy From date jest ustawione |
 | `cursorCost.historyFromDate` | (puste) | lokalne `YYYY-MM-DD`; Settings **From date**; puste = Last N |
@@ -273,7 +287,8 @@ Aktywacja: `onStartupFinished`.
 | **po 1.0.5** | ukraiński (11. locale); prognoza wg cyklu rozliczeniowego |
 | **1.0.6** | cursorcosttracker.com; Play i Run Optimize do nowego czatu Agent; cena katalogowa; cache $ saved; $ / 1k linii; To date; `historySample`; filtr Optimized; grupowanie rozmów (domyślnie wyłączone); szczegóły dnia na wykresie i zoom Sample / Last 7 / Month |
 | **1.0.7** | Run Optimize wkleja do otwartego czatu Agent; Play otwiera tę konwersację i wkleja tam brief |
-| **Nadal otwarte** | Ignore w tabeli i przeliczenie bangu; alerty 80/90%; Copy stats; strzałki tempa przy Today; symulator kosztu modelu; Secret Storage |
+| **1.0.8** | Lokalna historia Codex w tym samym oknie From–To; karta połączenia OpenAI API (jeszcze bez wierszy zapytań); karta limitu na Statistics; fokus prognozy steruje Current i Today |
+| **Nadal otwarte** | Ignore w tabeli i przeliczenie bangu; alerty 80/90%; Copy stats; strzałki tempa przy Today; symulator kosztu modelu; ręczny token Cursora w Secret Storage; import JSONL albo usage administratora OpenAI do tabeli zapytań |
 
 ---
 
@@ -323,10 +338,10 @@ Nieoficjalne API / `state.vscdb` → izolacja w `src/usage/`, stan N/A. Sesja: `
 
 ## 14. Otwarte
 
-Teksty panelu są w 11 językach; domyślny jest angielski. Instalacja w Cursorze idzie przez Open VSX. Homepage to `https://cursorcosttracker.com/`. Nadal otwarte: Ignore w tabeli, alerty 80/90%, Copy stats, strzałki tempa przy Today, symulator kosztu modelu, Secret Storage.
+Teksty panelu są w 11 językach; domyślny jest angielski. Instalacja w Cursorze idzie przez Open VSX. Homepage to `https://cursorcosttracker.com/`. Nadal otwarte: Ignore w tabeli, alerty 80/90%, Copy stats, strzałki tempa przy Today, symulator kosztu modelu, ręczny token Cursora w Secret Storage oraz wypełnienie tabeli zapytań z OpenAI API.
 
 ---
 
 ## 15. Podsumowanie
 
-Wtyczka Cursor/VS Code, drzewo w wersji **1.0.7**. Belka: Current + Today + sync + 1–10 zapytań + **`!` przy spike**. Klik Current/Today: Statistics; chip zapytania: lista. Play na czerwonym wierszu wkleja brief samych liczb. Lista zapytań może zwinąć się do jednego wiersza na lokalny tytuł czatu (domyślnie wyłączone). Store Ignore jest; przycisku w tabeli nie ma. Optimize to same metadane (bez transkryptu). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Logika usage w `src/usage/`.
+Wtyczka Cursor/VS Code, drzewo w wersji **1.0.8**. Belka: Current + Today + sync + 1–10 zapytań + **`!` przy spike**. Pro Current/Today idą za fokusem prognozy (start: Cursor Models). Klik Current/Today: Statistics na Cursorze; chip zapytania: lista na Cursorze. Panel historii może przełączyć się na lokalny Codex (to samo okno From–To; dolary to szacunek API) albo kartę połączenia OpenAI API, która nie wypełnia tabeli. Play na czerwonym wierszu Cursora wkleja brief samych liczb. Lista zapytań może zwinąć się do jednego wiersza na lokalny tytuł czatu (domyślnie wyłączone). Store Ignore jest; przycisku w tabeli nie ma. Optimize to same metadane (bez transkryptu). Stack: TypeScript, esbuild, sql.js, Vitest, GitHub Actions. Logika usage w `src/usage/`. Logika Codex w `src/openaiHistory/`.

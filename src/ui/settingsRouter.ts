@@ -36,6 +36,7 @@ const SETTINGS_TYPES = [
   'setBurnRateCriticalToast',
   'setCodeLinesInsight',
   'setGroupQueriesByConversation',
+  'setShowCliThreads',
   'setCodeLinesAuthors',
   'setShowStatusBar',
   'setShowToday',
@@ -142,6 +143,9 @@ export class SettingsRouter {
         return
       case 'setGroupQueriesByConversation':
         void this.deps.writeSetting('groupQueriesByConversation', message.value)
+        return
+      case 'setShowCliThreads':
+        void this.deps.writeSetting('showCliThreads', message.value)
         return
       case 'setCodeLinesAuthors': {
         const parsed = parseStoredAuthorChoice({

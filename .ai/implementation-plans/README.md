@@ -39,6 +39,7 @@ Do **not** mix this into MVP phases 0–7 or into remaining v1.1 Ignore. On conf
 - Billing-cycle forecast alignment ([#8](https://github.com/Lukasz0303/cursor-cost-tracker/issues/8)): [billing-cycle-forecast.md](./billing-cycle-forecast.md)
 - Group queries by conversation (toolbar toggle on Last N, **1.1.0** MINOR): [conversation-grouping-queries.md](./conversation-grouping-queries.md) · [conversation-grouping-queries.pl.md](./conversation-grouping-queries.pl.md)
 - Datetime consistency + media frontend split: [datetime-media-foundation.md](./datetime-media-foundation.md) · [datetime-media-foundation.pl.md](./datetime-media-foundation.pl.md)
+- Codex local history + OpenAI requests (**1.1.0** MINOR): [openai-codex.md](./openai-codex/openai-codex.md) · [openai-codex.pl.md](./openai-codex/openai-codex.pl.md) · [phase index](./openai-codex/README.md)
 
 ## Additional / backlog
 

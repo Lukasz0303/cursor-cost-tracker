@@ -253,6 +253,7 @@ export class PanelPublisher {
         codeLinesInsight: config.codeLinesInsight,
         codeLines,
         groupQueriesByConversation: config.groupQueriesByConversation,
+        showCliThreads: config.showCliThreads,
         language: config.language,
         optimizeSavingsMarkdown: this.optimizeSavingsMarkdown,
         optimizeProjectLabel: project.label,

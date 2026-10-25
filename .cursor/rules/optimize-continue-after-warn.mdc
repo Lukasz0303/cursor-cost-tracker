@@ -14,7 +14,7 @@ This pattern burned multi-million tokens when the user said “continue” / “
 - **Another** coding-stats / git-lines / polyrepo / account-picker feature after `!` is not a leftover slice — new chat; see [optimize-next-feature-after-warn.mdc](./optimize-next-feature-after-warn.mdc).
 - **Icon / glyph / CSS polish** after `!` is not a leftover slice — new chat, ≤2 `media/history.*` paths; see [optimize-cosmetic-after-warn.mdc](./optimize-cosmetic-after-warn.mdc).
 - **Landing page** “wygląda słabo” or a dead `site/preview.sh` after `!` is not a leftover — [optimize-site-preview.mdc](./optimize-site-preview.mdc). Do not restart the server in this thread.
-- Do not bump version or `npm run package` on that polish turn unless the user named VSIX.
+- Do not bump the version on that polish turn. If the turn edited shippable source, still run `npm run package` — [package-current-version.mdc](./package-current-version.mdc).
 
 ## Large static UI / i18n passes (`media/history.html`, catalogs)
 

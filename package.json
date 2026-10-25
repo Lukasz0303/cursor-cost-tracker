@@ -1,8 +1,8 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Play on a red query, Critical alert, Optimize, Support message, Charts, CSV, 11 UI languages.",
-  "version": "1.0.7",
+  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Local Codex history. Play on a red query, Critical alert, Optimize, Support message, Charts, CSV, 11 UI languages.",
+  "version": "1.0.8",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",
@@ -244,7 +244,65 @@
           "type": "boolean",
           "default": false,
           "scope": "window",
-          "markdownDescription": "Fold the queries list into one collapsible row per conversation, labelled with the local Cursor chat title. Chats that share a title are merged; requests without a conversation id land in **Ungrouped**."
+          "markdownDescription": "Fold the queries list into one collapsible row per conversation, labelled with the local Cursor chat title. Chats that share a title are merged. Threads with no title (Cursor CLI) fold into one row per hour. Requests without a conversation id land in **Ungrouped**."
+        },
+        "cursorCost.showCliThreads": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Show Cursor CLI threads on the queries list. They have no chat title and, when grouping is on, fold into one row per hour. Turn off to hide them."
+        },
+        "cursorCost.codexImportEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Import local Codex rollout files from this computer into the extension store. On by default. Does not upload files or open Codex auth."
+        },
+        "cursorCost.codexHome": {
+          "type": "string",
+          "default": "~/.codex",
+          "scope": "window",
+          "markdownDescription": "Codex parent directory, the folder that contains sessions/. Default `~/.codex` is your home directory plus `.codex`: on macOS `/Users/<you>/.codex`, on Windows `%USERPROFILE%\\.codex`. Clear the field to use CODEX_HOME when that directory exists. Do not point this at the sessions folder."
+        },
+        "cursorCost.codexGroupByConversation": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Fold Codex local queries into one row per thread. Separate from **Group queries by conversation** for Cursor."
+        },
+        "cursorCost.querySource": {
+          "type": "string",
+          "enum": [
+            "cursor",
+            "codex-local"
+          ],
+          "default": "cursor",
+          "scope": "window",
+          "markdownDescription": "Which source the history panel shows: Cursor usage or local Codex rollouts. Status bar Current/Today/chips switch back to Cursor.",
+          "enumDescriptions": [
+            "Cursor usage API and local Cursor session (default).",
+            "Local Codex rollout files on this computer."
+          ]
+        },
+        "cursorCost.openaiConnectMode": {
+          "type": "string",
+          "enum": [
+            "web",
+            "local"
+          ],
+          "default": "web",
+          "scope": "window",
+          "markdownDescription": "How **OpenAI API** connects: **web** stores an organization admin key in Secret Storage and checks `api.openai.com`; **local** uses a JSONL sink path (`openaiSinkPath`).",
+          "enumDescriptions": [
+            "Organization admin API key via Secret Storage (platform.openai.com).",
+            "Local JSONL file your app appends (begin/finish/fail)."
+          ]
+        },
+        "cursorCost.openaiSinkPath": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "markdownDescription": "Absolute path to the OpenAI API recorder JSONL sink. Used when **openaiConnectMode** is `local`. Empty keeps local mode disconnected. The file is never uploaded."
         },
         "cursorCost.historyLimit": {
           "type": "number",
@@ -338,6 +396,7 @@
     "package": "npm run build && vsce package --no-dependencies"
   },
   "dependencies": {
+    "fzstd": "^0.1.1",
     "sql.js": "^1.13.0"
   },
   "devDependencies": {

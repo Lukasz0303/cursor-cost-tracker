@@ -1,6 +1,7 @@
-import type { IncludedQuota, SpendDisplay, UsagePool } from './types'
+import type { IncludedQuota, QuotaBoard, SpendDisplay, UsagePool } from './types'
 import {
   asFiniteNumber,
+  centsToUsd,
   isRecord,
   readEnabled,
   readMoneyPool,
@@ -208,6 +209,133 @@ export function readIncludedQuotas(summary: unknown): IncludedQuota[] {
   }
 
   return quotas
+}
+
+function percentPoint(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) {
+    return null
+  }
+  return Math.round(Math.max(0, value) * 10) / 10
+}
+
+/**
+ * Tile facts for Pro. Percents stay at one decimal. Plan used/limit are request
+ * units, except when they are the saturated request cap beside a much lower
+ * dashboard percent — that cap is not the included pool.
+ */
+export function readQuotaBoard(summary: unknown): QuotaBoard | null {
+  if (!isRecord(summary)) {
+    return null
+  }
+  const individual = isRecord(summary.individualUsage)
+    ? summary.individualUsage
+    : null
+  const plan = isRecord(individual?.plan) ? individual.plan : null
+  const autoPercent = percentPoint(
+    asFiniteNumber(plan?.autoPercentUsed) ??
+      parsePercentFromMessage(summary.autoModelSelectedDisplayMessage),
+  )
+  const apiPercent = percentPoint(
+    asFiniteNumber(plan?.apiPercentUsed) ??
+      parsePercentFromMessage(summary.namedModelSelectedDisplayMessage),
+  )
+  const totalPercent = percentPoint(
+    asFiniteNumber(plan?.totalPercentUsed) ??
+      asFiniteNumber(plan?.includedPercentUsed),
+  )
+  const used = asFiniteNumber(plan?.used)
+  const limit = asFiniteNumber(plan?.limit)
+  const remainingRaw = asFiniteNumber(plan?.remaining)
+  const unitPercent =
+    used !== null && limit !== null && limit > 0 ? (used / limit) * 100 : null
+  const headline = autoPercent ?? apiPercent ?? totalPercent
+  const saturatedCap =
+    unitPercent !== null &&
+    unitPercent >= 98 &&
+    headline !== null &&
+    headline < 90
+  const showUnits =
+    used !== null && limit !== null && limit > 0 && !saturatedCap
+  const onDemand = isRecord(individual?.onDemand) ? individual.onDemand : null
+  const onDemandEnabled = onDemand ? onDemand.enabled !== false : null
+  const onDemandCapCents = onDemand ? poolLimitCents(onDemand) : null
+  const onDemandUsedCents = onDemand ? poolUsedCents(onDemand) : null
+  const board: QuotaBoard = {
+    autoPercent,
+    apiPercent,
+    totalPercent,
+    used: showUnits && used !== null ? used : null,
+    limit: showUnits && limit !== null ? limit : null,
+    remaining:
+      showUnits && used !== null && limit !== null
+        ? remainingRaw ?? Math.max(0, limit - used)
+        : null,
+    onDemandEnabled,
+    onDemandCapUsd:
+      onDemandCapCents === null ? null : onDemandCapCents / 100,
+    onDemandUsedUsd:
+      onDemandUsedCents === null ? null : onDemandUsedCents / 100,
+  }
+  const hasFact =
+    board.autoPercent !== null ||
+    board.apiPercent !== null ||
+    board.totalPercent !== null ||
+    board.used !== null ||
+    board.onDemandEnabled !== null
+  return hasFact ? board : null
+}
+
+/**
+ * Same quota card as Pro, filled from the personal dollar pool Current uses.
+ * Included Auto/API percents stay empty — those fields are not the Business cap.
+ */
+export function readDollarQuotaBoard(summary: unknown): QuotaBoard | null {
+  const pool = pickUsagePool(summary)
+  if (!pool || pool.limitCents === null || pool.limitCents <= 0) {
+    return null
+  }
+  const usedUsd = centsToUsd(pool.usedCents)
+  const limitUsd = centsToUsd(pool.limitCents)
+  const remainingUsd =
+    pool.remainingCents !== null
+      ? centsToUsd(pool.remainingCents)
+      : Math.max(0, limitUsd - usedUsd)
+
+  let onDemandEnabled: boolean | null = null
+  let onDemandCapUsd: number | null = null
+  let onDemandUsedUsd: number | null = null
+  const individual = isRecord(summary) && isRecord(summary.individualUsage)
+    ? summary.individualUsage
+    : null
+  const onDemand = individual && isRecord(individual.onDemand) ? individual.onDemand : null
+  if (onDemand) {
+    const enabled = onDemand.enabled !== false
+    const personal = isPersonalMonthlyPool(onDemand)
+    if (!enabled) {
+      onDemandEnabled = false
+    } else if (personal) {
+      onDemandEnabled = true
+      if (pool.source !== 'individualOnDemand') {
+        const cap = poolLimitCents(onDemand)
+        const used = poolUsedCents(onDemand)
+        onDemandCapUsd = cap === null ? null : centsToUsd(cap)
+        onDemandUsedUsd = used === null ? null : centsToUsd(used)
+      }
+    }
+  }
+
+  return {
+    autoPercent: null,
+    apiPercent: null,
+    totalPercent: percentPoint((usedUsd / limitUsd) * 100),
+    used: usedUsd,
+    limit: limitUsd,
+    remaining: remainingUsd,
+    onDemandEnabled,
+    onDemandCapUsd,
+    onDemandUsedUsd,
+    amount: 'usd',
+  }
 }
 
 export function spendDisplayFor(summary: unknown, plan: string | null): SpendDisplay {

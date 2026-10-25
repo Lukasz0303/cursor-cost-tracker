@@ -22,6 +22,7 @@ When adding code, follow this layout and update `.ai/context/architecture.md` if
 
 - `src/extension.ts` — activate / deactivate
 - `src/usage/` — session, api, parse, service (polling, cache)
+- `src/openaiHistory/` — local Codex import, queries, statistics, charts, list-price estimate; OpenAI admin-key check (does not fill the query table)
 - `src/ui/` — statusBar, statusBarTooltip, historyPanel, periodStats, periodCards, mtdPace, optimize*, criticalAlert, burnRateAlert
 - `src/spikes/` — token threshold (`isSpike`), last-query critical alert
 - `src/burnRate/` — live window, pace, level, toast copy

@@ -62,6 +62,7 @@ export class PanelSession {
       return DOCUMENT_LANG[value] || 'en'
     }
     const statusEl = document.getElementById('status')
+    const bootWaitEl = document.getElementById('bootWait')
     const closeEl = document.getElementById('close')
     const thresholdEl = document.getElementById('threshold')
     const historyLimitEl = document.getElementById('historyLimit')
@@ -140,9 +141,12 @@ export class PanelSession {
     const historyFromDateEls = [historyFromDateEl].filter(Boolean)
     const historyToDateEls = [historyToDateEl].filter(Boolean)
     let historyFromDate = ''
+    let onHistoryRange = null
+    let panelQuerySource = 'cursor'
     let historyToDate = ''
     let billingCycleStart = ''
     let chartPoints = []
+    let codexLimitSeries = []
     let codeLinesSeries = []
     let codeLinesSummary = null
     let codeLinesDefaultBranch = 'master'
@@ -158,8 +162,12 @@ export class PanelSession {
     let mtdForecastPoints = []
     let mtdForecastSeries = []
     let mtdUnit = 'usd'
+    let mtdViews = []
     let mtdMax = null
     let mtdChartRange = 'month'
+    let mtdBarMode = 'cumulative'
+    let mtdSeriesFilter = 'cursor'
+    let quotaBoard = null
     let chartBarMode = 'cumulative'
     let chartZoomMode = 'sample'
     let chartEvents = []
@@ -233,27 +241,39 @@ export class PanelSession {
       return limits.daysAgoIso(days)
     }
 
-    function applyHistoryTitle(limit) {
-      let title
+    function historyRangeTitle(limit, source) {
+      const codex = source === 'codex-local'
       if (historyFromDate) {
         const todayIso = isoFromLocal(new Date())
         if (historyToDate && historyToDate !== todayIso) {
-          title = t('queries.rangeTitle', {
+          return t(codex ? 'queries.rangeTitleCodex' : 'queries.rangeTitle', {
             from: formatFromDateLabel(historyFromDate),
             to: formatFromDateLabel(historyToDate),
           })
-        } else {
-          title = t('queries.fromTitle', {
-            date: formatFromDateLabel(historyFromDate),
-          })
         }
+        return t(codex ? 'queries.fromTitleCodex' : 'queries.fromTitle', {
+          date: formatFromDateLabel(historyFromDate),
+        })
+      }
+      return t(codex ? 'queries.lastTitleCodex' : 'queries.lastTitle', {
+        n: clampHistoryLimit(limit),
+      })
+    }
+
+    function applyHistoryTitle(limit) {
+      let title
+      if (panelQuerySource === 'openai-api') {
+        title = t('source.tabOpenai')
       } else {
-        title = t('queries.lastTitle', { n: clampHistoryLimit(limit) })
+        title = historyRangeTitle(limit, panelQuerySource)
       }
       if (tabQueriesEl) {
         setText(tabQueriesEl, title)
       }
       document.title = title
+      if (typeof onHistoryRange === 'function') {
+        onHistoryRange()
+      }
     }
 
     function formatVersionLabel(raw) {
@@ -283,6 +303,34 @@ export class PanelSession {
       if (toolbarVersionEl) {
         setText(toolbarVersionEl, label)
       }
+    }
+
+    function applyBootCopy(title, hint) {
+      if (!bootWaitEl || bootWaitEl.hidden) {
+        return
+      }
+      const titleEl = bootWaitEl.querySelector('.boot-wait-title')
+      const hintEl = bootWaitEl.querySelector('.boot-wait-hint')
+      if (titleEl && typeof title === 'string' && title !== '') {
+        setText(titleEl, title)
+      }
+      if (hintEl && typeof hint === 'string' && hint !== '') {
+        setText(hintEl, hint)
+      }
+    }
+
+    function setBootWait(waiting) {
+      const on = waiting === true
+      if (bootWaitEl) {
+        bootWaitEl.hidden = !on
+        bootWaitEl.setAttribute('aria-busy', on ? 'true' : 'false')
+      }
+      document.body.classList.toggle('is-booting', on)
+    }
+
+    function beginSourceWait() {
+      setBootWait(true)
+      applyBootCopy(t('boot.title'), t('boot.hint'))
     }
 
     function applyRefreshing(refreshing) {
@@ -533,12 +581,47 @@ export class PanelSession {
         set mtdForecastSeries(v) { mtdForecastSeries = v },
         get mtdUnit() { return mtdUnit },
         set mtdUnit(v) { mtdUnit = v },
+        get mtdViews() { return mtdViews },
+        set mtdViews(v) { mtdViews = v },
+        get mtdBarMode() { return mtdBarMode },
+        set mtdBarMode(v) { mtdBarMode = v },
+        get mtdSeriesFilter() { return mtdSeriesFilter },
+        set mtdSeriesFilter(v) { mtdSeriesFilter = v },
+        get quotaBoard() { return quotaBoard },
+        set quotaBoard(v) { quotaBoard = v },
+        get setView() { return setView },
+        get focusCodexDay() {
+          return function (iso) {
+            if (queriesView && typeof queriesView.focusCodexDay === 'function') {
+              queriesView.focusCodexDay(iso)
+            }
+          }
+        },
+        get openCodexRates() {
+          return function (models) {
+            setView('settings')
+            const root = document.getElementById('codexRates')
+            const wanted = Array.isArray(models) ? models : []
+            if (!root) {
+              return
+            }
+            const rows = root.querySelectorAll('.codex-rate-row')
+            for (let i = 0; i < rows.length; i++) {
+              const name = rows[i].dataset.model || ''
+              rows[i].classList.toggle('is-focus', wanted.indexOf(name) !== -1)
+            }
+            root.scrollIntoView({ block: 'center' })
+          }
+        },
+        get queriesView() { return queriesView },
         get chartBarMode() { return chartBarMode },
         set chartBarMode(v) { chartBarMode = v },
         get chartZoomMode() { return chartZoomMode },
         set chartZoomMode(v) { chartZoomMode = v },
         get chartPoints() { return chartPoints },
         set chartPoints(v) { chartPoints = v },
+        get codexLimitSeries() { return codexLimitSeries },
+        set codexLimitSeries(v) { codexLimitSeries = v },
         get chartEvents() { return chartEvents },
         set chartEvents(v) { chartEvents = v },
         get selectedChartDayKey() { return selectedChartDayKey },
@@ -568,6 +651,8 @@ export class PanelSession {
         get mtdResetMidday() { return mtdResetMidday },
         set mtdResetMidday(v) { mtdResetMidday = v },
         get mtdRangeToggle() { return mtdRangeToggle },
+        get mtdBarModeToggle() { return mtdBarModeToggle },
+        get mtdSeriesToggle() { return mtdSeriesToggle },
         get svgNode() { return charts.svgNode },
         get codeLinesCard() {
           return function (codeLines) {
@@ -591,6 +676,8 @@ export class PanelSession {
         get lastStatusBarPreview() { return lastStatusBarPreview },
         get fillIfIdle() { return fillIfIdle },
         get setText() { return setText },
+        get beginSourceWait() { return beginSourceWait },
+        get setBootWait() { return setBootWait },
         get el() { return el },
         get lookupPath() { return lookupPath },
         get addCell() { return addCell },
@@ -608,7 +695,14 @@ export class PanelSession {
         get syncHistoryRangeUi() { return settingsView.syncHistoryRangeUi },
         get syncBarEditorState() { return syncBarEditorState },
         get renderStatusBarPreview() { return renderStatusBarPreview },
+        get querySource() { return panelQuerySource },
+        set querySource(value) {
+          panelQuerySource =
+            value === 'codex-local' || value === 'openai-api' ? value : 'cursor'
+        },
         get applyHistoryTitle() { return applyHistoryTitle },
+        get onHistoryRange() { return onHistoryRange },
+        set onHistoryRange(value) { onHistoryRange = value },
         get formatFromDateLabel() { return formatFromDateLabel },
         get clampHistoryLimit() { return clampHistoryLimit },
         get clampPollInterval() { return clampPollInterval },
@@ -955,6 +1049,97 @@ export class PanelSession {
       return { start, end }
     }
 
+    function stepDelta(list) {
+      const out = []
+      const source = Array.isArray(list) ? list : []
+      let prev = null
+      for (let i = 0; i < source.length; i++) {
+        const raw = source[i]
+        if (raw === null || raw === undefined) {
+          out.push(null)
+          continue
+        }
+        if (Array.isArray(raw)) {
+          const low = Number(raw[raw.length - 1])
+          out.push(Number.isFinite(low) ? Math.max(0, low) : 0)
+          if (Number.isFinite(low)) {
+            prev = low
+          }
+          continue
+        }
+        const n = Number(raw)
+        if (!Number.isFinite(n)) {
+          out.push(null)
+          continue
+        }
+        const value =
+          prev === null || n + 0.0001 < prev ? Math.max(0, n) : Math.max(0, n - prev)
+        out.push(value)
+        prev = n
+      }
+      return out
+    }
+
+    function withDayAllowance(points) {
+      const out = []
+      let prev = null
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i] || {}
+        const raw = point.allowanceUsd
+        let dayAllowance = null
+        if (raw !== null && raw !== undefined && Number.isFinite(Number(raw))) {
+          const n = Number(raw)
+          dayAllowance =
+            prev === null || n + 0.0001 < prev ? Math.max(0, n) : Math.max(0, n - prev)
+          prev = n
+        }
+        out.push(Object.assign({}, point, { dayAllowanceUsd: dayAllowance }))
+      }
+      return out
+    }
+
+    function decorateMtdSeries(series) {
+      const out = []
+      for (let i = 0; i < series.length; i++) {
+        const row = series[i]
+        const toneIndex = Number.isFinite(Number(row.toneIndex))
+          ? Number(row.toneIndex)
+          : i
+        out.push(
+          Object.assign({}, row, {
+            forecastDay: stepDelta(row.forecast),
+            toneIndex: toneIndex,
+          }),
+        )
+      }
+      return out
+    }
+
+    function seriesPool(row) {
+      const id = String((row && row.id) || '')
+      const label = String((row && row.label) || '')
+      if (id === 'cursor-models' || label === 'Cursor Models') {
+        return 'cursor'
+      }
+      if (id === 'other-models' || label === 'Other Models') {
+        return 'other'
+      }
+      return ''
+    }
+
+    function filterMtdSeries(series) {
+      if (mtdUnit !== 'percent' || mtdSeriesFilter === 'all') {
+        return series
+      }
+      const matched = []
+      for (let i = 0; i < series.length; i++) {
+        if (seriesPool(series[i]) === mtdSeriesFilter) {
+          matched.push(series[i])
+        }
+      }
+      return matched.length > 0 ? matched : series
+    }
+
     function sliceSeriesArrays(series, start, end) {
       const out = []
       for (let i = 0; i < series.length; i++) {
@@ -971,7 +1156,9 @@ export class PanelSession {
           day: sliceArr(row.day),
           used: sliceArr(row.used),
           forecast: sliceArr(row.forecast),
+          forecastDay: sliceArr(row.forecastDay),
           ideal: sliceArr(row.ideal),
+          toneIndex: row.toneIndex,
           runOutDate: row.runOutDate,
           runOutLabel: row.runOutLabel,
         })
@@ -979,17 +1166,43 @@ export class PanelSession {
       return out
     }
 
+    function focusedViewSeries() {
+      if (mtdUnit !== 'percent') {
+        return null
+      }
+      const pool =
+        mtdSeriesFilter === 'other' || mtdSeriesFilter === 'all'
+          ? mtdSeriesFilter
+          : 'cursor'
+      for (let i = 0; i < mtdViews.length; i++) {
+        const view = mtdViews[i]
+        if (
+          view &&
+          view.pool === pool &&
+          Array.isArray(view.series) &&
+          view.series.length > 0
+        ) {
+          return view.series
+        }
+      }
+      return null
+    }
+
     function visibleMtdChart(points, series, range) {
-      const sourcePoints = Array.isArray(points) ? points : []
-      const sourceSeries = Array.isArray(series) ? series : []
+      const sourcePoints = withDayAllowance(Array.isArray(points) ? points : [])
+      const focused = focusedViewSeries()
+      const sourceSeries = decorateMtdSeries(
+        focused || (Array.isArray(series) ? series : []),
+      )
       const todayIdx = todayIndexFromSeries(sourceSeries)
       const win = mtdRangeWindow(sourcePoints.length, todayIdx, range)
       if (win.end < win.start) {
         return { points: [], series: [] }
       }
+      const sliced = sliceSeriesArrays(sourceSeries, win.start, win.end)
       return {
         points: sourcePoints.slice(win.start, win.end + 1),
-        series: sliceSeriesArrays(sourceSeries, win.start, win.end),
+        series: focused ? sliced : filterMtdSeries(sliced),
       }
     }
 
@@ -1016,13 +1229,173 @@ export class PanelSession {
     }
 
     function syncMtdRangeButtons() {
-      const buttons = document.querySelectorAll('.mtd-range-btn')
+      const buttons = document.querySelectorAll('.mtd-range-btn[data-range]')
       for (let i = 0; i < buttons.length; i++) {
         buttons[i].classList.toggle(
           'is-active',
           buttons[i].getAttribute('data-range') === mtdChartRange,
         )
       }
+    }
+
+    function syncMtdBarModeUi() {
+      const daily = mtdBarMode === 'daily'
+      const percent = mtdUnit === 'percent'
+      const buttons = document.querySelectorAll('.mtd-range-btn[data-mtd-mode]')
+      for (let i = 0; i < buttons.length; i++) {
+        buttons[i].classList.toggle(
+          'is-active',
+          buttons[i].getAttribute('data-mtd-mode') === mtdBarMode,
+        )
+      }
+      const bars = document.querySelectorAll('[data-mtd-legend="bars"]')
+      for (let i = 0; i < bars.length; i++) {
+        setText(bars[i], t(daily ? 'mtd.daily' : 'mtd.cumulative'))
+      }
+      const legendItems = document.querySelectorAll('[data-mtd-legend]')
+      for (let i = 0; i < legendItems.length; i++) {
+        const item = legendItems[i]
+        const kind = item.getAttribute('data-mtd-legend')
+        if (kind !== 'used' && kind !== 'forecast') {
+          continue
+        }
+        const pool = item.getAttribute('data-series-pool') || ''
+        const inFilter =
+          mtdUnit !== 'percent' || pool === '' || pool === mtdSeriesFilter
+        if (kind === 'used') {
+          item.hidden = daily || !inFilter
+          continue
+        }
+        item.hidden = !inFilter
+        const label = item.getAttribute('data-series-label') || ''
+        setText(
+          item,
+          t(daily ? 'mtd.dailyPaceSuffix' : 'mtd.forecastSuffix', { label: label }),
+        )
+      }
+      const hints = document.querySelectorAll('[data-mtd-hint]')
+      const hintKey = daily
+        ? percent
+          ? 'mtd.hintPercentDaily'
+          : 'mtd.hintUsdDaily'
+        : percent
+          ? 'mtd.hintPercent'
+          : 'mtd.hintUsd'
+      for (let i = 0; i < hints.length; i++) {
+        setText(hints[i], t(hintKey))
+      }
+      const ariaKey = daily
+        ? percent
+          ? 'mtd.ariaPercentDaily'
+          : 'mtd.ariaUsdDaily'
+        : percent
+          ? 'mtd.ariaPercent'
+          : 'mtd.ariaUsd'
+      for (let i = 0; i < mtdForecastSvgs.length; i++) {
+        mtdForecastSvgs[i].setAttribute('aria-label', t(ariaKey))
+      }
+    }
+
+    function setMtdBarMode(mode) {
+      if (mode !== 'cumulative' && mode !== 'daily') {
+        return
+      }
+      if (mtdBarMode === mode) {
+        return
+      }
+      mtdBarMode = mode
+      syncMtdBarModeUi()
+      charts.hideChartTips()
+      redrawMtdForecastChart()
+    }
+
+    function syncMtdSeriesButtons() {
+      const buttons = document.querySelectorAll('.mtd-range-btn[data-mtd-series]')
+      for (let i = 0; i < buttons.length; i++) {
+        buttons[i].classList.toggle(
+          'is-active',
+          buttons[i].getAttribute('data-mtd-series') === mtdSeriesFilter,
+        )
+      }
+    }
+
+    function setMtdSeriesFilter(id) {
+      if (id !== 'all' && id !== 'cursor' && id !== 'other') {
+        return
+      }
+      if (mtdSeriesFilter === id) {
+        return
+      }
+      const includedBoard =
+        quotaBoard &&
+        quotaBoard.amount !== 'usd' &&
+        (quotaBoard.autoPercent != null || quotaBoard.apiPercent != null)
+      if (mtdUnit !== 'percent' && !includedBoard) {
+        return
+      }
+      mtdSeriesFilter = id
+      syncMtdSeriesButtons()
+      syncMtdBarModeUi()
+      charts.hideChartTips()
+      redrawMtdForecastChart()
+      if (statsView && statsView.paintQuotaBoard) {
+        statsView.paintQuotaBoard()
+      }
+      if (statsView && statsView.paintMtdFocus) {
+        statsView.paintMtdFocus()
+      }
+      self.post(messageType.setForecastSeries, { value: id })
+    }
+
+    function mtdSeriesToggle() {
+      const wrap = el('div', 'mtd-range')
+      wrap.setAttribute('role', 'group')
+      wrap.setAttribute('aria-label', t('mtd.seriesAria'))
+      const options = [
+        { id: 'all', label: t('mtd.seriesAll') },
+        { id: 'cursor', label: t('mtd.seriesCursor') },
+        { id: 'other', label: t('mtd.seriesOther') },
+      ]
+      for (let i = 0; i < options.length; i++) {
+        const opt = options[i]
+        const btn = el('button', 'mtd-range-btn')
+        btn.type = 'button'
+        btn.setAttribute('data-mtd-series', opt.id)
+        if (mtdSeriesFilter === opt.id) {
+          btn.classList.add('is-active')
+        }
+        setText(btn, opt.label)
+        btn.addEventListener('click', function () {
+          setMtdSeriesFilter(opt.id)
+        })
+        wrap.appendChild(btn)
+      }
+      return wrap
+    }
+
+    function mtdBarModeToggle() {
+      const wrap = el('div', 'mtd-range')
+      wrap.setAttribute('role', 'group')
+      wrap.setAttribute('aria-label', t('mtd.modeAria'))
+      const options = [
+        { id: 'cumulative', label: t('mtd.cumulative') },
+        { id: 'daily', label: t('mtd.daily') },
+      ]
+      for (let i = 0; i < options.length; i++) {
+        const opt = options[i]
+        const btn = el('button', 'mtd-range-btn')
+        btn.type = 'button'
+        btn.setAttribute('data-mtd-mode', opt.id)
+        if (mtdBarMode === opt.id) {
+          btn.classList.add('is-active')
+        }
+        setText(btn, opt.label)
+        btn.addEventListener('click', function () {
+          setMtdBarMode(opt.id)
+        })
+        wrap.appendChild(btn)
+      }
+      return wrap
     }
 
     function setMtdChartRange(id) {
@@ -1227,6 +1600,7 @@ export class PanelSession {
         ui = settings.i18n
       }
       applyStaticI18n()
+      setBootWait(settings.awaitingData === true)
 
       if (message) {
         statusEl.hidden = false
@@ -1261,6 +1635,10 @@ export class PanelSession {
       const warnOn = settings.showSpikeWarning !== false
       queriesView.apply(events, settings, warnOn)
 
+      quotaBoard =
+        settings.quotaBoard && typeof settings.quotaBoard === 'object'
+          ? settings.quotaBoard
+          : null
       statsView.applyMtd(settings.mtd)
       if (settings.modelCatalog && Array.isArray(settings.modelCatalog.models)) {
         modelCatalog = settings.modelCatalog
@@ -1309,6 +1687,10 @@ export class PanelSession {
 
     this.onMessage = function (data) {
       if (!data) {
+        return
+      }
+      if (data.type === 'boot') {
+        applyBootCopy(data.title, data.hint)
         return
       }
       if (data.type === 'openTab') {
@@ -1468,6 +1850,7 @@ export class PanelSession {
       chartDayDetailCloseEl.addEventListener('click', closeChartDayDetail)
     }
     self.post(messageType.ready)
+    self.post(messageType.setForecastSeries, { value: mtdSeriesFilter })
     applyVersion(document.documentElement.getAttribute('data-version'))
     }
   }

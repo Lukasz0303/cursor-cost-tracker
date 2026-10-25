@@ -14,6 +14,8 @@ import {
   pickUsagePool,
   readBillingPoolLines,
   readIncludedQuotas,
+  readDollarQuotaBoard,
+  readQuotaBoard,
   spendDisplayFor,
   stripModelPrefix,
 } from '../src/usage/parse'
@@ -309,6 +311,82 @@ describe('included quotas', () => {
     ])
   })
 
+  it('builds the Pro quota board from dashboard percents and plan units', () => {
+    expect(
+      readQuotaBoard({
+        individualUsage: {
+          plan: {
+            used: 2000,
+            limit: 22543,
+            remaining: 20543,
+            autoPercentUsed: 47.8,
+            apiPercentUsed: 23.3,
+            totalPercentUsed: 48,
+          },
+          onDemand: { enabled: false, used: 0, limit: 0 },
+        },
+      }),
+    ).toEqual({
+      autoPercent: 47.8,
+      apiPercent: 23.3,
+      totalPercent: 48,
+      used: 2000,
+      limit: 22543,
+      remaining: 20543,
+      onDemandEnabled: false,
+      onDemandCapUsd: 0,
+      onDemandUsedUsd: 0,
+    })
+  })
+
+  it('builds the Business quota card from the dollar pool, not included percents', () => {
+    expect(
+      readDollarQuotaBoard({
+        membershipType: 'business',
+        limitType: 'team',
+        individualUsage: {
+          onDemand: { enabled: true, used: 16633, limit: 35000, remaining: 18367 },
+          plan: { autoPercentUsed: 80, apiPercentUsed: 10 },
+        },
+      }),
+    ).toEqual({
+      autoPercent: null,
+      apiPercent: null,
+      totalPercent: 47.5,
+      used: 166.33,
+      limit: 350,
+      remaining: 183.67,
+      onDemandEnabled: true,
+      onDemandCapUsd: null,
+      onDemandUsedUsd: null,
+      amount: 'usd',
+    })
+  })
+
+  it('hides a saturated request cap next to a lower dashboard percent', () => {
+    expect(
+      readQuotaBoard({
+        individualUsage: {
+          plan: {
+            used: 2000,
+            limit: 2000,
+            autoPercentUsed: 8.4,
+            apiPercentUsed: 0,
+          },
+          onDemand: { enabled: true, used: 379, limit: 25000 },
+        },
+      }),
+    ).toMatchObject({
+      autoPercent: 8.4,
+      apiPercent: 0,
+      used: null,
+      limit: null,
+      onDemandEnabled: true,
+      onDemandCapUsd: 250,
+      onDemandUsedUsd: 3.79,
+    })
+  })
+
   it('uses an explicit percentUsed when used/limit are missing', () => {
     expect(
       readIncludedQuotas({
@@ -368,6 +446,18 @@ describe('buildUsageReady', () => {
     expect(ready.usedUsd).toBe(20)
     expect(ready.limitUsd).toBe(20)
     expect(ready.includedQuotas).toEqual([])
+    expect(ready.quotaBoard).toEqual({
+      autoPercent: null,
+      apiPercent: null,
+      totalPercent: 100,
+      used: 20,
+      limit: 20,
+      remaining: 0,
+      onDemandEnabled: true,
+      onDemandCapUsd: null,
+      onDemandUsedUsd: null,
+      amount: 'usd',
+    })
   })
 
   it('drops Pro-style quota percents on Business / Enterprise even if the summary carries them', () => {
@@ -390,6 +480,15 @@ describe('buildUsageReady', () => {
     })
     expect(ready.spendDisplay).toBe('usd')
     expect(ready.includedQuotas).toEqual([])
+    expect(ready.quotaBoard).toMatchObject({
+      autoPercent: null,
+      apiPercent: null,
+      totalPercent: 5.4,
+      used: 13.46,
+      limit: 250,
+      remaining: 236.54,
+      amount: 'usd',
+    })
   })
 
   it('matches Stack Manager Current/Today math on an enterprise org pool', () => {
@@ -413,6 +512,13 @@ describe('buildUsageReady', () => {
     })
     expect(ready.plan).toBe('enterprise')
     expect(ready.spendDisplay).toBe('usd')
+    expect(ready.quotaBoard).toMatchObject({
+      amount: 'usd',
+      used: 13.46,
+      limit: 250,
+      autoPercent: null,
+      apiPercent: null,
+    })
     expect(ready.usedUsd).toBe(13.46)
     expect(ready.limitUsd).toBe(250)
     expect(ready.remainingUsd).toBe(236.54)

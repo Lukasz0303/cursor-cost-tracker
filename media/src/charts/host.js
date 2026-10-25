@@ -1,9 +1,18 @@
 import { drawDailyChart } from './daily.js'
+import { drawLimitHistory } from './limits.js'
 import {
   eventsForLocalDay,
   localDayKeyFromMs,
   sliceChartPoints,
 } from './zoom.js'
+
+function localMidnight(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '')
+  if (!match) {
+    return null
+  }
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime()
+}
 
 /**
  * SVG helpers, tips, and redraws for the daily and forecast charts.
@@ -23,10 +32,35 @@ export class ChartHost {
       }
       this[name] = this[name].bind(this)
     }
+    window.addEventListener('message', (event) => {
+      const data = event && event.data
+      if (!data || typeof data.type !== 'string') {
+        return
+      }
+      if (data.type === 'codex.result' && Array.isArray(data.charts)) {
+        this.session.codexCharts = data.charts
+        this.session.codexLimitSeries = Array.isArray(data.limitSeries)
+          ? data.limitSeries
+          : []
+        if (data.stats) {
+          this.session.codexStats = data.stats
+        }
+        if (this.session.querySource === 'codex-local') {
+          this.drawAllCharts()
+        }
+      }
+      if (data.type === 'openai.status' && this.session.querySource === 'openai-api') {
+        this.drawAllCharts()
+      }
+    })
   }
 
   chartBarMode() {
     return this.session.chartBarMode
+  }
+
+  mtdBarMode() {
+    return this.session.mtdBarMode === 'daily' ? 'daily' : 'cumulative'
   }
 
   compactTokens(n) {
@@ -54,7 +88,55 @@ export class ChartHost {
   }
 
   onDaySelect(selection) {
+    if (this.session.querySource === 'codex-local') {
+      const point = selection && selection.point
+      const key = point ? localDayKeyFromMs(point.timestamp) : ''
+      if (key && typeof this.session.focusCodexDay === 'function') {
+        this.session.focusCodexDay(key)
+      }
+      return
+    }
     this.selectChartDay(selection)
+  }
+
+  useCalendarAxis() {
+    return this.session.querySource === 'codex-local'
+  }
+
+  settingsAxisBounds() {
+    if (this.session.querySource !== 'codex-local') {
+      return null
+    }
+    const from = localMidnight(this.session.historyFromDate)
+    if (from === null) {
+      return null
+    }
+    const toDay = localMidnight(this.session.historyToDate)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const day = 24 * 60 * 60 * 1000
+    let start = from
+    let endDay = toDay !== null ? toDay : today
+    const zoom = this.session.chartZoomMode
+    if (zoom === '7') {
+      const week = endDay - 6 * day
+      if (week > start) {
+        start = week
+      }
+    } else if (zoom === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getTime()
+      if (monthStart > start) {
+        start = monthStart
+      }
+      if (monthEnd < endDay) {
+        endDay = monthEnd
+      }
+    }
+    if (endDay < start) {
+      endDay = start
+    }
+    return { from: start, to: endDay + day - 1 }
   }
 
   svgNode(name, attrs) {
@@ -314,8 +396,19 @@ export class ChartHost {
     }
     const label = line.label || this.t('mtd.used')
     const tone = line.tone || 'is-s0'
-    const used = line.used ? line.used[index] : null
-    const limit = this.mtdTipLimit(point, line, index)
+    const daily = this.mtdBarMode() === 'daily'
+    const used = daily
+      ? line.day
+        ? line.day[index]
+        : null
+      : line.used
+        ? line.used[index]
+        : null
+    const limit = daily
+      ? point.dayAllowanceUsd !== null && point.dayAllowanceUsd !== undefined
+        ? point.dayAllowanceUsd
+        : null
+      : this.mtdTipLimit(point, line, index)
     host.tip.replaceChildren()
     host.tip.appendChild(
       this.tipRow(
@@ -340,6 +433,7 @@ export class ChartHost {
     if (!this.session.chartTipEl || !this.session.chartsViewEl) {
       return
     }
+    const codex = this.session.querySource === 'codex-local'
     const per =
       kind === 'tokens' ? this.compactTokens(point.tokens) : this.compactCost(point.costUsd)
     const total =
@@ -348,13 +442,53 @@ export class ChartHost {
     this.session.chartTipEl.appendChild(this.tipTitle(point.time))
     const queries = Number(point.queryCount)
     if (Number.isFinite(queries) && queries > 0) {
-      this.session.chartTipEl.appendChild(this.tipSub(this.t('charts.tipQueries', { n: queries })))
+      const key = codex ? 'charts.tipRequests' : 'charts.tipQueries'
+      this.session.chartTipEl.appendChild(this.tipSub(this.t(key, { n: queries })))
+    }
+    if (codex && point.inputTokens !== undefined && point.inputTokens !== null) {
+      this.session.chartTipEl.appendChild(
+        this.tipRow(this.t('charts.tipInput'), this.fullTokens(point.inputTokens)),
+      )
+      this.session.chartTipEl.appendChild(
+        this.tipRow(this.t('charts.tipCached'), this.fullTokens(point.cachedInputTokens)),
+      )
+      this.session.chartTipEl.appendChild(
+        this.tipRow(this.t('charts.tipOutput'), this.fullTokens(point.outputTokens)),
+      )
+      const priced = Number(point.pricedCount) > 0 || Number(point.costUsd) > 0
+      this.session.chartTipEl.appendChild(
+        this.tipRow(
+          this.t('charts.tipCost'),
+          priced ? this.compactCost(point.costUsd) : this.t('charts.tipNoRate'),
+        ),
+      )
+      this.placeChartTip(clientX, clientY)
+      return
     }
     this.session.chartTipEl.appendChild(
       this.tipRow(kind === 'tokens' ? this.t('charts.tipTokens') : this.t('charts.tipCost'), per),
     )
     this.session.chartTipEl.appendChild(this.tipRow(this.t('charts.tipTotal'), total))
     this.placeChartTip(clientX, clientY)
+    }
+
+  showLimitTip(hit, clientX, clientY) {
+    if (!this.session.chartTipEl || !hit || !hit.point) {
+      return
+    }
+    const point = hit.point
+    this.session.chartTipEl.replaceChildren()
+    this.session.chartTipEl.appendChild(this.tipTitle(point.label || ''))
+    const kind = hit.kind === '5h' ? this.t('codex.limit5h') : hit.kind === '7d' ? this.t('codex.limit7d') : this.t('codex.limitCustom', { minutes: '' })
+    const used = Number(point.usedPercent)
+    const text = Number.isFinite(used) ? String(Math.round(used * 10) / 10) + '%' : '—'
+    this.session.chartTipEl.appendChild(this.tipRow(kind, text))
+    this.placeChartTip(clientX, clientY)
+    }
+
+  fullTokens(n) {
+    const value = Math.round(Number(n) || 0)
+    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     }
 
   syncChartZoomUi() {
@@ -493,14 +627,29 @@ export class ChartHost {
     }
 
   appendLine(svg, values, max, left, plotW, top, plotH, className) {
-    const pts = []
+    let pts = []
+    const flush = () => {
+      if (pts.length === 0) {
+        return
+      }
+      svg.appendChild(
+        this.svgNode('polyline', {
+          class: className,
+          points: pts.join(' '),
+        }),
+      )
+      pts = []
+    }
     for (let i = 0; i < values.length; i++) {
       const raw = values[i]
+      // A missing day is a gap. Skipping it would bridge the previous window
+      // to the next one.
       if (raw === null || raw === undefined) {
+        flush()
         continue
       }
-      // Handle reset array [high, low] or single value
       const nums = Array.isArray(raw) ? raw : [raw]
+      let drew = false
       for (let j = 0; j < nums.length; j++) {
         const n = Number(nums[j])
         if (!Number.isFinite(n)) {
@@ -509,17 +658,13 @@ export class ChartHost {
         const x = this.pointX(i, values.length, left, plotW)
         const y = this.yAt(Math.min(Math.max(0, n), max), max, top, plotH)
         pts.push(x + ',' + y)
+        drew = true
+      }
+      if (!drew) {
+        flush()
       }
     }
-    if (pts.length === 0) {
-      return
-    }
-    svg.appendChild(
-      this.svgNode('polyline', {
-        class: className,
-        points: pts.join(' '),
-      }),
-    )
+    flush()
     }
 
   appendMtdDayAxis(svg, points, left, plotW, axisY, width) {
@@ -571,19 +716,87 @@ export class ChartHost {
     }
     }
 
+  usageChartPoints() {
+    if (this.session.querySource === 'codex-local') {
+      return Array.isArray(this.session.codexCharts)
+        ? this.session.codexCharts
+        : []
+    }
+    return this.session.chartPoints
+  }
+
   redrawUsageCharts() {
-    const visible = sliceChartPoints(this.session.chartPoints, this.session.chartZoomMode, new Date())
+    const sourcePoints = this.usageChartPoints()
+    const visible = this.settingsAxisBounds()
+      ? sourcePoints
+      : sliceChartPoints(
+          sourcePoints,
+          this.session.chartZoomMode,
+          new Date(),
+        )
     if (!visible || visible.length === 0) {
       this.clearSvg(this.session.chartTokensEl)
-      this.clearSvg(this.session.chartCostEl)
+      this.redrawCostChart([])
       return
     }
     if (this.session.chartTokensEl) {
       this.drawChart(this.session.chartTokensEl, visible, 'tokens')
     }
-    if (this.session.chartCostEl) {
-      this.drawChart(this.session.chartCostEl, visible, 'cost')
+    this.redrawCostChart(visible)
     }
+
+  codexHasRates() {
+    const stats = this.session.codexStats
+    const priced = stats && stats.pricedShare ? Number(stats.pricedShare.priced) : 0
+    return priced > 0
+    }
+
+  codexMissingModels() {
+    const stats = this.session.codexStats
+    const missing = stats && Array.isArray(stats.missingModels) ? stats.missingModels : []
+    if (missing.length === 0) {
+      return this.t('codex.noRates')
+    }
+    const join = this.t('codex.modelJoin')
+    const names =
+      missing.length === 1
+        ? missing[0]
+        : missing.slice(0, -1).join(', ') + join + missing[missing.length - 1]
+    return this.t('codex.noRateForModels', { models: names })
+    }
+
+  redrawCostChart(visible) {
+    const note = document.getElementById('chartCostEmpty')
+    const svg = this.session.chartCostEl
+    const codex = this.session.querySource === 'codex-local'
+    const blocked = codex && !this.codexHasRates()
+    if (note) {
+      note.hidden = !blocked
+      if (blocked) {
+        this.setText(note, this.codexMissingModels())
+      }
+      const legend = note.previousElementSibling
+      if (legend && legend.classList && legend.classList.contains('chart-legend')) {
+        legend.hidden = blocked
+      }
+    }
+    if (!svg) {
+      return
+    }
+    const frame = svg.parentElement
+    if (frame && frame.classList && frame.classList.contains('chart-frame')) {
+      frame.hidden = blocked
+    }
+    svg.hidden = blocked
+    if (blocked) {
+      this.clearSvg(svg)
+      return
+    }
+    if (!visible || visible.length === 0) {
+      this.clearSvg(svg)
+      return
+    }
+    this.drawChart(svg, visible, 'cost')
     }
 
   setChartBarMode(mode) {
@@ -600,17 +813,56 @@ export class ChartHost {
     }
 
   drawAllCharts() {
-    const emptyQueries = !this.session.chartPoints || this.session.chartPoints.length === 0
-    const emptyMtd = !this.session.mtdForecastPoints || this.session.mtdForecastPoints.length === 0
+    if (this.session.querySource === 'openai-api') {
+      this.clearSvg(this.session.chartTokensEl)
+      this.clearSvg(this.session.chartCostEl)
+      this.clearSvg(this.session.chartCodeLinesEl)
+      for (let i = 0; i < this.session.mtdForecastSvgs.length; i++) {
+        this.clearSvg(this.session.mtdForecastSvgs[i])
+      }
+      if (this.session.codeLinesChartCardEl) {
+        this.session.codeLinesChartCardEl.hidden = true
+      }
+      if (this.session.chartsEmptyEl) {
+        this.session.chartsEmptyEl.hidden = false
+        this.session.setText(
+          this.session.chartsEmptyEl,
+          this.session.t('source.openaiEmpty'),
+        )
+      }
+      this.hideChartTips()
+      return
+    }
+
+    const codex = this.session.querySource === 'codex-local'
+    const sourcePoints = this.usageChartPoints()
+    const emptyQueries = !sourcePoints || sourcePoints.length === 0
+    const emptyMtd =
+      !this.session.mtdForecastPoints ||
+      this.session.mtdForecastPoints.length === 0
     const hasCodeLinesSummary =
+      !codex &&
       !!this.session.codeLinesSummary &&
       (typeof this.session.codeLinesSummary.ai === 'number' ||
         typeof this.session.codeLinesSummary.onMaster === 'number' ||
         typeof this.session.codeLinesSummary.allEdited === 'number')
     const emptyCodeLines =
-      (!this.session.codeLinesSeries || this.session.codeLinesSeries.length === 0) && !hasCodeLinesSummary
+      codex ||
+      ((!this.session.codeLinesSeries ||
+        this.session.codeLinesSeries.length === 0) &&
+        !hasCodeLinesSummary)
     if (this.session.chartsEmptyEl) {
-      this.session.chartsEmptyEl.hidden = !(emptyQueries && emptyMtd && emptyCodeLines)
+      this.session.chartsEmptyEl.hidden = !(
+        emptyQueries &&
+        emptyMtd &&
+        emptyCodeLines
+      )
+      if (!this.session.chartsEmptyEl.hidden && !codex) {
+        this.session.setText(
+          this.session.chartsEmptyEl,
+          this.session.t('queries.empty'),
+        )
+      }
     }
     this.redrawUsageCharts()
     const hasCodeLines = !emptyCodeLines
@@ -637,9 +889,48 @@ export class ChartHost {
     } else {
       this.session.redrawMtdForecastChart()
     }
+    this.syncCodexChartChrome(codex)
+    this.redrawLimitChart(codex)
     if (emptyQueries && emptyMtd && emptyCodeLines) {
       this.hideChartTips()
     }
     this.refreshOpenChartDay()
+    }
+
+  syncCodexChartChrome(codex) {
+    const generic = document.getElementById('tokenChartLegend')
+    const stacked = document.getElementById('codexTokenLegend')
+    if (generic) {
+      generic.hidden = codex === true
+    }
+    if (stacked) {
+      stacked.hidden = codex !== true
+    }
+    const note = document.getElementById('chartsPeriodNote')
+    if (note) {
+      note.hidden = codex === true || this.session.querySource === 'openai-api'
+    }
+    const card = document.getElementById('codexLimitChartCard')
+    if (card) {
+      card.hidden = codex !== true
+    }
+    }
+
+  redrawLimitChart(codex) {
+    const svg = document.getElementById('chartCodexLimits')
+    const empty = document.getElementById('codexLimitEmpty')
+    if (!codex) {
+      if (svg) {
+        this.clearSvg(svg)
+      }
+      return
+    }
+    const series = Array.isArray(this.session.codexLimitSeries)
+      ? this.session.codexLimitSeries
+      : []
+    const drew = svg ? drawLimitHistory(svg, series, this) : false
+    if (empty) {
+      empty.hidden = drew === true
+    }
     }
 }

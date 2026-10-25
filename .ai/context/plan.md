@@ -20,6 +20,7 @@ File names in `.ai/context/` use **kebab-case, lowercase** (`architecture.md`, `
 | 1.0.4 Generated Lines Insight | [../implementation-plans/generated-lines-insight.md](../implementation-plans/generated-lines-insight.md) · [../implementation-plans/generated-lines-insight.pl.md](../implementation-plans/generated-lines-insight.pl.md) |
 | 1.0.5–1.0.6 and later slices | [../implementation-plans/market-2026-09/README.md](../implementation-plans/market-2026-09/README.md) · billing cycle: [../implementation-plans/billing-cycle-forecast.md](../implementation-plans/billing-cycle-forecast.md) |
 | Additional / backlog plans | [../implementation-plans/additional/README.md](../implementation-plans/additional/README.md) |
+| Codex local history and OpenAI requests | [../implementation-plans/openai-codex/README.md](../implementation-plans/openai-codex/README.md) · product plan: [../implementation-plans/openai-codex/openai-codex.md](../implementation-plans/openai-codex/openai-codex.md) |
 | What each release contains | root `CHANGELOG.md` and the history table in [codebase-snapshot.md](./codebase-snapshot.md) |
 
 ## When to update

@@ -11,6 +11,23 @@ describe('parseWebviewMessage', () => {
     })
   })
 
+  it('accepts OpenAI connect mode and connect commands', () => {
+    expect(parseWebviewMessage({ type: 'openai.setMode', value: 'web' })).toEqual({
+      type: 'openai.setMode',
+      value: 'web',
+    })
+    expect(
+      parseWebviewMessage({ type: 'openai.connect', mode: 'local' }),
+    ).toEqual({
+      type: 'openai.connect',
+      mode: 'local',
+    })
+    expect(parseWebviewMessage({ type: 'openai.disconnect' })).toEqual({
+      type: 'openai.disconnect',
+    })
+    expect(parseWebviewMessage({ type: 'openai.setMode', value: 'nope' })).toBeUndefined()
+  })
+
   it('drops empty and unknown commands', () => {
     expect(parseWebviewMessage(null)).toBeUndefined()
     expect(parseWebviewMessage({ type: 'nope' })).toBeUndefined()
@@ -91,6 +108,59 @@ describe('parseWebviewMessage', () => {
       body: 'hi',
       email: 'a@b.c',
       raw,
+    })
+  })
+
+  it('rejects codex.query limits outside 1–100', () => {
+    const base = {
+      type: 'codex.query',
+      correlationId: 'c1',
+      filterRevision: 1,
+      from: null,
+      to: null,
+      accountScopeKey: null,
+      model: null,
+      status: null,
+      groupBy: 'none',
+      sort: 'time-desc',
+      costBasis: 'estimated-api',
+      cursor: null,
+    }
+    expect(parseWebviewMessage({ ...base, limit: 0 })).toBeUndefined()
+    expect(parseWebviewMessage({ ...base, limit: 500 })).toBeUndefined()
+    expect(parseWebviewMessage({ ...base, limit: 50 })).toMatchObject({
+      type: 'codex.query',
+      limit: 50,
+    })
+  })
+
+  it('rejects unsafe codex.query filter strings', () => {
+    const base = {
+      type: 'codex.query',
+      correlationId: 'c1',
+      filterRevision: 1,
+      from: null,
+      to: null,
+      model: null,
+      status: null,
+      groupBy: 'none',
+      sort: 'time-desc',
+      costBasis: 'estimated-api',
+      cursor: null,
+      limit: 10,
+    }
+    expect(
+      parseWebviewMessage({ ...base, accountScopeKey: '../etc/passwd' }),
+    ).toBeUndefined()
+    expect(
+      parseWebviewMessage({ ...base, accountScopeKey: 'sk-secret-key' }),
+    ).toBeUndefined()
+  })
+
+  it('keeps Cursor refresh distinct from codex.refresh', () => {
+    expect(parseWebviewMessage({ type: 'refresh' })).toEqual({ type: 'refresh' })
+    expect(parseWebviewMessage({ type: 'codex.refresh' })).toEqual({
+      type: 'codex.refresh',
     })
   })
 })

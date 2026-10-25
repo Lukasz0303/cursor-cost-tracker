@@ -23,6 +23,7 @@ const BOOLEAN_KEYS = new Set<keyof CursorCostConfig>([
   'burnRateCriticalToast',
   'codeLinesInsight',
   'groupQueriesByConversation',
+  'showCliThreads',
 ])
 
 const NUMBER_KEYS = new Set<keyof CursorCostConfig>([
@@ -93,6 +94,19 @@ export function coercePersistedSetting(
     return typeof stored === 'string' &&
       (OPTIMIZE_DEPTHS as readonly string[]).includes(stored)
       ? (stored as CursorCostConfig['optimizeDepth'])
+      : undefined
+  }
+  if (key === 'openaiConnectMode') {
+    return stored === 'local' || stored === 'web' ? stored : undefined
+  }
+  if (key === 'openaiSinkPath' || key === 'codexHome') {
+    return typeof stored === 'string' ? stored : undefined
+  }
+  if (key === 'querySource') {
+    return stored === 'cursor' ||
+      stored === 'codex-local' ||
+      stored === 'openai-api'
+      ? stored
       : undefined
   }
   if (key === 'okColor' || key === 'warnColor') {

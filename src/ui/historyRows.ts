@@ -20,6 +20,7 @@ import {
 } from '../historyLimit'
 import { contextFillForQuery, type ContextFill } from '../contextFill/fill'
 import { formatDateTime, formatDollars, formatKind, formatTokens } from '../format'
+import { isGeneratedThreadTitle } from '../openaiHistory/ids'
 import {
   DEFAULT_CRITICAL_COST_USD_THRESHOLD,
   DEFAULT_CRITICAL_TOKEN_THRESHOLD,
@@ -35,7 +36,7 @@ import {
 import { toBurnRatePayload, type BurnRatePayload } from '../burnRate/copy'
 import { queryInLiveWindow } from '../burnRate/window'
 import { applyBudgetDayBasis, stripModelPrefix } from '../usage/parse'
-import type { UsageQuery, UsageSnapshot } from '../usage/types'
+import type { QuotaBoard, UsageQuery, UsageSnapshot } from '../usage/types'
 import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
 import { toChartSeries, type ChartPoint } from './chartSeries'
 import { toPeriodCards, type PeriodCard } from './periodCards'
@@ -77,6 +78,7 @@ export const HISTORY_ROW_KEYS = [
   'tokens',
   'inputOutput',
   'kind',
+  'cli',
   'spike',
   'inBurnWindow',
   'timestamp',
@@ -94,6 +96,8 @@ export type HistoryRow = {
   tokens: string
   inputOutput: string
   kind: string
+  /** True when this request is a Cursor CLI thread (no local chat title). */
+  cli: boolean
   spike: boolean
   inBurnWindow: boolean
   timestamp: number
@@ -149,6 +153,8 @@ export type HistoryRowOptions = {
   codeLines?: CodeLinesPayload | null
   /** Fold the queries table into one row per conversation title. */
   groupQueriesByConversation?: boolean
+  /** Show Cursor CLI threads (no local chat title). Default on. */
+  showCliThreads?: boolean
   /** Local conversation titles keyed by usage-event id. Not sent raw to the webview. */
   conversationTitles?: Readonly<Record<string, string>>
   /** Cursor's context meter per conversation id. Not sent raw to the webview. */
@@ -214,6 +220,7 @@ export function toHistoryRows(
   return sample.map((query) => {
     const model = stripModelPrefix(query.model)
     const tokens = formatTokens(query.tokens)
+    const cli = isCliCursorQuery(query, titles)
     const spike =
       options?.showSpikeWarning === true &&
       options.spikeTokenThreshold !== undefined &&
@@ -224,7 +231,8 @@ export function toHistoryRows(
       cost: formatDollars(query.costUsd),
       tokens: spike ? `! ${tokens}` : tokens,
       inputOutput: `${formatTokens(query.inputTokens)} / ${formatTokens(query.outputTokens)}`,
-      kind: formatKind(query.kind),
+      kind: cli ? 'CLI' : formatKind(query.kind),
+      cli,
       spike,
       inBurnWindow: burn !== null && queryInLiveWindow(query.timestamp, burn),
       timestamp: query.timestamp,
@@ -252,6 +260,22 @@ function conversationTitleForQuery(
   return cleanConversationTitle(raw) ?? ''
 }
 
+/** A conversation id with no local title. Those rows are Cursor CLI. */
+function isCliCursorQuery(
+  query: UsageQuery,
+  titles: Readonly<Record<string, string>> | undefined,
+): boolean {
+  const id = query.conversationId?.trim() ?? ''
+  if (id === '') {
+    return false
+  }
+  const title = conversationTitleForQuery(query, titles)
+  if (title === '') {
+    return true
+  }
+  return isGeneratedThreadTitle(title, id)
+}
+
 function burnWindowForRows(
   queries: UsageQuery[],
   options?: HistoryRowOptions,
@@ -277,6 +301,7 @@ export type HistoryDataPayload = {
   /** Conversation rows for the same sample as `events`. Always sent. */
   queryGroups: QueryGroupPayload[]
   groupQueriesByConversation: boolean
+  showCliThreads: boolean
   message?: string
   spikeTokenThreshold: number
   showSpikeWarning: boolean
@@ -326,9 +351,13 @@ export type HistoryDataPayload = {
     leaderboardUnlocked: boolean
   }
   refreshing: boolean
+  /** True until the first usage snapshot is ready and the table can render. */
+  awaitingData: boolean
   language: Locale
   i18n: ReturnType<typeof catalogFor>
   modelCatalog: ModelCatalogPayload | null
+  /** Pro included pool for the quota tiles. Null on dollar plans. */
+  quotaBoard: QuotaBoard | null
 }
 
 export function historyDataPayload(
@@ -444,6 +473,7 @@ export function historyDataPayload(
       locale: language,
     }),
     groupQueriesByConversation: options?.groupQueriesByConversation === true,
+    showCliThreads: options?.showCliThreads !== false,
     spikeTokenThreshold,
     showSpikeWarning,
     showCriticalAlert,
@@ -528,9 +558,14 @@ export function historyDataPayload(
       leaderboardUnlocked: options?.leaderboardUnlocked === true,
     },
     refreshing: options?.refreshing === true,
+    awaitingData: snapshot.status === 'loading' && queries.length === 0,
     language,
     i18n,
     modelCatalog: options?.modelCatalog ?? null,
+    quotaBoard:
+      pacedSnapshot.status === 'ready'
+        ? pacedSnapshot.data.quotaBoard ?? null
+        : null,
   }
   if (message !== undefined && message !== '') {
     payload.message = message

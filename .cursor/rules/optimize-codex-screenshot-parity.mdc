@@ -1,0 +1,24 @@
+---
+description: Codex screenshot parity — one screen after the first pass, package apart
+alwaysApply: false
+---
+
+# Codex screenshot parity
+
+This thread billed **33.70 $** across **13** requests, all `grok-4.7-high`. Request **#1** (the full Codex display pass) was **16,279,444** tokens / **8.99 $**. Cache read for the thread was **56,409,984**; cache write was **0**. Later slices still reread that pass: slice 6 was **3.60 $** with median cache read **3,372,736**. Idle gaps (40 min before #2, 37 min before #9) did not cheapen the next slice — slice 4 was still **4.52 $**.
+
+The habit was a Cursor screenshot, then “Codex should match” on the next surface in this same chat: table colors, filters and the From date, the 30-day forecast, daily token/cost bars, limit-window lines, then the Model column. Each turn reopened `media/src/tabs/queries.js`, `media/src/tabs/stats.js`, or `media/src/charts/*` and ran `npm run package`.
+
+## When the ask is “make Codex look like this screenshot”
+
+One screen, one message, at most two paths. Examples: `media/src/charts/daily.js` + `media/src/charts/limits.js`, or `media/src/tabs/queries.js` + `media/css/queries.css`.
+
+- After the first Codex display pass in a chat, the next screenshot is a new chat. Do not keep stacking table, then filters, then forecast, then the other charts here.
+- Do not re-read queries, stats, charts, and both catalogs in one turn. Open only the file that draws the control in the screenshot.
+- A label or axis fix still ends with `npm run package`. `npm run build` does not update the VSIX — [package-current-version.mdc](./package-current-version.mdc).
+- Do not recount Codex token totals or attach the Cursor dollar forecast to a Codex chart.
+
+## Still allowed
+
+- The one named fix: axis from `historyFromDate`, a 12-character Model cell, or one missing label, with `en` + `pl` for that string.
+- A turn that edited shippable source includes one `npm run package` before it ends.

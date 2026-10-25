@@ -1,6 +1,6 @@
 # Tech stack — Cursor Cost Tracker
 
-Updated: 2026-10-10. Mapped to [prd.md](./prd.md). Current tree: **1.0.7** (`CHANGELOG.md` opens on 1.0.7; `package.json` still says 1.0.6 until the release bump).
+Updated: 2026-10-23. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`package.json` and `CHANGELOG.md` both open on 1.0.8).
 
 ## 1. Product
 
@@ -30,7 +30,7 @@ Updated: 2026-10-10. Mapped to [prd.md](./prd.md). Current tree: **1.0.7** (`CHA
 | Area | Choice | Notes |
 |------|--------|-------|
 | Session | `node:sqlite` read-only on the live file; sql.js copy only if the DB is under ~1.5 GiB | Cursor `state.vscdb` can be multi-GB (Node `readFile` / sql.js cannot load it). Keep sql.js for hosts without `node:sqlite`. Not `better-sqlite3`. |
-| HTTP | `fetch` to `cursor.com` | `/api/usage-summary`, `/api/dashboard/get-filtered-usage-events`, `/api/dashboard/get-user-analytics` (Lines Edited). Model prices: public `https://cursor.com/docs/models-and-pricing.md` (no cookie, six-hour cache). Support messages: `POST` FormSubmit (no session token) |
+| HTTP | `fetch` to `cursor.com`; `api.openai.com` only to check an organization admin key | `/api/usage-summary`, `/api/dashboard/get-filtered-usage-events`, `/api/dashboard/get-user-analytics` (Lines Edited). Model prices: public `https://cursor.com/docs/models-and-pricing.md` (no cookie, six-hour cache). Support messages: `POST` FormSubmit (no session token). The admin-key check does not store usage buckets. Codex list prices are a local table, not a fetch. Codex rollout compression uses `fzstd` |
 | State | in-memory + optional `globalState` | Polling; no Redux |
 | Timeout | 15 s, `AbortController` | One refresh at a time |
 
@@ -45,6 +45,9 @@ Updated: 2026-10-10. Mapped to [prd.md](./prd.md). Current tree: **1.0.7** (`CHA
 | Model pricing, list price, Play, To date, chart day zoom | Statistics, queries table, Charts | 1.0.5–1.0.6 |
 | Group by conversation | queries toolbar + Settings (default off; CSV stays flat) | 1.0.6 |
 | Run Optimize and Play | open Agent chat / that conversation | 1.0.7 |
+| History source | Cursor, Codex local, or OpenAI API. Status bar stays on Cursor | 1.0.8 |
+| Codex local | import from Codex home; same From–To window; limit chart in percent | 1.0.8 |
+| Quota card and forecast focus | Statistics quota card; All / Cursor Models / Other drives Current and Today | 1.0.8 |
 | Settings | `contributes.configuration` (`cursorCost.*`) | current keys in the PRD §10 |
 | Commands | show history, refresh, open dashboard, open pricing, export CSV | palette |
 | Product site | static `site/` | GitHub Pages, cursorcosttracker.com |

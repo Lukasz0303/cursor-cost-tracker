@@ -1,10 +1,10 @@
 ## Lifetime savings
 
-Run 23. This thread billed 5.24 $ across 6 requests. Request #5 (model-list correction that mined Cursor.app and rewrote the catalog in one loop) was 6,030,681 tokens and 3.45 $. The next similar correction stays on the pricing rows already in the repo: about 700,000 tokens and 0.40 $, so it saves 5,330,681 tokens and 3.05 $.
+Run 25. This thread billed 33.70 $ across 13 requests while matching Codex screens to Cursor screenshots. Request #1 was 16,279,444 tokens / 8.99 $. A later slice still in this chat (slice 6) was 3.60 $ for 2 requests, median cache read 3,372,736, so the next similar screenshot here is about 3,400,000 tokens and 1.80 $. One screen in a new chat, two paths, no package, is about 400,000 tokens and 0.35 $, so it saves 3,000,000 tokens and 1.45 $.
 
 ```cct-savings
 project: cursor-cost-tracker
-tokens_mid: 41672893
-usd_mid: 24.82
-run: 23
+tokens_mid: 47372893
+usd_mid: 27.77
+run: 25
 ```
