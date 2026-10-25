@@ -90,6 +90,9 @@ export function coercePersistedSetting(
       ? stored
       : undefined
   }
+  if (key === 'spendMixBuckets') {
+    return typeof stored === 'string' && stored.length <= 8192 ? stored : undefined
+  }
   if (key === 'optimizeDepth') {
     return typeof stored === 'string' &&
       (OPTIMIZE_DEPTHS as readonly string[]).includes(stored)

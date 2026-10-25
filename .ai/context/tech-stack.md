@@ -1,6 +1,6 @@
 # Tech stack — Cursor Cost Tracker
 
-Updated: 2026-10-23. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`package.json` and `CHANGELOG.md` both open on 1.0.8).
+Updated: 2026-10-25. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`package.json` and `CHANGELOG.md` both open on 1.0.8).
 
 ## 1. Product
 
@@ -45,9 +45,11 @@ Updated: 2026-10-23. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`pac
 | Model pricing, list price, Play, To date, chart day zoom | Statistics, queries table, Charts | 1.0.5–1.0.6 |
 | Group by conversation | queries toolbar + Settings (default off; CSV stays flat) | 1.0.6 |
 | Run Optimize and Play | open Agent chat / that conversation | 1.0.7 |
-| History source | Cursor, Codex local, or OpenAI API. Status bar stays on Cursor | 1.0.8 |
-| Codex local | import from Codex home; same From–To window; limit chart in percent | 1.0.8 |
+| History source | Cursor or Codex local. OpenAI API stays in the code and is not selectable. Status bar stays on Cursor | 1.0.8 |
+| Codex local | import from Codex home; same From–To window; limit chart through that window’s reset | 1.0.8 |
+| Period-end charts | monthly forecast through month or billing-cycle end; Codex through its reset | 1.0.8 |
 | Quota card and forecast focus | Statistics quota card; All / Cursor Models / Other drives Current and Today | 1.0.8 |
+| Billed spend donut | Statistics chips over the loaded sample; grade JSON in settings | 1.0.8 |
 | Settings | `contributes.configuration` (`cursorCost.*`) | current keys in the PRD §10 |
 | Commands | show history, refresh, open dashboard, open pricing, export CSV | palette |
 | Product site | static `site/` | GitHub Pages, cursorcosttracker.com |

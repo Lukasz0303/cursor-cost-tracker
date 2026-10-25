@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cursor Cost Tracker — know the spend before the month ends</title>
-  <meta name="description" content="Status bar Current and Today, burn rate, model pricing, Coding stats, monthly forecast, Optimize, and Support write-a-message. Free on Open VSX.">
+  <title>Cursor Cost Tracker — see the month before it runs out</title>
+  <meta name="description" content="Status bar, local Codex, a quota gauge, and a monthly forecast that stays green on plan. Burn-rate guard and Optimize stay in the editor. Free on Open VSX.">
   <link rel="canonical" href="https://cursorcosttracker.com/">
   <meta property="og:title" content="Cursor Cost Tracker">
-  <meta property="og:description" content="Status bar spend, forecast, burn rate, model pricing, Coding stats, and local Optimize — inside Cursor.">
+  <meta property="og:description" content="See Cursor and local Codex cost before the month runs out. Quota, forecast, burn-rate guard, and Optimize — inside the editor.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://cursorcosttracker.com/">
-  <meta property="og:image" content="https://cursorcosttracker.com/screenshots/dark/monthly_cost_forecast_2.png">
+  <meta property="og:image" content="https://cursorcosttracker.com/screenshots/releases/1.0.8/5.png">
   <meta name="theme-color" content="#07090c" id="theme-color">
   <link rel="icon" href="mark.png">
   <link rel="stylesheet" href="styles.css">
@@ -82,15 +82,16 @@
     <section class="hero">
       <div class="wrap hero-split">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> <span data-i18n="hero.eyebrow">Live in Cursor · Free · Unofficial</span></p>
-          <h1 class="hero-title" data-i18n-html="hero.title">What Cursor costs — <em>know before the limit runs out</em></h1>
-          <p class="hero-hook" data-i18n="hero.hook">Cursor Cost Tracker is a VS Code / Cursor extension with five jobs.</p>
+          <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> <span data-i18n="hero.eyebrow">Version 1.0.8 · Live in Cursor · Free</span></p>
+          <h1 class="hero-title" data-i18n-html="hero.title">See the cost — <em>before the month runs out</em></h1>
+          <p class="hero-hook" data-i18n="hero.hook">Cursor spend and local Codex, in one panel. No extra app. No pasted token.</p>
           <ul class="hero-points">
             <li data-i18n-html="hero.p1"><strong>Status bar</strong> — Current, Today, and recent queries. Green on pace; red on a spike (<code>!</code>).</li>
             <li data-i18n-html="hero.p2"><strong>Guards</strong> — Burn Rate toasts and a blocking critical alert. Neither stops Cursor.</li>
-            <li data-i18n-html="hero.p3"><strong>Monthly forecast</strong> — used, forecast, and ideal, plus when limits run out.</li>
+            <li data-i18n-html="hero.p3"><strong>Monthly forecast</strong> — green on plan, red above it, and a straight answer: it lasts, or it runs out.</li>
             <li data-i18n-html="hero.p4"><strong>Optimize</strong> — a ready prompt for the last red query. Never reads the chat.</li>
             <li data-i18n-html="hero.p5"><strong>Coding stats</strong> — landed / AI = % effectiveness, plus All on Cursor by project.</li>
+            <li data-i18n-html="hero.p6"><strong>Codex local</strong> — the same dates as Cursor, one row per thread, cache hit, and an API estimate that is not an invoice.</li>
           </ul>
           <div class="cta">
             <a class="btn" href="https://open-vsx.org/extension/lukasz0303/cursor-cost-tracker" data-i18n="cta.installFree">Install for free</a>
@@ -100,8 +101,8 @@
         <div class="hero-stage">
           <div class="hero-glow" aria-hidden="true"></div>
           <figure class="hero-frame">
-            <button class="zoomable" type="button" data-open="hero" data-i18n-aria="enlarge.forecast" aria-label="Enlarge: Monthly cost forecast">
-              <img src="screenshots/dark/monthly_cost_forecast_2.png" alt="Monthly cost forecast: Cursor Models and Other Models meters, cumulative bars green on plan and red above plan, solid used lines, dashed forecast to the 100% limit." width="1518" height="972" fetchpriority="high">
+            <button class="zoomable" type="button" data-open="hero" data-i18n-aria="enlarge.forecast" aria-label="Enlarge: Will the month last?">
+              <img src="screenshots/releases/1.0.8/5.png" alt="Will the month last? Cumulative bars stay green on plan and turn red above it. Pace, the month forecast, and a run-out that says it lasts — or names the day it will not." width="1586" height="1318" fetchpriority="high">
             </button>
           </figure>
         </div>
@@ -300,6 +301,11 @@
                   <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
                 </tr>
                 <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.spendMix">Billed spend donut for the loaded sample</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
                   <th scope="row" data-i18n="row.charts">Charts (tokens / cost over time)</th>
                   <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
                   <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
@@ -312,6 +318,16 @@
                 <tr class="compare-extra">
                   <th scope="row" data-i18n="row.pricing">Model pricing (docs + Last N counts + CursorBench)</th>
                   <td><span class="cell-soft" data-i18n="cell.website">Website</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.codex">Local Codex in the same date window (API estimate, not an invoice)</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
+                  <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
+                </tr>
+                <tr class="compare-extra">
+                  <th scope="row" data-i18n="row.quota">Quota gauge, on-demand, and accepted lines</th>
+                  <td><span class="cell-no" data-i18n-aria="cell.no" aria-label="No">×</span></td>
                   <td><span class="cell-yes" data-i18n="cell.yes">Yes</span></td>
                 </tr>
                 <tr class="compare-extra">
@@ -357,7 +373,7 @@
         <header class="section-head reveal">
           <p class="eyebrow" data-i18n="product.eyebrow">Inside the editor</p>
           <h2 data-i18n="product.title">It works before you change a setting.</h2>
-          <p class="lede" data-i18n="product.lede">Current and Today show up on the status bar as soon as you install. Click either for Statistics. Click a query chip for the list. Charts, Optimize, Support, and Settings stay one panel away.</p>
+          <p class="lede" data-i18n="product.lede">Current and Today land on the status bar the moment you install. Statistics shows the quota, accepted lines, a billed-spend donut, and whether the month lasts. Codex local uses the same dates.</p>
         </header>
 
         <div class="bento">
@@ -374,23 +390,34 @@
 
           <article class="tile reveal">
             <div class="tile-copy">
-              <p class="tile-tag" data-i18n="tile.statsTag">Statistics</p>
-              <h3 data-i18n="tile.statsTitle">The month, the burn, the sample</h3>
-              <p data-i18n="tile.statsBody">Meters for Current and Today, live burn rate when Guard is on, coding stats when enabled, plus the Last N totals.</p>
+              <p class="tile-tag" data-i18n="tile.mixTag">Statistics</p>
+              <h3 data-i18n="tile.mixTitle">Where the billed dollars went</h3>
+              <p data-i18n="tile.mixBody">One donut of the loaded sample. Switch model, vendor, size, limit, kind, conversations, grade, or cache.</p>
             </div>
-            <button class="zoomable tile-shot" type="button" data-open="stats" data-i18n-aria="enlarge.stats" aria-label="Enlarge: Statistics">
-              <img src="screenshots/dark/statistics.png" alt="Statistics: Current and Today meters, burn rate, and coding stats." loading="lazy">
+            <button class="zoomable tile-shot" type="button" data-open="spend" data-i18n-aria="enlarge.spend" aria-label="Enlarge: Billed spend by model">
+              <img src="screenshots/releases/1.0.8/7.png" alt="Billed spend donut by model, with dollars, query count, and share." width="1552" height="1244" loading="lazy">
             </button>
           </article>
 
           <article class="tile reveal">
             <div class="tile-copy">
-              <p class="tile-tag" data-i18n="tile.lastNTag">Last N</p>
-              <h3 data-i18n="tile.lastNTitle">Every recent query, newest first</h3>
-              <p data-i18n="tile.lastNBody">Time, model, cost, tokens, input / output, kind. Spike rows highlight TOKENS. Export CSV from the toolbar.</p>
+              <p class="tile-tag" data-i18n="tile.statsTag">Statistics</p>
+              <h3 data-i18n="tile.statsTitle">Quota, lines, and the pace</h3>
+              <p data-i18n="tile.statsBody">Included Auto on a gauge, accepted lines for today and the range, a billed-spend donut, and a forecast that stays green on plan.</p>
             </div>
-            <button class="zoomable tile-shot" type="button" data-open="queries" data-i18n-aria="enlarge.queries" aria-label="Enlarge: Last N queries">
-              <img src="screenshots/dark/queries.png" alt="Last N queries table with time, model, cost, and tokens." loading="lazy">
+            <button class="zoomable tile-shot" type="button" data-open="stats" data-i18n-aria="enlarge.stats" aria-label="Enlarge: Quota and accepted lines">
+              <img src="screenshots/releases/1.0.8/4.png" alt="Quota and the lines that landed. Accepted lines for today and the selected range, included Auto on a gauge, and on-demand on or off." width="1570" height="650" loading="lazy">
+            </button>
+          </article>
+
+          <article class="tile reveal">
+            <div class="tile-copy">
+              <p class="tile-tag" data-i18n="tile.lastNTag">Queries</p>
+              <h3 data-i18n="tile.lastNTitle">Cursor or Codex, one row per chat</h3>
+              <p data-i18n="tile.lastNBody">Switch source without leaving the editor. Group a thread, see how full the window is, and export a flat CSV.</p>
+            </div>
+            <button class="zoomable tile-shot" type="button" data-open="queries" data-i18n-aria="enlarge.queries" aria-label="Enlarge: Codex queries grouped by thread">
+              <img src="screenshots/releases/1.0.8/1.png" alt="Codex, one row per thread. Local sessions sit beside Cursor. Context stays green while the window has room." width="1556" height="850" loading="lazy">
             </button>
           </article>
 
@@ -409,6 +436,8 @@
         <ul class="also reveal">
           <li data-i18n-html="also.critical"><strong>Critical alert.</strong> One dialog, only at 10M tokens or $5. Separate from the ! on the bar. Cursor keeps running.</li>
           <li data-i18n-html="also.langs"><strong>Eleven languages.</strong> English by default. Polish, Chinese, Japanese, and more switch the panel, status bar, and toasts immediately.</li>
+          <li data-i18n-html="also.codex"><strong>Codex stays on this computer.</strong> Sessions are read locally. Files are not uploaded. Dollars are an API estimate, not an invoice.</li>
+          <li data-i18n-html="also.spend"><strong>Billed spend.</strong> One donut of the loaded sample. Switch Model, Vendor, Size, Limit, Kind, Conversations, Grade, or Cache. On Limit, see what Optimize saved.</li>
         </ul>
       </div>
     </section>
@@ -417,8 +446,8 @@
       <div class="wrap">
         <header id="screens" class="section-head reveal">
           <p class="eyebrow" data-i18n="screens.eyebrow">Product tour</p>
-          <h2 data-i18n="screens.title">From the status bar to the last red query.</h2>
-          <p class="lede" data-i18n="screens.lede">Pick a release, then swipe, use the arrows, or pick a thumbnail. New version folders under screenshots/releases appear here automatically. Click a frame for full screen — click again for actual size.</p>
+          <h2 data-i18n="screens.title">1.0.8, frame by frame.</h2>
+          <p class="lede" data-i18n="screens.lede">The newest release is selected first: Codex, billed spend, the cost sample, quota, and the forecast. Older releases stay one chip away. Click a frame for full screen — click again for actual size.</p>
         </header>
 
         <div class="release-switch reveal" data-release-switch hidden>

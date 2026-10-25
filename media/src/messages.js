@@ -38,6 +38,7 @@ export const messageType = {
   setBudgetDayBasis: 'setBudgetDayBasis',
   setForecastWindow: 'setForecastWindow',
   setOptimizeDepth: 'setOptimizeDepth',
+  setSpendMixBuckets: 'setSpendMixBuckets',
   setLanguage: 'setLanguage',
   setForecastSeries: 'setForecastSeries',
   runOptimize: 'runOptimize',

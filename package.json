@@ -1,7 +1,7 @@
 {
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
-  "description": "Status bar spend + Today. Statistics: burn rate, model pricing, Coding stats, monthly forecast. Local Codex history. Play on a red query, Critical alert, Optimize, Support message, Charts, CSV, 11 UI languages.",
+  "description": "See Cursor and local Codex cost before the month runs out. Status bar, quota, forecast, burn-rate guard, Coding stats, and Optimize — inside the editor.",
   "version": "1.0.8",
   "publisher": "lukasz0303",
   "license": "MIT",
@@ -22,6 +22,7 @@
     "critical alert",
     "generated lines",
     "pricing",
+    "codex",
     "optimize",
     "charts",
     "statistics"
@@ -352,6 +353,12 @@
             "Cursor billing cycle, when a valid monthly cycle is available."
           ]
         },
+        "cursorCost.spendMixBuckets": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "markdownDescription": "JSON grade buckets for the Statistics spend mix pie. Empty uses the built-in Cheap / Balanced / High example. Invalid JSON keeps the last good list. Match strings are substrings of the model id, not regular expressions."
+        },
         "cursorCost.optimizeDepth": {
           "type": "string",
           "enum": [
@@ -397,7 +404,8 @@
   },
   "dependencies": {
     "fzstd": "^0.1.1",
-    "sql.js": "^1.13.0"
+    "sql.js": "^1.13.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

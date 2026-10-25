@@ -52,6 +52,7 @@ The token **never** goes to the webview.
 | `src/burnRate/detect.ts` | Clamps, level, once-per-episode + snooze + grace |
 | `src/burnRate/copy.ts` | English card / toast strings + Statistics payload |
 | `src/codeLines/` | Coding stats: composer headers, git landed / this branch, dashboard Lines Edited split, effectiveness, $ per 1k lines |
+| `src/spendMix/` | Billed-spend donut for the loaded sample: grade JSON (`schema.ts`), slice keys (`classify.ts`), aggregates (`aggregate.ts`). Drawn in `media/src/charts/spendMix.js` |
 | `src/i18n.ts` / `src/i18n/catalogs/` | UI catalogs (11 locales) |
 | `src/locale.ts` | `cursorCost.language` clamp |
 | `src/spikes/threshold.ts` | token spike vs setting |
@@ -91,9 +92,9 @@ If you change the directory layout, update this file and `shared.mdc`.
 1. `activate` → `UsageService.start()` (fetch in the background).
 2. Snapshot: `loading` | `ready` | `error`.
 3. Status bar, the critical-alert controller, and the burn-rate controller subscribe to the snapshot.
-4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', … }` (no token): events, the `historySample` window (Last N or From–To), `groupQueriesByConversation` and `queryGroups` (local titles only), forecast window and renewal marker, model catalog, list-price splits, optimized targets, burn rate, and coding stats. Settings also receives `statusBarPreview` and every `cursorCost.*` value. Billing-cycle availability comes from the usage-summary cycle dates.
+4. Click Current / Today → `cursorCost.showHistory` with the Statistics tab. A recent-query chip opens the queries list. The panel receives `{ type: 'data', … }` (no token): events, the `historySample` window (Last N or From–To), `groupQueriesByConversation` and `queryGroups` (local titles only), forecast window and renewal marker, model catalog, list-price splits, optimized targets, burn rate, coding stats, and `spendMix` (billed-dollar slices for that sample). Settings also receives `statusBarPreview` and every `cursorCost.*` value. Billing-cycle availability comes from the usage-summary cycle dates.
 5. Refresh (status bar, queries toolbar, or command) → `service.refresh()`. Export CSV saves that same sample. Run Optimize posts into the host, which pastes the depth prompt into the open Agent chat; Play opens that conversation and pastes the numbers-only brief there. Chart day detail and Sample / Last 7 / Month filter the series already in the webview.
-6. The history panel source is `cursorCost.querySource` (`cursor`, `codex-local`, `openai-api`). Current, Today, and a recent-query chip force the source back to `cursor`. Codex reads rollout files on this computer into the extension store and paints its own rows, statistics, and charts for the same From–To window. The Cursor dollar forecast and coding-stats lines chart stay on Cursor. OpenAI API shows a connect card; the admin key stays in Secret Storage and the query table stays empty in this version.
+6. The history panel source is `cursorCost.querySource` (`cursor` or `codex-local`). OpenAI API is not offered in the picker; a stored `openai-api` value is still accepted. Current, Today, and a recent-query chip force the source back to `cursor`. Codex reads rollout files on this computer into the extension store and paints its own rows, statistics, and charts for the same From–To window. A Codex limit chart runs through that window’s reset. With From set, the Cursor monthly forecast still runs through the last day of the current period. The coding-stats lines chart stays on Cursor. The admin key stays in Secret Storage and the query table stays empty in this version.
 
 ## 4. MVP boundaries
 

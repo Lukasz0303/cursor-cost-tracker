@@ -123,6 +123,7 @@ export type WebviewMessage =
   | { type: 'setBudgetDayBasis'; value: unknown }
   | { type: 'setForecastWindow'; value: unknown }
   | { type: 'setOptimizeDepth'; value: unknown }
+  | { type: 'setSpendMixBuckets'; value: unknown }
   | { type: 'setLanguage'; value: unknown }
   | { type: 'setForecastSeries'; value: 'cursor' | 'other' | 'all' }
   | { type: 'runOptimize'; depth?: WebviewDepth }
@@ -552,6 +553,11 @@ export function parseWebviewMessage(raw: unknown): WebviewMessage | undefined {
     case 'setHistoryFromDate':
     case 'setHistoryToDate':
       return { type, value: raw.value }
+    case 'setSpendMixBuckets':
+      return {
+        type: 'setSpendMixBuckets',
+        value: typeof raw.value === 'string' ? raw.value : '',
+      }
     case 'setCodeLinesAuthors':
       return { type, emails: raw.emails, sumMultiple: raw.sumMultiple }
     case 'runOptimize':

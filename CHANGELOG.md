@@ -1,18 +1,19 @@
 # Changelog
 
-## 1.0.8 — 2026-10-23
+## 1.0.8 — 2026-10-25
 
 ### Added
 
-- **Source** — the history panel has Cursor, Codex local, and OpenAI API. Current, Today, and a recent query still open Cursor. The status bar does not switch to Codex.
+- **Source** — the history panel offers Cursor and Codex local. Current, Today, and a recent query still open Cursor. The status bar does not switch to Codex. OpenAI API is not in the source list. A value already stored is still accepted until you switch to Cursor or Codex.
 - **Codex on this computer** — local Codex sessions are read from Codex home (default ~/.codex). Import is on by default. Files are not uploaded and Codex login is not opened. A Remote SSH window still reads this computer, not the SSH host. Settings has the home path, Rescan, and a two-step delete that removes only the imported copy.
 - **Codex queries** — the list uses the same From and To dates as Cursor, and the tab title shows that range. Columns are time, model, context, cost, tokens, input, cached, output, and reasoning. Group by conversation folds one thread and keeps the model visible. Context is the newest request's share of the 1.05 million token window: up while under 60%, red at 60% or more. A token ! uses the same Warn at threshold. Export CSV stays a flat list. A row can open request details and copy them. The extension does not read the prompt.
 - **Codex cost** — dollars are an API estimate from the OpenAI standard list. Input over 272k uses the long-context rate. A rate saved in Settings replaces that list. The table total shows the estimate. A model with no rate stays blank. This is not an invoice.
 - **Codex statistics** — token mix, request and conversation counts, cache hit, how many requests have a rate, estimated API beside any reported cost, and the heaviest conversations. Limit windows (5 hours, 7 days, 30 days, or the measured length) show percent used and the reset.
-- **Codex charts** — daily tokens and daily cost use the same From–To range, including empty days. The limit chart is that window in percent, from the From date through the reset, with a 100% ceiling. Days before the window are 0%. The Cursor dollar forecast and the coding-stats lines chart stay on Cursor.
-- **OpenAI API** — the source can be selected. Until you connect, the panel says this extension does not see other programs' calls. Web checks an organization admin key and keeps it in Secret Storage. Local file remembers a JSONL path. This version does not list those calls in the query table.
+- **Codex charts** — daily tokens and daily cost use the same From–To range, including empty days. The limit chart is that window in percent, from the From date through the local day of the reset. A 7-day window ends at its reset, not on today. Green stays inside the even plan; red is the part above it. The dashed line is the pace through that reset. The next day is not drawn. The coding-stats lines chart stays on Cursor.
+- **OpenAI API** — not offered as a source. The connect code remains: an organization admin key can stay in Secret Storage, and a JSONL path can be remembered. This version does not list those calls in the query table.
 - **Quota** — Cursor Statistics adds a quota card: included Auto and API share, used and remaining, on-demand on or off, and the personal spend cap. Accepted lines show today and the selected period.
 - **Included quota focus** — the monthly forecast can follow All, Cursor Models, or Other Models. Current and Today on the status bar follow that choice. The starting choice is Cursor Models.
+- **Billed spend** — Statistics shows one donut of billed dollars for the loaded sample, Cursor or Codex. Chips are Model, Vendor, Size, Limit, Kind, Conversations, Grade, and Cache. Each slice shows dollars, the number of billed queries, and the share. Slices under 1% fold into Other. Conversations keep the six largest. Size runs under 20k, 20–100k, 100–500k, 500k–1M, and 1M or more. Cache is whichever token bucket was largest on that request. Vendor comes from the account catalog, then the model family. Grade uses a JSON list in Settings (`cursorCost.spendMixBuckets`); empty uses Cheap, Balanced, and High, and a bad list keeps the last good one. Limit is Good, Over limit (at or over Warn at), and Optimized. On Limit, Saved with Optimize shows the credited dollars and tokens. A sample with no billed dollars says so. The chips do not fetch again.
 
 ### Changed
 
@@ -21,6 +22,8 @@
 - **Daily bars** — Cumulative / Daily on the forecast sets bar height to the running total or that day's usage. In Daily, green is inside the day's plan and red is the part above it.
 - **Long names** — a Codex model shows 12 characters, with the full name on hover. The first column shortens the same way on Cursor and Codex, and the full title is on hover. The expand hint stays on the chevron.
 - **Codex pace** — the budget line says the whole window (100%) is split evenly across its days, and how many days are left in that window.
+- **Monthly forecast** — with From set, the chart still runs through the last day of the current period (the calendar month, or the billing-cycle end). It does not stop on today.
+- **CLI threads** — Cursor threads with no chat title fold into one row per hour when grouping is on. Settings can hide them (`cursorCost.showCliThreads`, on by default).
 
 ## 1.0.7 — 2026-10-10
 

@@ -37,6 +37,8 @@ import { toBurnRatePayload, type BurnRatePayload } from '../burnRate/copy'
 import { queryInLiveWindow } from '../burnRate/window'
 import { applyBudgetDayBasis, stripModelPrefix } from '../usage/parse'
 import type { QuotaBoard, UsageQuery, UsageSnapshot } from '../usage/types'
+import { spendMixView, type SpendMixView } from '../spendMix/aggregate'
+import type { SpendMixCatalogModel } from '../spendMix/classify'
 import { toPeriodStats, type PeriodStatsPayload } from './periodStats'
 import { toChartSeries, type ChartPoint } from './chartSeries'
 import { toPeriodCards, type PeriodCard } from './periodCards'
@@ -134,6 +136,9 @@ export type HistoryRowOptions = {
   budgetDayBasis?: BudgetDayBasis
   forecastWindow?: ForecastWindow
   optimizeDepth?: OptimizeDepth
+  /** Raw `cursorCost.spendMixBuckets` string. Empty uses the built-in grades. */
+  spendMixBuckets?: string
+  spendMixCatalog?: readonly SpendMixCatalogModel[]
   /** Raw `.ai/optimize-savings.md` when present (agent-written after Start). */
   optimizeSavingsMarkdown?: string | null
   /** Workspace folder basename for Optimize fence `project:`. */
@@ -157,6 +162,8 @@ export type HistoryRowOptions = {
   showCliThreads?: boolean
   /** Local conversation titles keyed by usage-event id. Not sent raw to the webview. */
   conversationTitles?: Readonly<Record<string, string>>
+  /** Composer id → workspace folder name for the spend-mix project filter. */
+  spendMixProjects?: Readonly<Record<string, string>>
   /** Cursor's context meter per conversation id. Not sent raw to the webview. */
   conversationContext?: Readonly<Record<string, ComposerContextMeter>>
   nowMs?: number
@@ -340,6 +347,7 @@ export type HistoryDataPayload = {
   periods: PeriodCard[]
   mtd: MtdPacePayload
   optimize: OptimizePayload
+  spendMix: SpendMixView
   support: {
     buyMeACoffee: boolean
     githubSponsors: boolean
@@ -538,6 +546,26 @@ export function historyDataPayload(
       locale: language,
       forecastWindow,
     }),
+    spendMix: spendMixView(
+      historyRowSample(queries, sampleLimit),
+      options?.spendMixBuckets ?? '',
+      options?.spendMixCatalog ?? [],
+      options?.conversationTitles ?? {},
+      {
+        spikeTokenThreshold,
+        optimizedTargets: options?.optimizedTargets ?? undefined,
+        savedUsd: options?.optimizeLifetimeSavings?.totalUsd,
+        savedTokens: options?.optimizeLifetimeSavings?.totalTokens,
+        savedProjects: Object.values(options?.optimizeLifetimeSavings?.projects ?? {}).map(
+          (project) => ({
+            label: project.label,
+            usd: project.usd,
+            tokens: project.tokens,
+          }),
+        ),
+        projects: options?.spendMixProjects ?? {},
+      },
+    ),
     optimize: toOptimizePayload(queries, {
       depth: optimizeDepth,
       historyLimit: sampleLimit,

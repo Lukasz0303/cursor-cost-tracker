@@ -205,6 +205,7 @@
   var index = 0;
   var lbIndex = 0;
   var activeVersion = null;
+  var activeCaptions = [];
   var releases = [];
   var latestVersion = null;
   var usingReleases = false;
@@ -219,12 +220,16 @@
     return i18nText("slider.show", "Show screenshot") + " " + (i + 1) + ": " + caption;
   }
 
-  function shotCaption(version, n) {
+  function shotCaption(version, n, fallback) {
+    var translated = i18nText("cap." + version + "." + n, "");
+    if (translated) return translated;
+    if (fallback) return fallback;
     var template = i18nText("screens.shotCaption", "Release {version} · screenshot {n}");
     return template.replace("{version}", version).replace("{n}", String(n));
   }
 
-  function shotAlt(version, n) {
+  function shotAlt(version, n, caption) {
+    if (caption) return caption;
     var template = i18nText("screens.shotAlt", "Cursor Cost Tracker {version}, screenshot {n}");
     return template.replace("{version}", version).replace("{n}", String(n));
   }
@@ -278,12 +283,12 @@
   function refreshCaptions() {
     if (usingReleases && activeVersion) {
       items.forEach(function (item, i) {
-        var text = shotCaption(activeVersion, i + 1);
+        var text = shotCaption(activeVersion, i + 1, activeCaptions[i] || "");
         item.caption = text;
         if (item.captionEl) item.captionEl.textContent = text;
         if (item.alt !== undefined) {
           var img = slides[i] && slides[i].querySelector("img");
-          var alt = shotAlt(activeVersion, i + 1);
+          var alt = shotAlt(activeVersion, i + 1, text);
           item.alt = alt;
           if (img) img.alt = alt;
         }
@@ -405,12 +410,13 @@
     if (!entry || !entry.images || !entry.images.length) return;
 
     activeVersion = entry.version;
+    activeCaptions = entry.captions || [];
     track.textContent = "";
     entry.images.forEach(function (fileName, i) {
       var n = i + 1;
       var src = "screenshots/releases/" + entry.version + "/" + fileName;
-      var caption = shotCaption(entry.version, n);
-      var alt = shotAlt(entry.version, n);
+      var caption = shotCaption(entry.version, n, activeCaptions[i] || "");
+      var alt = shotAlt(entry.version, n, caption);
       var figure = document.createElement("figure");
       figure.className = "slide";
       var button = document.createElement("button");

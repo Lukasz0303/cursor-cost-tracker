@@ -214,6 +214,8 @@ function asConfigPatch(
       return { forecastWindow: parseForecastWindow(value) }
     case 'optimizeDepth':
       return { optimizeDepth: parseOptimizeDepth(value) }
+    case 'spendMixBuckets':
+      return { spendMixBuckets: typeof value === 'string' ? value : '' }
     case 'language':
       return { language: parseLocale(value) }
     case 'okColor':
@@ -257,6 +259,7 @@ const DATA_SETTING_KEYS = [
   'budgetDayBasis',
   'forecastWindow',
   'optimizeDepth',
+  'spendMixBuckets',
   'language',
 ] as const
 
@@ -448,11 +451,19 @@ export class HistoryPanel {
       readOptimizedTargets: () => this.readOptimizedTargets(),
       workspaceProject: () => this.workspaceProject(),
       creditOptimizeSavings: (markdown) => this.creditOptimizeSavings(markdown),
+      spendMixCatalog: () =>
+        (this.accountModels ?? []).map((model) => ({
+          id: model.id,
+          provider: model.provider,
+        })),
     })
     this.settingsRouter = new SettingsRouter({
       writeSetting: (key, value) => this.writeSetting(key, value),
       postData: () => {
         this.publisher.postData()
+      },
+      postSpendMixFeedback: (error) => {
+        void this.panel.webview.postMessage({ type: 'spendMixFeedback', error })
       },
       refresh: () => {
         void this.service.refresh()

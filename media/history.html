@@ -1780,6 +1780,25 @@
             </label>
           </div>
         </fieldset>
+        <details class="settings-spend-mix-card">
+          <summary class="settings-card-title" data-i18n="settings.spendMix">Spend mix</summary>
+          <div class="settings-group settings-spend-mix">
+            <label class="settings-copy" for="spendMixBuckets">
+              <span data-i18n="settings.spendMixBuckets">Grade buckets</span>
+              <span class="settings-hint" data-i18n="settings.spendMixHint">
+                JSON list of grade buckets. The first match wins: a case-insensitive
+                substring of the model id, not a regular expression. Empty uses the
+                example in the field. Apply, or leave the field, to save. Invalid JSON
+                keeps the last good list.
+              </span>
+            </label>
+            <textarea id="spendMixBuckets" rows="8" spellcheck="false"></textarea>
+            <p id="spendMixError" class="settings-hint settings-spend-mix-error" hidden></p>
+            <div class="settings-row settings-row-end">
+              <button type="button" id="spendMixApply" data-i18n="settings.spendMixApply">Apply</button>
+            </div>
+          </div>
+        </details>
         <fieldset>
           <h3 class="settings-card-title" data-i18n="settings.recentQueries">Recent queries</h3>
           <div class="settings-group">

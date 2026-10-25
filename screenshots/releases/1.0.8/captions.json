@@ -1,0 +1,10 @@
+{
+  "1.png": "Codex, one row per thread. Local sessions sit beside Cursor. Context stays green while the window has room, and turns red when it is full. Cost is an API estimate, with input and cache on the same line.",
+  "2.png": "What the sample cost. Total, average, median, cache hit, and the price of a million tokens. The card says it plainly: an API estimate, not an invoice.",
+  "3.png": "Where the tokens went. Spend by model, the list rate beside the estimate, and the heaviest conversations in the window.",
+  "4.png": "Quota and the lines that landed. Accepted lines for today and the selected range, included Auto on a gauge, and on-demand on or off.",
+  "5.png": "Will the month last? Cumulative bars stay green on plan and turn red above it. Pace, the month forecast, and a run-out that says it lasts — or names the day it will not.",
+  "6.png": "The days that ran hot. Daily bars are green inside that day's share and red on the part above it. The dashed line is even pace.",
+  "7.png": "Billed spend by model. One donut of the loaded sample: dollars, query count, and share. Slices under 1% fold into Other.",
+  "8.png": "The same donut by limit: Good, Over limit, and Optimized. Saved with Optimize is the credited total."
+}

@@ -2,6 +2,50 @@
 import { messageType } from '../messages.js'
 import { bindBurnNumber as bindBurnNumberImpl } from './burnNumber.js'
 
+const SPEND_MIX_PLACEHOLDER = `{
+  "buckets": [
+    { "id": "cheap", "label": "Cheap", "match": ["luna", "haiku"] },
+    { "id": "balanced", "label": "Balanced", "match": ["terra", "sonnet"] },
+    { "id": "high", "label": "High", "match": ["sol", "opus"] }
+  ]
+}`
+
+let spendMixDirty = false
+
+function spendMixErrorEl() {
+  return document.getElementById('spendMixError')
+}
+
+function showSpendMixError(session, error) {
+  const errorEl = spendMixErrorEl()
+  if (!errorEl) {
+    return
+  }
+  if (typeof error === 'string' && error !== '') {
+    errorEl.hidden = false
+    session.setText(errorEl, error)
+    return
+  }
+  errorEl.hidden = true
+  session.setText(errorEl, '')
+}
+
+function syncSpendMixField(data, session) {
+  const input = document.getElementById('spendMixBuckets')
+  if (!input || !data.spendMix || typeof data.spendMix !== 'object') {
+    return
+  }
+  if (!input.placeholder) {
+    input.placeholder = SPEND_MIX_PLACEHOLDER
+  }
+  if (!spendMixDirty && document.activeElement !== input) {
+    input.value = typeof data.spendMix.raw === 'string' ? data.spendMix.raw : ''
+  }
+  if (!spendMixDirty) {
+    showSpendMixError(session, data.spendMix.error)
+  }
+}
+
 function renderSettings(data, r) {
   if (
     r.isSupportedLanguage(data.language) &&
@@ -262,6 +306,7 @@ function renderSettings(data, r) {
   ) {
     querySourceSettingEl.value = data.querySource
   }
+  syncSpendMixField(data, r)
 }
 
 export function createSettingsView(session) {
@@ -1219,6 +1264,41 @@ export function createSettingsView(session) {
       session.okColorEl.value = DEFAULT_OK
       session.warnColorEl.value = DEFAULT_WARN
       submitColors()
+    })
+    const spendMixInput = document.getElementById('spendMixBuckets')
+    const spendMixApply = document.getElementById('spendMixApply')
+    function submitSpendMix() {
+      if (!spendMixInput) {
+        return
+      }
+      session.vscode.postMessage({
+        type: messageType.setSpendMixBuckets,
+        value: spendMixInput.value,
+      })
+    }
+    if (spendMixInput) {
+      spendMixInput.placeholder = SPEND_MIX_PLACEHOLDER
+      spendMixInput.addEventListener('input', function () {
+        spendMixDirty = true
+        showSpendMixError(session, null)
+      })
+      spendMixInput.addEventListener('blur', submitSpendMix)
+    }
+    if (spendMixApply) {
+      spendMixApply.addEventListener('click', submitSpendMix)
+    }
+    window.addEventListener('message', function (event) {
+      const data = event && event.data
+      if (!data || data.type !== 'spendMixFeedback') {
+        return
+      }
+      if (typeof data.error === 'string' && data.error !== '') {
+        spendMixDirty = true
+        showSpendMixError(session, data.error)
+        return
+      }
+      spendMixDirty = false
+      showSpendMixError(session, null)
     })
     settingsFormEl.addEventListener('submit', function (event) {
       event.preventDefault()

@@ -3708,7 +3708,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-0,
-.period-mix-seg.is-tone-0 {
+.period-mix-seg.is-tone-0,
+.spend-mix-swatch.is-tone-0 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 72%, var(--vscode-foreground) 28%),
@@ -3718,7 +3719,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-1,
-.period-mix-seg.is-tone-1 {
+.period-mix-seg.is-tone-1,
+.spend-mix-swatch.is-tone-1 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-orange, #d18616) 72%, var(--vscode-foreground) 28%),
@@ -3728,7 +3730,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-2,
-.period-mix-seg.is-tone-2 {
+.period-mix-seg.is-tone-2,
+.spend-mix-swatch.is-tone-2 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-yellow, #b89500) 72%, var(--vscode-foreground) 28%),
@@ -3738,7 +3741,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-3,
-.period-mix-seg.is-tone-3 {
+.period-mix-seg.is-tone-3,
+.spend-mix-swatch.is-tone-3 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 72%, var(--vscode-foreground) 28%),
@@ -3748,7 +3752,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-4,
-.period-mix-seg.is-tone-4 {
+.period-mix-seg.is-tone-4,
+.spend-mix-swatch.is-tone-4 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-green, #89d185) 72%, var(--vscode-foreground) 28%),
@@ -3758,7 +3763,8 @@ button.model-catalog-groups-toggle:focus-visible {
 }
 
 .meter-fill.is-tone-5,
-.period-mix-seg.is-tone-5 {
+.period-mix-seg.is-tone-5,
+.spend-mix-swatch.is-tone-5 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-red, #f14c4c) 72%, var(--vscode-foreground) 28%),
@@ -5112,6 +5118,20 @@ button.model-catalog-groups-toggle:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.settings-spend-mix-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.85rem 0.95rem 0.95rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--card-sheen), transparent 2.4rem),
+    var(--card-fill);
+}
+
 /* —— Support tab —— */
 .support-hero {
   margin: 0 0 1.25rem;
@@ -5125,6 +5145,9 @@ button.model-catalog-groups-toggle:focus-visible {
     var(--ctl-surface)
   );
 }
+.settings-spend-mix-card > summary {
+  cursor: pointer;
+}
 
 .support-hero-icons {
   display: flex;
@@ -5137,12 +5160,29 @@ button.model-catalog-groups-toggle:focus-visible {
     var(--vscode-foreground)
   );
 }
+.settings-spend-mix textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 9rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 6px;
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: var(--vscode-editor-font-size, 12px);
+}
 
 .support-icon {
   width: 1.15rem;
   height: 1.15rem;
   opacity: 0.95;
 }
+.settings-spend-mix-error {
+  color: var(--vscode-errorForeground);
+}/* cct-order: 609 */
 
 .support-icon.is-soft {
   width: 0.95rem;
@@ -7924,4 +7964,82 @@ tr.codex-request-row:hover td {
 .codex-rate-card .action-btn,
 .codex-convo-list + .action-btn {
   align-self: flex-start;
+}
+
+.breakdown-with-catalog > .spend-mix {
+  grid-column: 1 / -1;
+}
+
+.breakdown-with-catalog > .spend-mix ~ .model-catalog {
+  grid-column: 1 / -1;
+}
+
+.spend-mix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.spend-mix-project {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--vscode-dropdown-border, var(--ctl-border));
+  border-radius: 6px;
+  background: var(--vscode-dropdown-background, var(--card-fill, var(--vscode-editor-background)));
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.spend-mix-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.spend-mix-head .breakdown-title {
+  margin: 0;
+}
+
+.spend-mix-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.spend-mix-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+.spend-mix-svg {
+  width: 12.5rem;
+  height: 12.5rem;
+  margin-inline: auto;
+}
+
+.spend-mix-legend {
+  min-width: 0;
+  margin: 0;
+}
+
+.spend-mix-saved {
+  margin: 0.35rem 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-foreground);
+  font-size: 0.88rem;
+}
+
+.spend-mix-note {
+  margin: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--card-border, var(--ctl-border));
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }

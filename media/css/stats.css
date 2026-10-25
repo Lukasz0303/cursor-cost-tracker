@@ -631,7 +631,8 @@
 
 
 .meter-fill.is-tone-0,
-.period-mix-seg.is-tone-0 {
+.period-mix-seg.is-tone-0,
+.spend-mix-swatch.is-tone-0 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 72%, var(--vscode-foreground) 28%),
@@ -642,7 +643,8 @@
 
 
 .meter-fill.is-tone-1,
-.period-mix-seg.is-tone-1 {
+.period-mix-seg.is-tone-1,
+.spend-mix-swatch.is-tone-1 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-orange, #d18616) 72%, var(--vscode-foreground) 28%),
@@ -653,7 +655,8 @@
 
 
 .meter-fill.is-tone-2,
-.period-mix-seg.is-tone-2 {
+.period-mix-seg.is-tone-2,
+.spend-mix-swatch.is-tone-2 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-yellow, #b89500) 72%, var(--vscode-foreground) 28%),
@@ -664,7 +667,8 @@
 
 
 .meter-fill.is-tone-3,
-.period-mix-seg.is-tone-3 {
+.period-mix-seg.is-tone-3,
+.spend-mix-swatch.is-tone-3 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 72%, var(--vscode-foreground) 28%),
@@ -675,7 +679,8 @@
 
 
 .meter-fill.is-tone-4,
-.period-mix-seg.is-tone-4 {
+.period-mix-seg.is-tone-4,
+.spend-mix-swatch.is-tone-4 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-green, #89d185) 72%, var(--vscode-foreground) 28%),
@@ -686,7 +691,8 @@
 
 
 .meter-fill.is-tone-5,
-.period-mix-seg.is-tone-5 {
+.period-mix-seg.is-tone-5,
+.spend-mix-swatch.is-tone-5 {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--vscode-charts-red, #f14c4c) 72%, var(--vscode-foreground) 28%),
@@ -1512,4 +1518,88 @@
 .codex-rate-card .action-btn,
 .codex-convo-list + .action-btn {
   align-self: flex-start;
+}
+
+/* cct-order: 899 */
+.breakdown-with-catalog > .spend-mix {
+  grid-column: 1 / -1;
+}
+
+.breakdown-with-catalog > .spend-mix ~ .model-catalog {
+  grid-column: 1 / -1;
+}
+
+.spend-mix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.spend-mix-project {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--vscode-dropdown-border, var(--ctl-border));
+  border-radius: 6px;
+  background: var(--vscode-dropdown-background, var(--card-fill, var(--vscode-editor-background)));
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.spend-mix-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.spend-mix-head .breakdown-title {
+  margin: 0;
+}
+
+/* cct-order: 900 */
+.spend-mix-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* cct-order: 901 */
+.spend-mix-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+/* cct-order: 902 */
+.spend-mix-svg {
+  width: 12.5rem;
+  height: 12.5rem;
+  margin-inline: auto;
+}
+
+/* cct-order: 903 */
+.spend-mix-legend {
+  min-width: 0;
+  margin: 0;
+}
+
+/* cct-order: 904 */
+.spend-mix-saved {
+  margin: 0.35rem 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--vscode-foreground);
+  font-size: 0.88rem;
+}
+
+.spend-mix-note {
+  margin: 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--card-border, var(--ctl-border));
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }

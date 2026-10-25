@@ -41,6 +41,19 @@ Do **not** mix this into MVP phases 0–7 or into remaining v1.1 Ignore. On conf
 - Datetime consistency + media frontend split: [datetime-media-foundation.md](./datetime-media-foundation.md) · [datetime-media-foundation.pl.md](./datetime-media-foundation.pl.md)
 - Codex local history + OpenAI requests (**1.1.0** MINOR): [openai-codex.md](./openai-codex/openai-codex.md) · [openai-codex.pl.md](./openai-codex/openai-codex.pl.md) · [phase index](./openai-codex/README.md)
 
+## Contributor feedback (25 Oct 2026)
+
+Checked against **1.0.8**. Index: [feedback-2026-10-25.md](./feedback-2026-10-25.md) · [feedback-2026-10-25.pl.md](./feedback-2026-10-25.pl.md)
+
+Row expand, red over-plan chips, and group-by-conversation are shipped. The forecast bar report is closed. A React / Svelte rewrite of `media/` is rejected.
+
+| Piece | Status | English | Polish |
+|-------|--------|---------|--------|
+| Spend mix pie (vendor / grade / later workspace) | backlog | [spend-mix-pie.md](./spend-mix-pie.md) | [spend-mix-pie.pl.md](./spend-mix-pie.pl.md) |
+| Query sheet column sort + CSV order | not started | [queries-column-sort.md](./queries-column-sort.md) | [queries-column-sort.pl.md](./queries-column-sort.pl.md) |
+| Forecast bars vs the cumulative line | closed in 1.0.8 | [forecast-daily-bars.md](./forecast-daily-bars.md) | [forecast-daily-bars.pl.md](./forecast-daily-bars.pl.md) |
+| Rewrite the panel | rejected | [webview-rewrite.md](./webview-rewrite.md) | [webview-rewrite.pl.md](./webview-rewrite.pl.md) |
+
 ## Additional / backlog
 
 Deferred spend-control notes (loop heuristic, daily cap, efficiency, model advisor, attribution). Not scheduled; re-number if picked up later.

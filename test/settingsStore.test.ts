@@ -26,6 +26,10 @@ describe('coercePersistedSetting', () => {
     expect(coercePersistedSetting('language', 'pl')).toBe('pl')
     expect(coercePersistedSetting('language', 'xx')).toBeUndefined()
     expect(coercePersistedSetting('optimizeDepth', 'deep')).toBe('deep')
+    expect(coercePersistedSetting('spendMixBuckets', '{"buckets":[]}')).toBe(
+      '{"buckets":[]}',
+    )
+    expect(coercePersistedSetting('spendMixBuckets', 1)).toBeUndefined()
     expect(coercePersistedSetting('budgetDayBasis', 'calendarDays')).toBe(
       'calendarDays',
     )

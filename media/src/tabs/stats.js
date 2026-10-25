@@ -1,5 +1,6 @@
 /** Statistics tab body. Edit here; media/history.js is generated. */
 import { buildCodexWindowChart } from '../charts/codexForecast.js'
+import { renderSpendMix } from '../charts/spendMix.js'
 
 export function createStatsView(session) {
   const statsEl = document.getElementById('stats')
@@ -2488,8 +2489,8 @@ export function createStatsView(session) {
     }
   }
 
-  function renderStats(stats, mtd, burnRate, warnOn, codeLines) {
-    lastStatsArgs = [stats, mtd, burnRate, warnOn, codeLines]
+  function renderStats(stats, mtd, burnRate, warnOn, codeLines, spendMix) {
+    lastStatsArgs = [stats, mtd, burnRate, warnOn, codeLines, spendMix]
     const scrolling = document.scrollingElement || document.documentElement
     const scrollTop = scrolling ? scrolling.scrollTop : 0
     session.codeLinesInfoRebuilding = true
@@ -2576,15 +2577,9 @@ export function createStatsView(session) {
       hasBreakdown ? session.t('stats.spendBreakdown') : session.t('stats.modelPricing'),
     )
     const layout = session.el('div', 'breakdown-with-catalog')
-    if (hasBreakdown) {
-      const split = session.el('div', 'breakdown-split')
-      if (stats.byModel && stats.byModel.length > 0) {
-        split.appendChild(breakdownChart(stats.byModel, session.t('stats.byModel')))
-      }
-      if (stats.byKind && stats.byKind.length > 0) {
-        split.appendChild(breakdownChart(stats.byKind, session.t('stats.byKind')))
-      }
-      layout.appendChild(split)
+    const mix = renderSpendMix(session, spendMix)
+    if (mix) {
+      layout.appendChild(mix)
     }
     layout.appendChild(session.modelCatalogPanel())
     breakdown.appendChild(layout)

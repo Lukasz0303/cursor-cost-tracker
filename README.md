@@ -11,16 +11,16 @@
 </div>
 
 <p align="center">
-  <strong>See spend · catch spikes · forecast the month · Optimize locally · see what landed.</strong>
+  <strong>See Cursor and Codex spend before the month runs out.</strong>
 </p>
 
 <p align="center">
-  Always-on <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong> on the
-  status bar. <strong>Statistics</strong> shows live <strong>burn rate</strong>, <strong>model pricing</strong>, Pro meters, and
-  <strong>Coding stats</strong> (AI vs what landed). A <strong>blocking critical alert</strong> fires when one
-  query blows past your token or dollar ceiling. <strong>Monthly cost forecast</strong> and
-  <strong>Optimize</strong> stay in the editor — savings in <code>.ai/optimize-savings.md</code> only.
-  No extra app. No pasted token.
+  <strong>1.0.8</strong> keeps <strong>Current</strong>, <strong>Today</strong>, and <strong>1–10 recent queries</strong>
+  on the status bar, then opens the month in the editor: a <strong>quota</strong> gauge, accepted lines,
+  and a forecast that stays <strong>green on plan</strong> and turns <strong>red above it</strong>.
+  <strong>Codex local</strong> uses the same dates — one row per thread, cache hit, and an API estimate
+  that is not an invoice. <strong>Burn Rate Guard</strong>, a <strong>critical alert</strong>, and
+  <strong>Optimize</strong> stay beside the code. No extra app. No pasted token.
 </p>
 
 <p align="center">
@@ -33,36 +33,91 @@
 
 ---
 
-**Cursor Cost Tracker** is a VS Code / Cursor extension with five jobs:
+**Cursor Cost Tracker** is a VS Code / Cursor extension with six jobs:
 
 1. **Status bar** — Current, Today, and the newest queries stay on the bar while you code. Green is on pace; red is over budget or a token spike (`!`).
 2. **Guards** — **Burn Rate Guard** shows live `$ / window` on Statistics, a banner when that window is hot, and non-blocking toasts. A **blocking critical alert** fires when the newest query hits your token or dollar ceiling (**Open History** / **Ignore**). Neither stops Cursor.
 3. **Monthly cost forecast** — used, forecast, and ideal on one chart, plus **when** Team dollars or Pro included limits run out. The chart can follow the calendar month or a valid Cursor billing cycle ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev)).
 4. **Optimize** — ready prompts for the last red (**Warn at**) query, or **Play** on one red row. Projected savings stay in this project’s **`.ai/optimize-savings.md`** only — the extension never reads the chat.
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
+6. **Codex local** — the same From–To window as Cursor. Group a thread, see context room, cache hit, and an API estimate. Files stay on this computer.
 
-Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. Both stay on **Cursor** usage. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start. The history panel can also show **local Codex** sessions (an API estimate, not an invoice) or an **OpenAI API** connect card that does not list those calls yet.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. Both stay on **Cursor** usage. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start. The history panel can also show **local Codex** sessions (an API estimate, not an invoice). The Codex limit chart runs through that window’s reset, and the monthly forecast runs through the end of the current period. OpenAI API is not a selectable source in this version.
 
 The panel has six tabs:
 
 - **Last N** — newest queries first (`TIME`, `MODEL`, `COST`, `TOKENS`, `INPUT / OUTPUT`, `KIND`). **Show last** is 100–10,000 (default 1,000), or **From** / **To** dates. **Group by conversation** (default off) folds the list into one row per local chat title. A red TOKENS cell has **Play**. Expand a row for list-price makeup. Toolbar: **Over Warn at**, **Optimized**, **Group by conversation**, **Export CSV**, **Model pricing**.
-- **Statistics** — **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast**, Last N totals, spend by model and by kind, **model pricing** table (Active / Fast filters, Last N request counts, CursorBench scores).
+- **Statistics** — **quota** (included Auto, on-demand, accepted lines), **Current burn rate**, Current/Today meters, **Coding stats** (`landed / AI = %` · if this branch landed · All on Cursor), **Monthly cost forecast** (green on plan, red above it, Cumulative or Daily), Last N totals, spend by model and by kind, **model pricing** table (Active / Fast filters, Last N request counts, CursorBench scores).
 - **Charts** — cumulative daily **tokens** and **cost** bars, **AI vs git** with the same Coding stats formulas, the same **Monthly cost forecast**, plus **Today / This month / All time** mix cards.
 - **Optimize** — Quick / Balanced / Deep prompts for the last red query; projected save card from `.ai/optimize-savings.md`.
 - **Support** — Buy Me a Coffee; **Write a message** to the author (Comment / feature / bug / other).
-- **Settings** — **Language** (11 locales, including Ukrainian); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); forecast window; Optimize depth; Group by conversation; Show last / From / To; Auto-refresh; **Codex** (import, home, group by thread, rates).
+- **Settings** — **Language** (11 locales, including Ukrainian); status bar; **Critical alert**; **Burn Rate Guard**; **Generated lines** (Coding stats); forecast window; Optimize depth; Group by conversation; Show CLI threads; Show last / From / To; Auto-refresh; **Codex** (import, home, group by thread, rates).
 
 If you are already signed in to Cursor, there is nothing to configure.
 
-| Status bar | Guards | Forecast | Optimize | Coding stats |
-|------------|--------|----------|----------|--------------|
-| Pro `%` or team `$ / $` · Today · 1–10 recent (`!` on a spike) | Burn `$ / 10 min` · critical modal on huge queries | Used · forecast · ideal · run-out | Last red · local savings file | Landed / AI · All on Cursor |
+| Status bar | Guards | Forecast | Optimize | Coding stats | Codex local |
+|------------|--------|----------|----------|--------------|-------------|
+| Pro `%` or team `$ / $` · Today · 1–10 recent (`!` on a spike) | Burn `$ / 10 min` · critical modal on huge queries | Green on plan · red above · lasts or runs out | Last red · local savings file | Landed / AI · All on Cursor | Same dates · quota · API estimate |
 
 ---
 
 ## Screenshots
 
-Captures from **1.0.4** / **1.0.5** (including model pricing and Support in `screenshots/dark/` on the landing page).
+**1.0.8** is the current release. **1.0.7** is the previous one. Older captures below still show the status bar, guards, and Optimize.
+
+### 1.0.8 — Codex, quota, and whether the month lasts
+
+**Codex, one row per thread.** Local sessions sit beside Cursor. Context stays green while the window has room, and turns red when it is full. Cost is an API estimate, with input and cache on the same line.
+
+<img src="screenshots/releases/1.0.8/1.png" alt="Codex queries grouped by conversation, with context, cost, input, and cached tokens" width="100%">
+
+**What the sample cost.** Total, average, median, cache hit, and the price of a million tokens. The card says it plainly: an API estimate, not an invoice.
+
+<img src="screenshots/releases/1.0.8/2.png" alt="Codex cost summary: total, average, median, cache hit, and cost per million tokens" width="100%">
+
+**Where the tokens went.** Spend by model, the list rate beside the estimate, and the heaviest conversations in the window.
+
+<img src="screenshots/releases/1.0.8/3.png" alt="Spend by model, list price, and the heaviest Codex conversations" width="100%">
+
+**Quota and the lines that landed.** Accepted lines for today and the selected range, included Auto on a gauge, and on-demand on or off.
+
+<img src="screenshots/releases/1.0.8/4.png" alt="Accepted lines for today and the range, plus an included Auto quota gauge" width="100%">
+
+**Will the month last?** Cumulative bars stay green on plan and turn red above it. Pace, the month forecast, and a run-out that says it lasts — or names the day it will not.
+
+<img src="screenshots/releases/1.0.8/5.png" alt="Monthly cost forecast: green bars on plan, red above plan, pace under budget, lasts the month" width="100%">
+
+**The days that ran hot.** Daily bars are green inside that day's share and red on the part above it. The dashed line is even pace.
+
+<img src="screenshots/releases/1.0.8/6.png" alt="Daily forecast bars, green inside the day's plan and red above it" width="100%">
+
+**Billed spend, by model.** One donut of the loaded sample. Each slice shows dollars, query count, and share. Slices under 1% fold into Other.
+
+<img src="screenshots/releases/1.0.8/7.png" alt="Billed spend donut by model, with dollars, query count, and share" width="100%">
+
+**The same donut, by limit.** Good, Over limit, and Optimized. Saved with Optimize is the credited total.
+
+<img src="screenshots/releases/1.0.8/8.png" alt="Billed spend donut by limit: Good, Over limit, and Optimized, plus saved with Optimize" width="100%">
+
+### 1.0.7 — grouped chats, effectiveness, pricing, Support
+
+**Cursor, grouped by chat.** One row per conversation, context fill, and Play on a red token spike. A red arrow is the handoff when the window is full.
+
+<img src="screenshots/releases/1.0.7/1.png" alt="Cursor queries grouped by conversation, with context percent and Play on spike rows" width="100%">
+
+**Did the lines land?** Landed over AI is your effectiveness, with dollars per thousand lines when both sides exist.
+
+<img src="screenshots/releases/1.0.7/2.png" alt="Coding stats: landed over AI effectiveness and dollars per thousand lines" width="100%">
+
+**The models you turned on.** Input and output prices, CursorBench, and how many requests each active model took.
+
+<img src="screenshots/releases/1.0.7/3.png" alt="Model pricing for active models, with input and output rates and CursorBench" width="100%">
+
+**Fuel the tracker.** A coffee for the author, the product site, and the repository — from the Support tab.
+
+<img src="screenshots/releases/1.0.7/4.png" alt="Support tab with Buy Me a Coffee, the product site, and the GitHub repository" width="100%">
+
+Earlier captures (status bar, burn rate, critical alert, Optimize) follow.
 
 ### 1. Statistics — high burn rate
 
@@ -240,11 +295,14 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Per-query cost, tokens, model, kind | Website | Yes |
 | Statistics (totals, averages, spike count) | Website | Yes |
 | Spend by model and by kind | Website | Yes |
+| Billed spend donut (model, vendor, size, limit, kind, conversations, grade, cache) | — | Yes |
 | Charts (tokens / cost over time; click a day; Sample / Last 7 / Month) | — | Yes |
 | Today / This month / All time mix cards | Website | Yes |
 | Model pricing (docs + Last N counts + CursorBench) | Website | Yes |
 | Export recent queries as CSV | — | Yes |
-| Local Codex sessions in the history panel (same From–To window; API estimate) | — | Yes |
+| Local Codex sessions in the history panel (same From–To window; API estimate; chart through the reset) | — | Yes |
+| Quota gauge, on-demand, and accepted lines | — | Yes |
+| OpenAI API as a selectable source | — | Not in 1.0.8 (the connect code remains) |
 | OpenAI API calls listed in the query table | — | Not yet |
 | Support → Write a message to the author | — | Yes |
 | **Setup · language** | | |
@@ -290,15 +348,15 @@ Click a **recent-query chip** (or Command Palette **Show Usage History**) to ope
 
 `TIME` · `MODEL` · `COST` · `TOKENS` · `INPUT / OUTPUT` · `KIND`
 
-Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. Above them, **Cursor** / **Codex local** / **OpenAI API**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. **Model pricing** on the Last N toolbar. No intermediate menu.
+Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Support** · **Settings**. Above them, **Cursor** / **Codex local**. **Export CSV** on the table toolbar (not on the status bar). **Open Dashboard** on Statistics. **Model pricing** on the Last N toolbar. No intermediate menu.
 
 ### Codex local
 
-**Codex local** reads sessions already on this computer (Codex home, default `~/.codex`). Import is on by default. Files stay on this machine. The list uses the same **From** / **To** dates as Cursor. Columns add context, cached input, and reasoning. Context is the newest request’s share of the 1.05 million token window. Dollars are an OpenAI list-price estimate (a saved rate in Settings wins). The table total shows that estimate. It is not an invoice. Statistics and Charts follow the same dates. The limit chart is that window in percent through its reset. The Cursor dollar forecast and the coding-stats lines chart stay on Cursor. **OpenAI API** can check an organization admin key (kept in Secret Storage) or remember a JSONL path. Those calls are not listed in the query table in this version.
+**Codex local** reads sessions already on this computer (Codex home, default `~/.codex`). Import is on by default. Files stay on this machine. The list uses the same **From** / **To** dates as Cursor. Columns add context, cached input, and reasoning. Context is the newest request’s share of the 1.05 million token window. Dollars are an OpenAI list-price estimate (a saved rate in Settings wins). The table total shows that estimate. It is not an invoice. Statistics and Charts follow the same dates. The limit chart is that window in percent through the local day of its reset (a 7-day window ends at the reset, not on today). Green stays inside the even plan; red is the part above it. The dashed line is the pace through that reset. With From set, the Cursor monthly forecast still runs through the last day of the month or the billing-cycle end. The coding-stats lines chart stays on Cursor. **OpenAI API** is not in the source list. The connect code can still check an organization admin key (kept in Secret Storage) or remember a JSONL path. Those calls are not listed in the query table in this version.
 
 ### Statistics
 
-Sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, cache $ saved vs input list price, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`, plus $ per 1k lines when the window has both). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars. **Model pricing** — latest Cursor prices (public docs), Active / Hidden, sample request counts, CursorBench scores; Active only / Hide Fast filters.
+Sample totals (not the Current pool): total spend, average and median per query, cache hit, cost per 1M tokens, token mix, cache $ saved vs input list price, **Queries over token warning**. **Current burn rate** when Burn Rate Guard is on (banner when warning/critical). **Coding stats** (`landed / AI = %`, plus $ per 1k lines when the window has both). **Monthly cost forecast** (see above). Spend breakdown **by model** and **by kind** with share bars. **Billed spend** is one donut of billed dollars for this same sample (Cursor or Codex). Chips: Model, Vendor, Size, Limit, Kind, Conversations, Grade, Cache. Each slice shows dollars, billed query count, and share. Slices under 1% fold into Other. Conversations keep the six largest. Limit is Good, Over limit (at or over Warn at), and Optimized, and shows the credited Optimize total. Grade buckets are `cursorCost.spendMixBuckets` (empty uses Cheap / Balanced / High). A sample with no billed dollars says so. **Model pricing** — latest Cursor prices (public docs), Active / Hidden, sample request counts, CursorBench scores; Active only / Hide Fast filters.
 
 ### Charts
 
@@ -414,7 +472,7 @@ A `!` prefixes a recent query (and the table **TOKENS** cell) when that query is
 
 ## History panel
 
-The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** and optional **To date** load that local range (empty To means through today) for Cursor and for Codex. **Group by conversation** is off until you turn it on. Codex grouping is a separate switch, on by default. **Forecast window** is calendar month or billing cycle. **Auto-refresh** is 1–60 minutes. **Codex** holds import, home, rates, Rescan, and a two-step delete of the imported copy.
+The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar preview, content, warnings, and colors are grouped into separate cards. **Show last** is 100–10,000 (default 1,000). **From date** and optional **To date** load that local range (empty To means through today) for Cursor and for Codex. **Group by conversation** is off until you turn it on. Cursor CLI threads with no title then fold into one row per hour, and **Show CLI threads** (on by default) can hide them. Codex grouping is a separate switch, on by default. **Forecast window** is calendar month or billing cycle. **Auto-refresh** is 1–60 minutes. **Codex** holds import, home, rates, Rescan, and a two-step delete of the imported copy.
 
 | TIME | MODEL | COST | TOKENS | INPUT / OUTPUT | KIND |
 |------|-------|------|--------|----------------|------|
@@ -464,11 +522,12 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.burnRateWarningToast` | `true` | Off = remember the episode without a toast |
 | `cursorCost.burnRateCriticalToast` | `true` | Off = remember the episode without a toast |
 | `cursorCost.codeLinesInsight` | `true` | Coding stats on Statistics and Charts (AI vs git · All on Cursor) |
-| `cursorCost.groupQueriesByConversation` | `false` | Fold the queries list into one collapsible row per local chat title. Shared titles merge. No conversation id → **Ungrouped**. Export CSV stays flat |
+| `cursorCost.groupQueriesByConversation` | `false` | Fold the queries list into one collapsible row per local chat title. Shared titles merge. CLI threads with no title fold into one row per hour. No conversation id → **Ungrouped**. Export CSV stays flat |
+| `cursorCost.showCliThreads` | `true` | Show Cursor CLI threads. Off hides them |
 | `cursorCost.codexImportEnabled` | `true` | Read local Codex sessions on this computer. Does not upload them |
 | `cursorCost.codexHome` | `~/.codex` | Folder that contains `sessions/`. Empty uses `CODEX_HOME` when that directory exists |
 | `cursorCost.codexGroupByConversation` | `true` | One Codex row per thread. Separate from the Cursor group switch |
-| `cursorCost.querySource` | `cursor` | `cursor`, `codex-local`, or `openai-api`. Current, Today, and a recent chip return this to `cursor` |
+| `cursorCost.querySource` | `cursor` | `cursor` or `codex-local`. OpenAI API is not in the list. A stored `openai-api` value is still accepted. Current, Today, and a recent chip return this to `cursor` |
 | `cursorCost.openaiConnectMode` | `web` | `web` (admin key in Secret Storage) or `local` (JSONL path). The query table stays empty in 1.0.8 |
 | `cursorCost.openaiSinkPath` | (empty) | Absolute JSONL path when connect mode is `local` |
 | `cursorCost.language` | `en` | Panel, status bar, and toasts. Independent of the VS Code / Cursor display language |
@@ -477,6 +536,7 @@ The **Settings** tab is a full editor for every `cursorCost.*` key. Status-bar p
 | `cursorCost.historyToDate` | (empty) | Local `YYYY-MM-DD` end of that sample. Empty means through today. Requires From date |
 | `cursorCost.budgetDayBasis` | `workingDays` | Pace Today / MTD / forecast by working days (Mon–Fri) or all calendar days |
 | `cursorCost.forecastWindow` | `calendarMonth` | `calendarMonth` or `billingCycle` for the monthly forecast only. Billing cycle needs a valid 26–35 day usage-summary window ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev)) |
+| `cursorCost.spendMixBuckets` | (empty) | JSON grade buckets for the Statistics billed-spend donut. Empty uses Cheap / Balanced / High. Invalid JSON keeps the last good list. Match strings are substrings of the model id |
 | `cursorCost.optimizeDepth` | `balanced` | Optimize prompt: Quick / Balanced / Deep |
 | `cursorCost.okColor` | `#89D185` | Good-state color (darker green on light themes) |
 | `cursorCost.warnColor` | `#F14C4C` | Warning color (darker red on light themes) |
@@ -513,7 +573,7 @@ You can install the VSIX, but usage data requires Cursor’s local session. With
 No. This tool uses unofficial Cursor usage APIs and a local session file. Cursor may change either without notice. Treat the overlay as a convenience, not a billing statement. Codex dollars are an OpenAI list-price estimate (or a rate you saved). They are not an OpenAI invoice.
 
 **Does OpenAI API show my other apps’ calls?**  
-Not in this version. The source can store an organization admin key or a local JSONL path. The query table stays empty until a later import. Codex local is the source that lists sessions already on this computer.
+Not in this version, and OpenAI API is not a source you can pick. The connect code can still store an organization admin key or a local JSONL path. The query table stays empty until a later import. Codex local is the source that lists sessions already on this computer.
 
 ---
 

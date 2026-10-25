@@ -214,6 +214,7 @@ describe('historyDataPayload', () => {
       'showSpikeWarning',
       'showStatusBar',
       'showToday',
+      'spendMix',
       'spikeTokenThreshold',
       'stats',
       'statusBarPreview',
@@ -224,6 +225,8 @@ describe('historyDataPayload', () => {
     expect(payload.language).toBe('en')
     expect(payload.i18n.tabs.settings).toBe('Settings')
     expect(payload.optimizeDepth).toBe('balanced')
+    expect(payload.spendMix.empty).toBe(false)
+    expect(payload.spendMix.vendor.map((slice) => slice.label)).toEqual(['Cursor'])
     expect(payload.forecastWindow).toBe('calendarMonth')
     expect(payload.support).toEqual({
       buyMeACoffee: true,

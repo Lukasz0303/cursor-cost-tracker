@@ -23,6 +23,7 @@ export type PanelDataOverrides = Partial<{
   budgetDayBasis: BudgetDayBasis
   forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
+  spendMixBuckets: string
   burnRateGuard: boolean
   burnRateWindowMinutes: number
   burnRateWarningUsd: number

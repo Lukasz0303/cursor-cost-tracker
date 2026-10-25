@@ -183,6 +183,8 @@ export type CursorCostConfig = {
   budgetDayBasis: BudgetDayBasis
   forecastWindow: ForecastWindow
   optimizeDepth: OptimizeDepth
+  /** Raw grade-bucket JSON. Empty uses the built-in example. */
+  spendMixBuckets: string
   language: Locale
   okColor: string
   warnColor: string
@@ -222,6 +224,7 @@ export const DEFAULT_CURSOR_COST_CONFIG: CursorCostConfig = {
   budgetDayBasis: DEFAULT_BUDGET_DAY_BASIS,
   forecastWindow: DEFAULT_FORECAST_WINDOW,
   optimizeDepth: DEFAULT_OPTIMIZE_DEPTH,
+  spendMixBuckets: '',
   language: DEFAULT_LOCALE,
   okColor: DEFAULT_OK_COLOR,
   warnColor: DEFAULT_WARN_COLOR,
@@ -250,6 +253,14 @@ export function parseHexColor(value: unknown, fallback: string): string {
     return `#${r}${r}${g}${g}${b}${b}`
   }
   return hex.slice(0, 7)
+}
+
+/** Drop a huge settings value. The schema itself rejects anything over 4 KB. */
+function readSpendMixBuckets(value: unknown): string {
+  if (typeof value !== 'string' || value.length > 8192) {
+    return ''
+  }
+  return value
 }
 
 export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
@@ -360,6 +371,7 @@ export function cursorCostConfigFrom(section: ConfigSection): CursorCostConfig {
     optimizeDepth: parseOptimizeDepth(
       section.get('optimizeDepth', DEFAULT_OPTIMIZE_DEPTH),
     ),
+    spendMixBuckets: readSpendMixBuckets(section.get('spendMixBuckets', '')),
     language: parseLocale(section.get('language', DEFAULT_LOCALE)),
     okColor: parseHexColor(
       section.get('okColor', DEFAULT_OK_COLOR),

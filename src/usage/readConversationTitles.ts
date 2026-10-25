@@ -7,6 +7,7 @@ import {
   meterFromComposerHeader,
   metersFromComposerIndex,
   nameFromComposerHeader,
+  projectFromComposerHeader,
   titlesFromChatTabs,
   titlesFromComposerIndex,
   type ComposerContextMeter,
@@ -26,6 +27,8 @@ export type ReadConversationTitlesOptions = {
 export type ConversationLocal = {
   titles: Map<string, string>
   context: Map<string, ComposerContextMeter>
+  /** Composer id → workspace folder name. */
+  projects: Map<string, string>
 }
 
 export async function readConversationLocal(
@@ -34,6 +37,7 @@ export async function readConversationLocal(
   const empty = {
     titles: new Map<string, string>(),
     context: new Map<string, ComposerContextMeter>(),
+    projects: new Map<string, string>(),
   }
   const dbPath =
     options.dbPath ??
@@ -60,6 +64,7 @@ export async function readConversationLocal(
     )
     const chatRaw = sqlValueToString(itemStmt.get(CHAT_INDEX_KEY)?.value)
     const headerNames = new Map<string, string>()
+    const projects = new Map<string, string>()
     const context = metersFromComposerIndex(composerRaw ?? '')
     try {
       const headerStmt = db.prepare(
@@ -77,6 +82,10 @@ export async function readConversationLocal(
         const named = nameFromComposerHeader(raw, fallback)
         if (named !== null && !headerNames.has(named.id)) {
           headerNames.set(named.id, named.name)
+        }
+        const located = projectFromComposerHeader(raw, fallback)
+        if (located !== null && !projects.has(located.id)) {
+          projects.set(located.id, located.project)
         }
         const measured = meterFromComposerHeader(raw, fallback)
         if (measured !== null) {
@@ -99,6 +108,7 @@ export async function readConversationLocal(
       headerNames,
       ),
       context,
+      projects,
     }
   } catch {
     return empty

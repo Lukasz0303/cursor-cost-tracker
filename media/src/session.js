@@ -1649,6 +1649,7 @@ export class PanelSession {
         settings.burnRate,
         warnOn,
         settings.codeLinesInsight === false ? null : settings.codeLines,
+        settings.spendMix,
       )
       chartPoints = Array.isArray(settings.charts) ? settings.charts : []
       chartEvents = Array.isArray(events) ? events : []

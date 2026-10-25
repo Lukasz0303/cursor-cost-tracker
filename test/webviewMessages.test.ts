@@ -157,6 +157,17 @@ describe('parseWebviewMessage', () => {
     ).toBeUndefined()
   })
 
+  it('accepts the spend mix bucket string and blanks a non-string', () => {
+    expect(parseWebviewMessage({ type: 'setSpendMixBuckets', value: '{"buckets":[]}' })).toEqual({
+      type: 'setSpendMixBuckets',
+      value: '{"buckets":[]}',
+    })
+    expect(parseWebviewMessage({ type: 'setSpendMixBuckets', value: 4 })).toEqual({
+      type: 'setSpendMixBuckets',
+      value: '',
+    })
+  })
+
   it('keeps Cursor refresh distinct from codex.refresh', () => {
     expect(parseWebviewMessage({ type: 'refresh' })).toEqual({ type: 'refresh' })
     expect(parseWebviewMessage({ type: 'codex.refresh' })).toEqual({

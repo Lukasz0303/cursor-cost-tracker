@@ -269,6 +269,24 @@ describe('cursorCostConfigFrom', () => {
     expect(config.budgetDayBasis).toBe('workingDays')
   })
 
+  it('keeps the spend mix JSON string and drops a non-string', () => {
+    const config = cursorCostConfigFrom({
+      get(key: string, defaultValue: any) {
+        if (key === 'spendMixBuckets') {
+          return '{"buckets":[]}'
+        }
+        return defaultValue
+      },
+    })
+    expect(config.spendMixBuckets).toBe('{"buckets":[]}')
+    const empty = cursorCostConfigFrom({
+      get(_key: string, defaultValue: any) {
+        return defaultValue
+      },
+    })
+    expect(empty.spendMixBuckets).toBe('')
+  })
+
   it('reads optimizeDepth from settings', () => {
     const config = cursorCostConfigFrom({
       get(key: string, defaultValue: any) {
