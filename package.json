@@ -2,7 +2,7 @@
   "name": "cursor-cost-tracker",
   "displayName": "Cursor Cost Tracker",
   "description": "See Cursor and local Codex cost before the month runs out. Status bar, quota, forecast, burn-rate guard, Coding stats, and Optimize — inside the editor.",
-  "version": "1.0.8",
+  "version": "1.8.1",
   "publisher": "lukasz0303",
   "license": "MIT",
   "author": "Łukasz Zileiński",
