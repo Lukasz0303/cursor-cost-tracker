@@ -3,10 +3,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
+import {
+  isCursorSafeStorageValue,
+  unsealStoredAccessToken,
+  type ReadKeychainPassword,
+} from './safeStorageToken'
 import { fileExists, openStateDb, sqlValueToString } from './stateDb'
 
 export const SIGN_IN_MESSAGE = 'Sign in to Cursor'
 export const SESSION_READ_ERROR = 'Could not read Cursor session'
+export const SESSION_DECRYPT_ERROR = 'Could not decrypt Cursor session'
 
 const ACCESS_TOKEN_KEY = 'cursorAuth/accessToken'
 const EMAIL_KEYS = ['cursorAuth/cachedEmail', 'cursorAuth/email'] as const
@@ -66,6 +72,8 @@ export type ReadCursorSessionOptions = {
   /** Test-only: skip `node:sqlite` and use sql.js. */
   preferSqlJs?: boolean
   sqlJsMaxBytes?: number
+  /** Test-only: supply Keychain passwords without calling `security`. */
+  readKeychainPassword?: ReadKeychainPassword
 }
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null
@@ -224,6 +232,32 @@ function sessionFromItemValues(values: ItemValues): SessionResult {
   return { ok: true, cookie: buildWorkosCookie(sub, jwt), email: values.email }
 }
 
+/**
+ * Plaintext tokens go straight to the JWT check. A value that starts with
+ * `cursor-safe-storage:` is decrypted first. A failed decrypt is not "signed out".
+ */
+async function sessionFromStoredValues(
+  values: ItemValues,
+  options: ReadCursorSessionOptions | undefined,
+): Promise<SessionResult> {
+  const stored = values.stored
+  if (stored === null || !isCursorSafeStorageValue(stored)) {
+    return sessionFromItemValues(values)
+  }
+  const unsealed = await unsealStoredAccessToken(stored, {
+    platform: options?.platform,
+    readKeychainPassword: options?.readKeychainPassword,
+    accept: (value) => {
+      const jwt = jwtFromStoredValue(value)
+      return jwt !== null && decodeJwtSub(jwt) !== null
+    },
+  })
+  if (unsealed.status === 'decrypt_failed') {
+    return { ok: false, error: SESSION_DECRYPT_ERROR }
+  }
+  return sessionFromItemValues({ stored: unsealed.value, email: values.email })
+}
+
 function readItemValue(db: Database, key: string): string | null {
   const stmt = db.prepare('SELECT value FROM ItemTable WHERE key = ?')
   try {
@@ -377,12 +411,12 @@ export async function readCursorSession(
   if (options?.preferSqlJs !== true) {
     const native = await tryReadViaNativeSqlite(dbPath)
     if (native !== null) {
-      return sessionFromItemValues(native)
+      return sessionFromStoredValues(native, options)
     }
   }
 
   try {
-    return sessionFromItemValues(await readViaSqlJs(dbPath, locateWasm, maxBytes))
+    return sessionFromStoredValues(await readViaSqlJs(dbPath, locateWasm, maxBytes), options)
   } catch {
     return { ok: false, error: SESSION_READ_ERROR }
   }

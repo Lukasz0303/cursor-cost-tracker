@@ -4,6 +4,7 @@
 
 - Source: `ItemTable` in `state.vscdb`, key `cursorAuth/accessToken`.
 - Cookie: `WorkosCursorSessionToken={jwt.sub}::{accessToken}`.
+- When Cursor encryption at rest is on, that value starts with `cursor-safe-storage:`. On macOS the extension derives the key from the login keychain item `Cursor Safe Storage` / `Cursor Key` (fallback `Chromium Safe Storage` / `Chromium Key`) and decrypts the `v1` ciphertext in the extension host before the JWT check. The keychain password, plaintext token, and cookie are not logged. A sealed value that does not open is `Could not decrypt Cursor session`, not a sign-in prompt. Windows and Linux still read plaintext tokens only. A database over 1.5 GiB stays on `node:sqlite` and is not copied for sql.js.
 - **Forbidden:** `console.log` / output channel with token, cookie, JWT, or `sub`.
 - **Forbidden:** `postMessage` with token or raw cookie.
 - Webview: serialized rows (time, model, cost, tokens, kind, list price, numbers-only briefs, group labels). Chart day lists are that same loaded sample. No prompt text and no code.

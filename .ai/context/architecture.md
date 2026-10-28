@@ -8,7 +8,7 @@ Cursor / VS Code
   extension.ts  ──postMessage──►  Last N panel
   usage/service.ts ◄────────────  ready / close
        │
-       ├─ usage/session.ts  →  state.vscdb (node:sqlite read-only, sql.js copy if small) → accessToken
+       ├─ usage/session.ts  →  state.vscdb (node:sqlite read-only, sql.js copy if small) → accessToken (macOS safe-storage decrypt when sealed)
        └─ usage/api.ts      →  HTTPS cursor.com
 ```
 

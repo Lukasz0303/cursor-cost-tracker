@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-10-28
+
+### Fixed
+
+- **Encrypted Cursor session** — an access token that starts with `cursor-safe-storage:` is decrypted with the Mac keychain before the sign-in check. If it cannot be decrypted, the panel says the session could not be decrypted instead of "Sign in to Cursor". A database over 1.5 GiB stays on the native SQLite reader and is not copied into memory.
+
 ## 1.0.8 — 2026-10-25
 
 ### Added

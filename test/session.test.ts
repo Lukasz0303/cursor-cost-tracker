@@ -1,3 +1,5 @@
+import { createCipheriv } from 'node:crypto'
+import { builtinModules } from 'node:module'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -5,6 +7,11 @@ import { fileURLToPath } from 'node:url'
 import initSqlJs from 'sql.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  CURSOR_SAFE_STORAGE_PREFIX,
+  deriveOsCryptKey,
+} from '../src/usage/safeStorageToken'
+import {
+  SESSION_DECRYPT_ERROR,
   SESSION_READ_ERROR,
   SIGN_IN_MESSAGE,
   SQLJS_STALE_COPY_MS,
@@ -16,11 +23,26 @@ import {
   staleSqlJsCopyNames,
 } from '../src/usage/session'
 
+const hasNodeSqlite = builtinModules.includes('node:sqlite')
+
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const sqlWasmDir = join(repoRoot, 'node_modules', 'sql.js', 'dist')
 
 function locateWasm(file: string): string {
   return join(sqlWasmDir, file)
+}
+
+function sealAccessToken(plaintext: string, password: string): string {
+  const cipher = createCipheriv(
+    'aes-128-cbc',
+    deriveOsCryptKey(password),
+    Buffer.alloc(16, 0x20),
+  )
+  const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  return (
+    CURSOR_SAFE_STORAGE_PREFIX +
+    Buffer.concat([Buffer.from('v10'), body]).toString('base64')
+  )
 }
 
 function fakeJwt(payload: Record<string, unknown>): string {
@@ -199,6 +221,123 @@ describe('readCursorSession', () => {
     expect(result).toEqual({ ok: false, error: SESSION_READ_ERROR })
   })
 
+  it('decrypts a safe-storage access token through the macOS keychain passwords', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+    tempDirs.push(dir)
+    const dbPath = join(dir, 'state.vscdb')
+    const jwt = fakeJwt({ sub: 'user_sealed' })
+    const SQL = await initSqlJs({ locateFile: locateWasm })
+    const db = new SQL.Database()
+    db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/accessToken',
+      sealAccessToken(jwt, 'cursor-secret'),
+    ])
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/cachedEmail',
+      'dev@example.com',
+    ])
+    await writeFile(dbPath, Buffer.from(db.export()))
+    db.close()
+
+    const result = await readCursorSession({
+      dbPath,
+      locateWasm,
+      platform: 'linux',
+      preferSqlJs: true,
+      readKeychainPassword: async (identity) =>
+        identity.service === 'Cursor Safe Storage' ? 'cursor-secret' : null,
+    })
+    expect(result).toEqual({
+      ok: true,
+      email: 'dev@example.com',
+      cookie: buildWorkosCookie('user_sealed', jwt),
+    })
+  })
+
+  it.skipIf(!hasNodeSqlite)(
+    'decrypts a sealed token with native sqlite when the file is over the sql.js cap',
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+      tempDirs.push(dir)
+      const dbPath = join(dir, 'state.vscdb')
+      const jwt = fakeJwt({ sub: 'user_sealed' })
+      const SQL = await initSqlJs({ locateFile: locateWasm })
+      const db = new SQL.Database()
+      db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+      db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+        'cursorAuth/accessToken',
+        sealAccessToken(jwt, 'cursor-secret'),
+      ])
+      await writeFile(dbPath, Buffer.from(db.export()))
+      db.close()
+
+      const result = await readCursorSession({
+        dbPath,
+        locateWasm,
+        platform: 'darwin',
+        sqlJsMaxBytes: 1,
+        readKeychainPassword: async (identity) =>
+          identity.service === 'Cursor Safe Storage' ? 'cursor-secret' : null,
+      })
+      expect(result).toEqual({
+        ok: true,
+        email: null,
+        cookie: buildWorkosCookie('user_sealed', jwt),
+      })
+    },
+  )
+
+  it('returns Could not decrypt Cursor session when the sealed token cannot be opened', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+    tempDirs.push(dir)
+    const dbPath = join(dir, 'state.vscdb')
+    const jwt = fakeJwt({ sub: 'user_sealed' })
+    const SQL = await initSqlJs({ locateFile: locateWasm })
+    const db = new SQL.Database()
+    db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/accessToken',
+      sealAccessToken(jwt, 'cursor-secret'),
+    ])
+    await writeFile(dbPath, Buffer.from(db.export()))
+    db.close()
+
+    const result = await readCursorSession({
+      dbPath,
+      locateWasm,
+      platform: 'darwin',
+      preferSqlJs: true,
+      readKeychainPassword: async () => null,
+    })
+    expect(result).toEqual({ ok: false, error: SESSION_DECRYPT_ERROR })
+    expect(result).not.toEqual({ ok: false, error: SIGN_IN_MESSAGE })
+  })
+
+  it('does not treat an unknown safe-storage prefix as a missing sign-in', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+    tempDirs.push(dir)
+    const dbPath = join(dir, 'state.vscdb')
+    const SQL = await initSqlJs({ locateFile: locateWasm })
+    const db = new SQL.Database()
+    db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/accessToken',
+      'cursor-safe-storage:v2:not-a-jwt',
+    ])
+    await writeFile(dbPath, Buffer.from(db.export()))
+    db.close()
+
+    const result = await readCursorSession({
+      dbPath,
+      locateWasm,
+      platform: 'darwin',
+      preferSqlJs: true,
+      readKeychainPassword: async () => 'cursor-secret',
+    })
+    expect(result).toEqual({ ok: false, error: SESSION_DECRYPT_ERROR })
+  })
+
   it('returns Sign in to Cursor when the access token key is missing', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
     tempDirs.push(dir)
@@ -257,7 +396,9 @@ describe.skipIf(process.env.CURSOR_SESSION_TEST !== '1')(
       const result = await readCursorSession({ locateWasm })
       expect(result.ok === true || result.ok === false).toBe(true)
       if (!result.ok) {
-        expect([SIGN_IN_MESSAGE, SESSION_READ_ERROR]).toContain(result.error)
+        expect([SIGN_IN_MESSAGE, SESSION_READ_ERROR, SESSION_DECRYPT_ERROR]).toContain(
+          result.error,
+        )
       }
     })
   },

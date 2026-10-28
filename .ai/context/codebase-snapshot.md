@@ -126,7 +126,7 @@ dist/                          # gitignored
 
 | Location | Risk | Status |
 |----------|------|--------|
-| `src/usage/session.ts` | `WorkosCursorSessionToken` + ItemTable key `cursorAuth/accessToken` to **build** the cookie | OK (allowed) |
+| `src/usage/session.ts` | `WorkosCursorSessionToken` + ItemTable key `cursorAuth/accessToken` to **build** the cookie. macOS `cursor-safe-storage:v1:` values are decrypted in the host from the login keychain; password and token are not logged | OK (allowed) |
 | `media/*` | cookie / token / Bearer | OK (none) |
 | `src/` | `console.log` / OutputChannel dumps of the token | OK (none) |
 | Webview `postMessage` | formatted rows, numbers-only briefs, model catalog; no cookies | OK |
