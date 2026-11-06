@@ -7,6 +7,7 @@ import {
   isCursorSafeStorageValue,
   unsealStoredAccessToken,
   type ReadKeychainPassword,
+  type ReadWindowsSafeStorageKey,
 } from './safeStorageToken'
 import { fileExists, openStateDb, sqlValueToString } from './stateDb'
 
@@ -74,6 +75,8 @@ export type ReadCursorSessionOptions = {
   sqlJsMaxBytes?: number
   /** Test-only: supply Keychain passwords without calling `security`. */
   readKeychainPassword?: ReadKeychainPassword
+  /** Test-only: supply the Windows DPAPI key without reading `Local State`. */
+  readWindowsSafeStorageKey?: ReadWindowsSafeStorageKey
 }
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null
@@ -247,6 +250,7 @@ async function sessionFromStoredValues(
   const unsealed = await unsealStoredAccessToken(stored, {
     platform: options?.platform,
     readKeychainPassword: options?.readKeychainPassword,
+    readWindowsSafeStorageKey: options?.readWindowsSafeStorageKey,
     accept: (value) => {
       const jwt = jwtFromStoredValue(value)
       return jwt !== null && decodeJwtSub(jwt) !== null

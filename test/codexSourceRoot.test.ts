@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  resolveCodexRoot,
-  sessionsDirectoryExists,
-} from '../src/openaiHistory/codex/sourceRoot'
+import { resolveCodexRoot, sessionsDirectoryExists } from '../src/openaiHistory/codex/sourceRoot'
 
 function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex')
@@ -249,11 +247,13 @@ describe('resolveCodexRoot', () => {
 
   it('sessionsDirectoryExists only stats sessions/', async () => {
     const seen: string[] = []
+    // The code under test joins with node:path, so expect the platform separator.
+    const sessionsPath = join('/root', 'sessions')
     const exists = await sessionsDirectoryExists('/root', async (path) => {
       seen.push(path)
-      return path === '/root/sessions' ? 'dir' : 'missing'
+      return path === sessionsPath ? 'dir' : 'missing'
     })
     expect(exists).toBe(true)
-    expect(seen).toEqual(['/root/sessions'])
+    expect(seen).toEqual([sessionsPath])
   })
 })

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.2 — 2026-11-06
+
+### Fixed
+
+- **Encrypted Cursor session on Windows** — a sealed access token is decrypted with the Windows DPAPI key from Cursor's `Local State` (`os_crypt.encrypted_key`). The Windows `v10` layout is AES-256-GCM (`v10` + nonce + ciphertext + tag), unlike the macOS AES-128-CBC one, so the panel reads the real session instead of "Could not decrypt Cursor session".
+
 ## 1.8.1 — 2026-10-28
 
 ### Fixed

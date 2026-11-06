@@ -1,4 +1,4 @@
-import { createCipheriv } from 'node:crypto'
+import { createCipheriv, randomBytes } from 'node:crypto'
 import { builtinModules } from 'node:module'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -39,9 +39,18 @@ function sealAccessToken(plaintext: string, password: string): string {
     Buffer.alloc(16, 0x20),
   )
   const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  return CURSOR_SAFE_STORAGE_PREFIX + Buffer.concat([Buffer.from('v10'), body]).toString('base64')
+}
+
+const rawWindowsKey = randomBytes(32)
+
+function sealAccessTokenRawKey(plaintext: string, rawKey: Buffer): string {
+  const nonce = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', rawKey, nonce, { authTagLength: 16 })
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   return (
     CURSOR_SAFE_STORAGE_PREFIX +
-    Buffer.concat([Buffer.from('v10'), body]).toString('base64')
+    Buffer.concat([Buffer.from('v10'), nonce, ciphertext, cipher.getAuthTag()]).toString('base64')
   )
 }
 
@@ -252,6 +261,39 @@ describe('readCursorSession', () => {
       ok: true,
       email: 'dev@example.com',
       cookie: buildWorkosCookie('user_sealed', jwt),
+    })
+  })
+
+  it('decrypts a safe-storage access token with the Windows DPAPI key', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cct-session-'))
+    tempDirs.push(dir)
+    const dbPath = join(dir, 'state.vscdb')
+    const jwt = fakeJwt({ sub: 'user_sealed_win' })
+    const SQL = await initSqlJs({ locateFile: locateWasm })
+    const db = new SQL.Database()
+    db.run('CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value TEXT)')
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/accessToken',
+      sealAccessTokenRawKey(jwt, rawWindowsKey),
+    ])
+    db.run('INSERT INTO ItemTable (key, value) VALUES (?, ?)', [
+      'cursorAuth/cachedEmail',
+      'dev@example.com',
+    ])
+    await writeFile(dbPath, Buffer.from(db.export()))
+    db.close()
+
+    const result = await readCursorSession({
+      dbPath,
+      locateWasm,
+      platform: 'win32',
+      preferSqlJs: true,
+      readWindowsSafeStorageKey: async () => rawWindowsKey.toString('base64'),
+    })
+    expect(result).toEqual({
+      ok: true,
+      email: 'dev@example.com',
+      cookie: buildWorkosCookie('user_sealed_win', jwt),
     })
   })
 

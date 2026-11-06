@@ -11,7 +11,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import initSqlJs from 'sql.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -492,7 +492,7 @@ describe('codex importer', () => {
     await writeSession(rootPath, 'rollout-b.jsonl.zst', 'only')
     await writeSession(rootPath, 'cache/rollout-hidden.jsonl', '{}\n')
     const found = await discoverRolloutFiles(rootPath, nodeFsDeps())
-    const names = found.map((file) => file.absolutePath.split('/').pop())
+    const names = found.map((file) => basename(file.absolutePath))
     expect(names).toEqual(['rollout-a.jsonl', 'rollout-b.jsonl.zst'])
   })
 
@@ -527,8 +527,15 @@ function rawZstdFrame(payload: Uint8Array): Uint8Array {
   const header = 1 | (size << 3)
   const out = new Uint8Array(9 + size)
   out.set([
-    0x28, 0xb5, 0x2f, 0xfd, 0x20, size,
-    header & 0xff, (header >> 8) & 0xff, (header >> 16) & 0xff,
+    0x28,
+    0xb5,
+    0x2f,
+    0xfd,
+    0x20,
+    size,
+    header & 0xff,
+    (header >> 8) & 0xff,
+    (header >> 16) & 0xff,
   ])
   out.set(payload, 9)
   return out

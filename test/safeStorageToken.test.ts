@@ -1,26 +1,83 @@
-import { createCipheriv } from 'node:crypto'
+import { createCipheriv, randomBytes } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   CURSOR_SAFE_STORAGE_PREFIX,
   decryptOsCryptV10,
   deriveOsCryptKey,
+  getWindowsLocalStatePath,
   isCursorSafeStorageValue,
+  openCursorSafeStorageRawKey,
   openCursorSafeStorageValue,
+  readWindowsLocalStateKey,
+  unprotectDpapiBase64,
   unsealStoredAccessToken,
 } from '../src/usage/safeStorageToken'
 
 function sealCursorSafeStorage(plaintext: string, password: string): string {
-  const cipher = createCipheriv(
-    'aes-128-cbc',
-    deriveOsCryptKey(password),
-    Buffer.alloc(16, 0x20),
-  )
+  const cipher = createCipheriv('aes-128-cbc', deriveOsCryptKey(password), Buffer.alloc(16, 0x20))
   const body = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  return CURSOR_SAFE_STORAGE_PREFIX + Buffer.concat([Buffer.from('v10'), body]).toString('base64')
+}
+
+function sealCursorSafeStorageRawKey(plaintext: string, rawKey: Buffer): string {
+  const nonce = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', rawKey, nonce, { authTagLength: 16 })
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   return (
     CURSOR_SAFE_STORAGE_PREFIX +
-    Buffer.concat([Buffer.from('v10'), body]).toString('base64')
+    Buffer.concat([Buffer.from('v10'), nonce, ciphertext, cipher.getAuthTag()]).toString('base64')
   )
 }
+
+describe('openCursorSafeStorageRawKey', () => {
+  it('opens a sealed token with the raw 32-byte Windows DPAPI key', () => {
+    const rawKey = randomBytes(32)
+    const sealed = sealCursorSafeStorageRawKey('user_win::jwt', rawKey)
+    expect(openCursorSafeStorageRawKey(sealed, rawKey)).toBe('user_win::jwt')
+  })
+
+  it('returns null for a wrong or empty raw key', () => {
+    const rawKey = randomBytes(32)
+    const sealed = sealCursorSafeStorageRawKey('jwt', rawKey)
+    expect(openCursorSafeStorageRawKey(sealed, randomBytes(32))).toBeNull()
+    expect(openCursorSafeStorageRawKey(sealed, Buffer.alloc(0))).toBeNull()
+  })
+})
+
+describe('unprotectDpapiBase64', () => {
+  it('rejects a blob without the DPAPI prefix without running PowerShell', async () => {
+    const notDpapi = Buffer.from('plainly-not-dpapi-protected-bytes').toString('base64')
+    await expect(unprotectDpapiBase64(notDpapi)).resolves.toBeNull()
+  })
+})
+
+describe('getWindowsLocalStatePath', () => {
+  it('joins APPDATA with the Cursor Local State file', () => {
+    expect(getWindowsLocalStatePath({ APPDATA: 'C:\\Users\\u\\AppData\\Roaming' })).toBe(
+      'C:\\Users\\u\\AppData\\Roaming\\Cursor\\Local State',
+    )
+  })
+
+  it('falls back to USERPROFILE when APPDATA is missing', () => {
+    expect(getWindowsLocalStatePath({ USERPROFILE: 'C:\\Users\\u' })).toBe(
+      'C:\\Users\\u\\AppData\\Roaming\\Cursor\\Local State',
+    )
+  })
+})
+
+describe('readWindowsLocalStateKey', () => {
+  it('returns null when Local State is missing or is not JSON', async () => {
+    await expect(
+      readWindowsLocalStateKey(join(tmpdir(), 'cct-missing', 'Local State')),
+    ).resolves.toBe(null)
+    const notJson = join(tmpdir(), `cct-notjson-${randomBytes(4).toString('hex')}`)
+    await writeFile(notJson, 'not json')
+    await expect(readWindowsLocalStateKey(notJson)).resolves.toBeNull()
+  })
+})
 
 describe('decryptOsCryptV10', () => {
   it('matches Chromium’s macOS known answer for mock_password', () => {
@@ -75,14 +132,39 @@ describe('unsealStoredAccessToken', () => {
     expect(plain).toEqual({ status: 'ready', value: 'legacy' })
   })
 
-  it('returns decrypt_failed on Windows and Linux when no password reader is injected', async () => {
+  it('returns decrypt_failed on Linux when no password reader is injected', async () => {
     const sealed = sealCursorSafeStorage('jwt', 'secret')
-    await expect(unsealStoredAccessToken(sealed, { platform: 'win32' })).resolves.toEqual({
-      status: 'decrypt_failed',
-    })
     await expect(unsealStoredAccessToken(sealed, { platform: 'linux' })).resolves.toEqual({
       status: 'decrypt_failed',
     })
+  })
+
+  it('opens a sealed token on Windows with the injected DPAPI key', async () => {
+    const rawKey = randomBytes(32)
+    const sealed = sealCursorSafeStorageRawKey('user_win::jwt', rawKey)
+    await expect(
+      unsealStoredAccessToken(sealed, {
+        platform: 'win32',
+        readWindowsSafeStorageKey: async () => rawKey.toString('base64'),
+      }),
+    ).resolves.toEqual({ status: 'ready', value: 'user_win::jwt' })
+  })
+
+  it('returns decrypt_failed on Windows when the key is missing or wrong', async () => {
+    const rawKey = randomBytes(32)
+    const sealed = sealCursorSafeStorageRawKey('jwt', rawKey)
+    await expect(
+      unsealStoredAccessToken(sealed, {
+        platform: 'win32',
+        readWindowsSafeStorageKey: async () => null,
+      }),
+    ).resolves.toEqual({ status: 'decrypt_failed' })
+    await expect(
+      unsealStoredAccessToken(sealed, {
+        platform: 'win32',
+        readWindowsSafeStorageKey: async () => randomBytes(32).toString('base64'),
+      }),
+    ).resolves.toEqual({ status: 'decrypt_failed' })
   })
 
   it('skips a password whose plaintext fails accept and tries the next identity', async () => {
