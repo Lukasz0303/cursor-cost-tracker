@@ -10,6 +10,9 @@ tmp/
 # Generated PR descriptions (command `2-pr-description`)
 .ai/reports/
 
+# Local Codex diagnosis notes and screenshots
+.ai/fix-codex/
+
 # Social launch copy (Facebook / LinkedIn) — local only
 docs/
 

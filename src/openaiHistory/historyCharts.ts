@@ -120,7 +120,7 @@ export function runCodexCharts(
       continue
     }
     const ms = Date.parse(observedAt)
-    if (!Number.isFinite(ms)) {
+    if (!Number.isFinite(ms) || ms < Date.UTC(1980, 0, 1)) {
       continue
     }
     const key = localDayKey(ms)

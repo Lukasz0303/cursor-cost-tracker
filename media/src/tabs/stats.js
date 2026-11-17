@@ -6,6 +6,9 @@ export function createStatsView(session) {
   const statsEl = document.getElementById('stats')
   const periodCardsEl = document.getElementById('periodCards')
   let lastStatsArgs = null
+  let priceListOpen = false
+  let priceListSortKey = 'model'
+  let priceListSortDir = 'asc'
 
   function lastHeading(limit) {
     if (session.historyFromDate) {
@@ -971,32 +974,23 @@ export function createStatsView(session) {
     const glossary = section(session.t('stats.statusBar'))
     const glossaryGrid = session.el('div', 'status-explain')
     const fresh = windows.filter(function (windowView) {
-      return windowView && windowView.fresh && windowView.usedPercent !== null && windowView.usedPercent !== undefined
+      return (
+        windowView &&
+        !windowView.stale &&
+        windowView.usedPercent !== null &&
+        windowView.usedPercent !== undefined
+      )
     })
     const notes = []
     for (let i = 0; i < windows.length; i++) {
       const windowView = windows[i]
-      if (!windowView || windowView.fresh) {
-        continue
-      }
-      if (windowView.stale) {
-        notes.push(
-          windowTitle(windowView.kind) +
-            ' · ' +
-            session.t('codex.limitStaleSince', { reset: windowView.resetsLabel || '—' }),
-        )
+      if (!windowView || !windowView.stale) {
         continue
       }
       notes.push(
         windowTitle(windowView.kind) +
           ' · ' +
-          session.t('codex.limitLastReading', {
-            used: pctPoint(windowView.usedPercent).replace(/%$/, ''),
-            when: windowView.observedLabel || '—',
-            reset: windowView.resetsLabel || '—',
-          }) +
-          ' ' +
-          session.t('codex.limitNotLive'),
+          session.t('codex.limitStaleSince', { reset: windowView.resetsLabel || '—' }),
       )
     }
     if (fresh.length > 0) {
@@ -1166,7 +1160,10 @@ export function createStatsView(session) {
         {
           id: 'cycle',
           label: session.t('codex.limitReset'),
-          value: mirror.pace ? mirror.pace.resetsLabel || '—' : '—',
+          value:
+            (mirror.pace && mirror.pace.resetsLabel) ||
+            (fresh[0] && fresh[0].resetsLabel) ||
+            '—',
           meterLabel: session.t('codex.elapsedInWindow'),
           percent:
             mirror.pace && Number.isFinite(Number(mirror.pace.windowElapsedPercent))
@@ -1315,14 +1312,14 @@ export function createStatsView(session) {
         layout.appendChild(split)
       }
       if (mirror.rates && mirror.rates.length > 0) {
-        layout.appendChild(codexRateTable(mirror.rates, mirror.totalUsd))
+        layout.appendChild(codexRateTable(mirror.rates, mirror.totalUsd, mirror.catalog))
       }
       breakdown.appendChild(layout)
       statsEl.appendChild(breakdown)
     }
   }
 
-  function codexRateTable(rates, totalUsd) {
+  function codexRateTable(rates, totalUsd, catalog) {
     const panel = session.el('div', 'breakdown-panel')
     const heading = session.el('h3', 'breakdown-title')
     session.setText(heading, session.t('stats.modelPricing'))
@@ -1365,7 +1362,134 @@ export function createStatsView(session) {
     table.appendChild(body)
     wrap.appendChild(table)
     panel.appendChild(wrap)
+    panel.appendChild(priceListToggle(catalog))
     return panel
+  }
+
+  function priceListToggle(catalog) {
+    const rows = Array.isArray(catalog) ? catalog : []
+    const block = session.el('div', 'price-list')
+    if (rows.length === 0) {
+      return block
+    }
+    const button = session.el('button', 'action-btn')
+    button.type = 'button'
+    const table = priceCatalogTable(rows)
+    table.hidden = !priceListOpen
+    function label() {
+      session.setText(
+        button,
+        table.hidden ? session.t('codex.showPriceList') : session.t('codex.hidePriceList'),
+      )
+    }
+    label()
+    button.addEventListener('click', function () {
+      priceListOpen = !priceListOpen
+      table.hidden = !priceListOpen
+      label()
+    })
+    block.appendChild(button)
+    block.appendChild(table)
+    return block
+  }
+
+  function priceRateNumber(row, key) {
+    if (key === 'input') {
+      return Number(row.inputRate)
+    }
+    if (key === 'cached') {
+      return Number(row.cachedRate)
+    }
+    return Number(row.outputRate)
+  }
+
+  function comparePriceRows(left, right) {
+    const dir = priceListSortDir === 'desc' ? -1 : 1
+    if (priceListSortKey === 'model') {
+      return String(left.model || '').localeCompare(String(right.model || '')) * dir
+    }
+    const leftValue = priceRateNumber(left, priceListSortKey)
+    const rightValue = priceRateNumber(right, priceListSortKey)
+    const leftBad = !Number.isFinite(leftValue)
+    const rightBad = !Number.isFinite(rightValue)
+    if (leftBad || rightBad) {
+      if (leftBad && rightBad) {
+        return 0
+      }
+      return leftBad ? 1 : -1
+    }
+    if (leftValue === rightValue) {
+      return String(left.model || '').localeCompare(String(right.model || ''))
+    }
+    return (leftValue - rightValue) * dir
+  }
+
+  function priceSortHeader(key, label) {
+    const th = session.el('th')
+    th.scope = 'col'
+    const button = session.el('button')
+    button.type = 'button'
+    const active = priceListSortKey === key
+    const mark = active ? (priceListSortDir === 'desc' ? ' ↓' : ' ↑') : ''
+    session.setText(button, label + mark)
+    th.setAttribute(
+      'aria-sort',
+      active ? (priceListSortDir === 'desc' ? 'descending' : 'ascending') : 'none',
+    )
+    button.addEventListener('click', function () {
+      if (priceListSortKey === key) {
+        priceListSortDir = priceListSortDir === 'asc' ? 'desc' : 'asc'
+      } else {
+        priceListSortKey = key
+        priceListSortDir = 'asc'
+      }
+      if (lastStatsArgs) {
+        renderStats.apply(null, lastStatsArgs)
+        return
+      }
+      renderCodexStats(session.codexStats)
+    })
+    th.appendChild(button)
+    return th
+  }
+
+  function priceCatalogTable(rows) {
+    const wrap = session.el('div', 'table-wrap')
+    const table = session.el('table')
+    const head = session.el('tr')
+    const titles = [
+      ['model', session.t('queries.model')],
+      ['input', session.t('stats.input')],
+      ['cached', session.t('stats.cacheRead')],
+      ['output', session.t('stats.output')],
+    ]
+    for (let i = 0; i < titles.length; i++) {
+      head.appendChild(priceSortHeader(titles[i][0], titles[i][1]))
+    }
+    const thead = session.el('thead')
+    thead.appendChild(head)
+    table.appendChild(thead)
+    const body = session.el('tbody')
+    const ordered = rows.slice().sort(comparePriceRows)
+    for (let i = 0; i < ordered.length; i++) {
+      const rate = ordered[i]
+      const tr = session.el('tr')
+      const cells = [
+        rate.model,
+        '$' + rate.inputRate,
+        '$' + rate.cachedRate,
+        '$' + rate.outputRate,
+      ]
+      for (let c = 0; c < cells.length; c++) {
+        const td = session.el('td')
+        session.setText(td, cells[c])
+        tr.appendChild(td)
+      }
+      body.appendChild(tr)
+    }
+    table.appendChild(body)
+    wrap.appendChild(table)
+    return wrap
   }
 
   function fullTokens(n) {

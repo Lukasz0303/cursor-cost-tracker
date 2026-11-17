@@ -776,4 +776,49 @@ describe('billing-cycle forecast windows', () => {
     expect(todayValue).toBeCloseTo(72)
     expect(stats.series[0]?.used[stats.forecast.length - 1]).toBeNull()
   })
+
+  it('draws every month in a From date that spans more than the current month', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        limitUsd: null,
+        remainingUsd: null,
+        billingCycleStart: '2026-10-18T12:00:00.000Z',
+        billingCycleEnd: '2026-11-18T12:00:00.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 3, limit: 100, percent: 3 },
+          { name: 'Other Models', used: 0, limit: 100, percent: 0 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 5, 10, 0, 0).getTime(),
+          costUsd: 4,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 20, 10, 0, 0).getTime(),
+          costUsd: 6,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 10, 17, 10, 0, 0).getTime(),
+          costUsd: 2,
+          model: 'cursor-default',
+        }),
+      ],
+      {
+        now,
+        budgetDayBasis: 'calendarDays',
+        historyFromDate: '2026-09-01',
+      },
+    )
+    expect(stats.forecast[0]?.date).toBe('1.09')
+    expect(stats.forecast.some((point) => point.date === '1.10')).toBe(true)
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.11')
+    expect(stats.forecast).toHaveLength(91)
+  })
 })

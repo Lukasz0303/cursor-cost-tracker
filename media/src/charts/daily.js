@@ -315,8 +315,12 @@ function calendarSlots(points, bounds) {
     })
   }
   const slots = []
-  let cursor = startOfLocalDay(minMs)
   const end = startOfLocalDay(maxMs)
+  let cursor = startOfLocalDay(minMs)
+  const spanDays = Math.round((end - cursor) / (24 * 60 * 60 * 1000))
+  if (spanDays > 400) {
+    cursor = addLocalDays(end, -400)
+  }
   let guard = 0
   while (cursor <= end && guard < 400) {
     const key = localDayKeyFromMs(cursor)

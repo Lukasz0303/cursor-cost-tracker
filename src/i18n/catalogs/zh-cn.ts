@@ -919,6 +919,8 @@ export const ZH_CN = {
     "modelJoin": " and ",
     "pricedShareLine": "{priced} of {denom} requests have a rate",
     "setRates": "Set rates",
+    "showPriceList": "Current price list",
+    "hidePriceList": "Hide price list",
     "includedEstimate": "included in plan, API estimate",
     "includedPlan": "Included in the Codex plan",
     "groupMeta": "{model} · {time} · {n} requests",

@@ -45,7 +45,7 @@ export function drawLimitHistory(svg, series, h) {
     }
     visible.push(flat[i])
   }
-  if (visible.length === 0 && rangeFrom === null) {
+  if (visible.length === 0) {
     return false
   }
 

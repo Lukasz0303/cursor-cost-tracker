@@ -14,6 +14,7 @@ import {
 } from './codex/sessionIndex'
 import { repriceUnpricedRequests } from './pricing/reprice'
 import { rewindParserVersion } from './store/parserUpgrade'
+import { repairUnknownConversationBounds } from './store/sqlJsRequestStore'
 import {
   sessionsDirectoryExists,
   type ResolvedCodexRoot,
@@ -204,6 +205,7 @@ export class HistoryService {
       await yieldMacrotask()
     }
     await this.applyTitles(root)
+    repairUnknownConversationBounds(this.options.store)
     repriceUnpricedRequests(this.options.store)
   }
 

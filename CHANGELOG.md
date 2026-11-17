@@ -1,10 +1,17 @@
 # Changelog
 
-## 1.8.2 — 2026-11-06
+## 1.8.2 — 2026-11-17
 
 ### Fixed
 
 - **Encrypted Cursor session on Windows** — a sealed access token is decrypted with the Windows DPAPI key from Cursor's `Local State` (`os_crypt.encrypted_key`). The Windows `v10` layout is AES-256-GCM (`v10` + nonce + ciphertext + tag), unlike the macOS AES-128-CBC one, so the panel reads the real session instead of "Could not decrypt Cursor session".
+- **Codex limits** — rate-limit snapshots written in camelCase are read again. An empty snapshot no longer replaces the last real 5-hour or 7-day window, and Current shows the percent while that reset is still ahead.
+- **Codex conversations** — a missing timestamp no longer sticks as 1970, titles are read from the session index, and the conversation column stays wide enough to show the title.
+- **Codex charts** — dates before 1980 do not stretch the axis, and an empty limit chart says so instead of drawing a blank axis.
+
+### Added
+
+- **Codex price list** — Model pricing has a button that shows the current standard list under the models used in the sample. Each column sorts the list. It stays open when Statistics refreshes.
 
 ## 1.8.1 — 2026-10-28
 

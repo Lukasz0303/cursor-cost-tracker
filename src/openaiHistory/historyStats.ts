@@ -1,5 +1,5 @@
 import type { Database, SqlValue } from 'sql.js'
-import { listPriceFor } from './pricing/listPrices'
+import { listPriceFor, OPENAI_STANDARD_LIST } from './pricing/listPrices'
 import { formatDateTime } from '../format'
 import { startOfLocalDayMs } from '../time'
 import type { RequestStatus } from './domain'
@@ -114,6 +114,13 @@ export type CodexMirror = {
     outputRate: string
     requests: number
     usd: number
+  }[]
+  /** Full current list, including models absent from this sample. */
+  catalog: {
+    model: string
+    inputRate: string
+    cachedRate: string
+    outputRate: string
   }[]
   pace: CodexMirrorPace | null
   plan: string | null
@@ -1071,6 +1078,12 @@ function readCodexMirror(
       .sort((left, right) => right[1] - left[1])
       .map(([label, usd]) => ({ label, usd })),
     rates,
+    catalog: OPENAI_STANDARD_LIST.map((price) => ({
+      model: price.model,
+      inputRate: price.inputRate,
+      cachedRate: price.cachedInputRate,
+      outputRate: price.outputRate,
+    })),
     pace: paceFromWindow(db, pickPaceWindow(limits), options.nowMs),
     plan: limits?.planType ?? null,
     includedInPlan: limits?.includedInPlan === true,

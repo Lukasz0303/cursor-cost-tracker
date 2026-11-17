@@ -2,6 +2,7 @@ import { rename as fsRename, readFile as fsReadFile, unlink as fsUnlink, writeFi
 import type { Database, SqlJsStatic, SqlValue } from 'sql.js'
 import type { CostCoverage, ParserContext, RequestStatus } from '../domain'
 import { isGeneratedThreadTitle } from '../ids'
+import { earlierObservedAt, laterObservedAt } from '../observedAt'
 import { migrateSchema } from './migrations'
 import type {
   Checkpoint,
@@ -335,15 +336,13 @@ function upsertConversation(db: Database, row: ImportBatchConversation): void {
     return
   }
   const firstObserved =
-    asString(existing.first_observed_at) !== null &&
-    asString(existing.first_observed_at)! < row.firstObservedAt
-      ? asString(existing.first_observed_at)!
-      : row.firstObservedAt
+    earlierObservedAt(asString(existing.first_observed_at), row.firstObservedAt) ??
+    asString(existing.first_observed_at) ??
+    row.firstObservedAt
   const lastObserved =
-    asString(existing.last_observed_at) !== null &&
-    asString(existing.last_observed_at)! > row.lastObservedAt
-      ? asString(existing.last_observed_at)!
-      : row.lastObservedAt
+    laterObservedAt(asString(existing.last_observed_at), row.lastObservedAt) ??
+    asString(existing.last_observed_at) ??
+    row.lastObservedAt
   const turnCount =
     row.turnCount === null
       ? asNumber(existing.turn_count)
@@ -831,6 +830,43 @@ class SqlJsRequestStore implements RequestStore {
       throw new Error('RequestStore is closed')
     }
   }
+}
+
+/** Replace a stuck 1970 conversation bound with the real request span. */
+export function repairUnknownConversationBounds(store: RequestStore): void {
+  const db = (store as unknown as { db: Database }).db
+  if (db === undefined) {
+    return
+  }
+  db.run(
+    `UPDATE conversations
+     SET
+       first_observed_at = (
+         SELECT MIN(r.observed_at)
+         FROM requests r
+         WHERE r.provider = conversations.provider
+           AND r.account_scope_key = conversations.account_scope_key
+           AND r.conversation_id = conversations.conversation_id
+           AND r.observed_at >= '1980-01-01'
+       ),
+       last_observed_at = (
+         SELECT MAX(r.observed_at)
+         FROM requests r
+         WHERE r.provider = conversations.provider
+           AND r.account_scope_key = conversations.account_scope_key
+           AND r.conversation_id = conversations.conversation_id
+           AND r.observed_at >= '1980-01-01'
+       )
+     WHERE (first_observed_at < '1980-01-01' OR last_observed_at < '1980-01-01'
+            OR first_observed_at = '' OR last_observed_at = '')
+       AND EXISTS (
+         SELECT 1 FROM requests r
+         WHERE r.provider = conversations.provider
+           AND r.account_scope_key = conversations.account_scope_key
+           AND r.conversation_id = conversations.conversation_id
+           AND r.observed_at >= '1980-01-01'
+       )`,
+  )
 }
 
 export function openRequestStore(
