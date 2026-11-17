@@ -398,9 +398,9 @@
     "prepare": "node scripts/install-hooks.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p scripts/tsconfig.json",
     "lint": "eslint src",
-    "test": "vitest run",
+    "test": "node node_modules/vitest/vitest.mjs run",
     "sync-i18n": "tsx scripts/sync-i18n.ts",
-    "package": "npm run build && vsce package --no-dependencies"
+    "package": "npm run build && node node_modules/@vscode/vsce/vsce package --no-dependencies"
   },
   "dependencies": {
     "fzstd": "^0.1.1",

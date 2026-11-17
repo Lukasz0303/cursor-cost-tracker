@@ -7,7 +7,13 @@ import type {
 } from '../domain'
 
 export type ParseOutcome =
-  | { type: 'request'; candidate: RequestCandidate; context: ParserContext }
+  | {
+      type: 'request'
+      candidate: RequestCandidate
+      context: ParserContext
+      /** Present when the same line also carried a rate-limit snapshot. */
+      rateLimit?: RateLimitMeasurement | null
+    }
   | {
       type: 'snapshot'
       snapshot: UsageSnapshotEvent

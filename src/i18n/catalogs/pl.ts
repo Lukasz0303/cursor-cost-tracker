@@ -148,6 +148,8 @@ export const PL = {
     "modelJoin": " i ",
     "pricedShareLine": "{priced} z {denom} requestów ma stawkę",
     "setRates": "Ustaw stawki",
+    "showPriceList": "Aktualny cennik",
+    "hidePriceList": "Ukryj cennik",
     "includedEstimate": "wliczone w plan, szacunek API",
     "includedPlan": "Wliczone w plan Codex",
     "groupMeta": "{model} · {time} · {n} żądań",

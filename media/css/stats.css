@@ -1603,3 +1603,37 @@
   font-size: 0.78rem;
   line-height: 1.35;
 }
+
+.price-list {
+  margin-top: 0.75rem;
+}
+
+.price-list .table-wrap {
+  margin-top: 0.65rem;
+}
+
+.price-list th button {
+  appearance: none;
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.price-list th button:hover,
+.price-list th button:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--vscode-foreground);
+}

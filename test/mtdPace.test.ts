@@ -26,7 +26,7 @@ function query(partial: Partial<UsageQuery> & { timestamp: number }): UsageQuery
   }
 }
 
-/** Local calendar days the billing-cycle chart includes. End is exclusive. */
+/** Local calendar days the billing-cycle chart includes, through the end date. */
 function localBillingCycleAxis(startIso: string, endIso: string): string[] {
   const startInstant = new Date(startIso)
   const endInstant = new Date(endIso)
@@ -35,19 +35,11 @@ function localBillingCycleAxis(startIso: string, endIso: string): string[] {
     startInstant.getMonth(),
     startInstant.getDate(),
   )
-  const endMidnight = new Date(
+  const last = new Date(
     endInstant.getFullYear(),
     endInstant.getMonth(),
     endInstant.getDate(),
   )
-  const endIsLocalMidnight =
-    endInstant.getHours() === 0 &&
-    endInstant.getMinutes() === 0 &&
-    endInstant.getSeconds() === 0 &&
-    endInstant.getMilliseconds() === 0
-  const last = endIsLocalMidnight
-    ? new Date(endMidnight.getTime() - 24 * 60 * 60 * 1000)
-    : endMidnight
   const labels: string[] = []
   for (
     const date = new Date(start.getTime());
@@ -775,5 +767,186 @@ describe('billing-cycle forecast windows', () => {
     const todayValue = Array.isArray(todayForecast) ? todayForecast[1] : todayForecast
     expect(todayValue).toBeCloseTo(72)
     expect(stats.series[0]?.used[stats.forecast.length - 1]).toBeNull()
+  })
+
+  it('draws every month in a From date that spans more than the current month', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        limitUsd: null,
+        remainingUsd: null,
+        billingCycleStart: '2026-10-18T12:00:00.000Z',
+        billingCycleEnd: '2026-11-18T12:00:00.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 3, limit: 100, percent: 3 },
+          { name: 'Other Models', used: 0, limit: 100, percent: 0 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 5, 10, 0, 0).getTime(),
+          costUsd: 4,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 20, 10, 0, 0).getTime(),
+          costUsd: 6,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 10, 17, 10, 0, 0).getTime(),
+          costUsd: 2,
+          model: 'cursor-default',
+        }),
+      ],
+      {
+        now,
+        budgetDayBasis: 'calendarDays',
+        historyFromDate: '2026-09-01',
+      },
+    )
+    expect(stats.forecast[0]?.date).toBe('1.09')
+    expect(stats.forecast.some((point) => point.date === '1.10')).toBe(true)
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.11')
+    expect(stats.forecast).toHaveLength(91)
+  })
+
+  it('pulls a mid-month From and To out to the whole months', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: '2026-10-30T00:00:00.000Z',
+        billingCycleEnd: '2026-11-30T00:00:00.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 10, limit: 100, percent: 10 },
+        ],
+      }),
+      [],
+      {
+        now,
+        budgetDayBasis: 'calendarDays',
+        historyFromDate: '2026-09-12',
+        historyToDate: '2026-11-15',
+      },
+    )
+    expect(stats.forecast[0]?.date).toBe('1.09')
+    expect(stats.forecast.some((point) => point.date === '30.09')).toBe(true)
+    expect(stats.forecast.some((point) => point.date === '1.10')).toBe(true)
+    expect(stats.forecast.some((point) => point.date === '31.10')).toBe(true)
+    expect(stats.forecast.some((point) => point.date === '1.11')).toBe(true)
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.11')
+  })
+
+  it('keeps a mid-cycle To on the whole billing cycle', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: '2026-10-30T00:00:00.000Z',
+        billingCycleEnd: '2026-11-30T00:00:00.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 10, limit: 100, percent: 10 },
+        ],
+      }),
+      [],
+      {
+        now,
+        forecastWindow: 'billingCycle',
+        budgetDayBasis: 'calendarDays',
+        historyFromDate: '2026-11-05',
+        historyToDate: '2026-11-15',
+      },
+    )
+    expect(stats.forecast[0]?.date).toBe('30.10')
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.11')
+  })
+
+  it('keeps 30 Nov when the billing cycle ends at local midnight', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: new Date(2026, 9, 30, 0, 0, 0).toISOString(),
+        billingCycleEnd: new Date(2026, 10, 30, 0, 0, 0).toISOString(),
+        includedQuotas: [
+          { name: 'Cursor Models', used: 10, limit: 100, percent: 10 },
+        ],
+      }),
+      [],
+      {
+        now,
+        forecastWindow: 'billingCycle',
+        historyFromDate: '2026-09-01',
+      },
+    )
+    expect(stats.forecast[stats.forecast.length - 1]?.date).toBe('30.11')
+  })
+
+  it('restarts the cumulative at each month in the range', () => {
+    const now = new Date(2026, 10, 17, 14, 0, 0)
+    const stats = toMtdPace(
+      ready({
+        plan: 'pro',
+        spendDisplay: 'percent',
+        dailyBudgetUsd: 0,
+        billingCycleStart: '2026-10-30T00:00:00.000Z',
+        billingCycleEnd: '2026-11-30T00:00:00.000Z',
+        includedQuotas: [
+          { name: 'Cursor Models', used: 10, limit: 100, percent: 10 },
+        ],
+      }),
+      [
+        query({
+          timestamp: new Date(2026, 8, 10, 10, 0, 0).getTime(),
+          costUsd: 40,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 9, 10, 10, 0, 0).getTime(),
+          costUsd: 30,
+          model: 'cursor-default',
+        }),
+        query({
+          timestamp: new Date(2026, 10, 10, 10, 0, 0).getTime(),
+          costUsd: 10,
+          model: 'cursor-default',
+        }),
+      ],
+      {
+        now,
+        budgetDayBasis: 'calendarDays',
+        historyFromDate: '2026-09-12',
+        historyToDate: '2026-11-15',
+      },
+    )
+    const at = (label: string) =>
+      stats.forecast.findIndex((point) => point.date === label)
+    const sepEnd = at('30.09')
+    const octStart = at('1.10')
+    const octEnd = at('31.10')
+    const novStart = at('1.11')
+    expect(sepEnd).toBeGreaterThanOrEqual(0)
+    expect(octStart).toBeGreaterThan(sepEnd)
+    expect(octEnd).toBeGreaterThan(octStart)
+    expect(novStart).toBeGreaterThan(octEnd)
+    const used = stats.series[0]?.used ?? []
+    expect(used[sepEnd]).toBeGreaterThan(0)
+    expect(used[octStart] ?? 0).toBeLessThan(used[sepEnd] ?? 0)
+    expect(used[octEnd]).toBeGreaterThan(0)
+    expect(used[novStart] ?? 0).toBeLessThan(used[octEnd] ?? 0)
+    const drops = (stats.series[0]?.forecast ?? [])
+      .map((value, index) => (Array.isArray(value) ? stats.forecast[index]?.date : null))
+      .filter((date): date is string => date !== null)
+    expect(drops).toEqual(['1.10', '1.11'])
   })
 })

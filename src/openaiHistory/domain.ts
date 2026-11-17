@@ -1,4 +1,4 @@
-export const ROLLOUT_PARSER_VERSION = 'rollout-v4'
+export const ROLLOUT_PARSER_VERSION = 'rollout-v5'
 
 export type RequestSource = 'codex-local' | 'openai-api'
 export type AccountConfidence = 'source-reported' | 'user-assigned' | 'unknown'

@@ -18,6 +18,16 @@ export function sessionIndexCandidates(root: {
   return [primary, join(dirname(root.realpath), 'session_index.jsonl')]
 }
 
+function firstString(record: Record<string, unknown>, keys: readonly string[]): string {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim()
+    }
+  }
+  return ''
+}
+
 /** `{ id, thread_name }` lines. Bad JSON is skipped; it is not rollout history. */
 export function parseSessionIndex(text: string): SessionIndexEntry[] {
   const out: SessionIndexEntry[] = []
@@ -36,9 +46,8 @@ export function parseSessionIndex(text: string): SessionIndexEntry[] {
       continue
     }
     const record = parsed as Record<string, unknown>
-    const id = typeof record.id === 'string' ? record.id.trim() : ''
-    const title =
-      typeof record.thread_name === 'string' ? record.thread_name.trim() : ''
+    const id = firstString(record, ['id', 'thread_id', 'threadId'])
+    const title = firstString(record, ['thread_name', 'threadName', 'title', 'name'])
     if (id.length === 0 || title.length === 0) {
       continue
     }

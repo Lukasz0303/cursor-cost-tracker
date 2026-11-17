@@ -189,6 +189,11 @@ function parseTokenUsageRecord(
   return {
     type: 'request',
     context: next,
+    rateLimit: readRateLimit(
+      rateLimitPayload(payload, asObject(record.payload) ?? {}),
+      readString(record.timestamp) ?? '',
+      byteOffset,
+    ),
     candidate: {
       kind: 'request',
       responseId: readString(payload.response_id),
@@ -253,7 +258,7 @@ function parseEventMsg(
   )
 
   const observedAt = readString(record.timestamp) ?? ''
-  const rateLimit = readRateLimit(payload.rate_limits, observedAt, byteOffset)
+  const rateLimit = readRateLimit(rateLimitPayload(payload, info), observedAt, byteOffset)
   const fromPlan = billingModeFromPlanType(rateLimit?.planType ?? null)
   const contextWithPlan =
     fromPlan !== null && nextContext.billingMode === 'unknown'
@@ -333,6 +338,20 @@ function isTerminalErrorType(type: string, record: Record<string, unknown>): boo
   return status !== null && TERMINAL_STATUSES.has(status) && status !== 'completed'
 }
 
+/** Rollout files use snake_case. App-server snapshots use camelCase on the same line. */
+function rateLimitPayload(
+  payload: Record<string, unknown>,
+  info: Record<string, unknown>,
+): unknown {
+  return (
+    payload.rate_limits ??
+    payload.rateLimits ??
+    info.rate_limits ??
+    info.rateLimits ??
+    null
+  )
+}
+
 function readRateLimit(
   value: unknown,
   observedAt: string,
@@ -345,12 +364,14 @@ function readRateLimit(
   const credits = asObject(payload.credits)
   const measurement: RateLimitMeasurement = {
     observedAt,
-    planType: readString(payload.plan_type),
-    limitId: readString(payload.limit_id),
+    planType: readString(payload.plan_type ?? payload.planType),
+    limitId: readString(payload.limit_id ?? payload.limitId),
     primary: readWindow(payload.primary),
     secondary: readWindow(payload.secondary),
     credits: readCredits(credits),
-    rateLimitReachedType: readNullableString(payload.rate_limit_reached_type),
+    rateLimitReachedType: readNullableString(
+      payload.rate_limit_reached_type ?? payload.rateLimitReachedType,
+    ),
     byteOffset,
   }
   const empty =
@@ -368,11 +389,23 @@ function readWindow(value: unknown): RateLimitWindow | null {
   if (payload === null) {
     return null
   }
-  return {
-    usedPercent: readNumber(payload.used_percent),
-    windowMinutes: readInteger(payload.window_minutes),
-    resetsAt: readInteger(payload.resets_at),
+  const window: RateLimitWindow = {
+    usedPercent: readNumber(payload.used_percent ?? payload.usedPercent),
+    windowMinutes: readInteger(
+      payload.window_minutes ?? payload.windowDurationMins ?? payload.window_duration_mins,
+    ),
+    resetsAt: readInteger(
+      payload.resets_at ?? payload.resetsAt ?? payload.reset_at ?? payload.resetAt,
+    ),
   }
+  if (
+    window.usedPercent === null &&
+    window.windowMinutes === null &&
+    window.resetsAt === null
+  ) {
+    return null
+  }
+  return window
 }
 
 function readCredits(payload: Record<string, unknown> | null): RateLimitCredits {
@@ -380,7 +413,7 @@ function readCredits(payload: Record<string, unknown> | null): RateLimitCredits 
     return { hasCredits: null, unlimited: null, balance: null }
   }
   return {
-    hasCredits: readBoolean(payload.has_credits),
+    hasCredits: readBoolean(payload.has_credits ?? payload.hasCredits),
     unlimited: readBoolean(payload.unlimited),
     balance: readBalance(payload.balance),
   }
@@ -404,14 +437,24 @@ function readBoolean(value: unknown): boolean | null {
 }
 
 function readNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return null
 }
 
 function readInteger(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  const parsed = readNumber(value)
+  if (parsed === null) {
     return null
   }
-  return Math.trunc(value)
+  return Math.trunc(parsed)
 }
 
 function readContextWindow(value: unknown): number | null {

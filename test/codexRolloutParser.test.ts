@@ -167,6 +167,58 @@ describe('parseRolloutLine fixtures', () => {
     })
   })
 
+  it('reads the camelCase app-server rate-limit snapshot', () => {
+    const line = JSON.stringify({
+      timestamp: '2026-11-17T09:50:00.000Z',
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: { total_token_usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } },
+        rateLimits: {
+          planType: 'team',
+          limitId: 'codex',
+          primary: { usedPercent: 90, windowDurationMins: 300, resetsAt: 1790000000 },
+          secondary: { usedPercent: 14, windowDurationMins: 10080, resetsAt: 1790500000 },
+          credits: { hasCredits: true, unlimited: false, balance: null },
+        },
+      },
+    })
+    const outcome = parseRolloutLine(line, emptyParserContext(), 4)
+    expect(outcome.type).toBe('snapshot')
+    if (outcome.type !== 'snapshot') {
+      return
+    }
+    expect(outcome.rateLimit).toMatchObject({
+      planType: 'team',
+      limitId: 'codex',
+      primary: { usedPercent: 90, windowMinutes: 300, resetsAt: 1790000000 },
+      secondary: { usedPercent: 14, windowMinutes: 10080, resetsAt: 1790500000 },
+    })
+  })
+
+  it('ignores a rate-limit object whose windows are all empty', () => {
+    const line = JSON.stringify({
+      timestamp: '2026-11-17T09:50:00.000Z',
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        rate_limits: {
+          plan_type: 'team',
+          primary: { usedPercent: null },
+          secondary: {},
+        },
+      },
+    })
+    const outcome = parseRolloutLine(line, emptyParserContext(), 8)
+    expect(outcome.type).toBe('snapshot')
+    if (outcome.type !== 'snapshot') {
+      return
+    }
+    expect(outcome.rateLimit?.primary).toBeNull()
+    expect(outcome.rateLimit?.secondary).toBeNull()
+    expect(outcome.rateLimit?.planType).toBe('team')
+  })
+
   it('copies model_context_window from the session onto the request', () => {
     let context = emptyParserContext()
     const started = parseRolloutLine(

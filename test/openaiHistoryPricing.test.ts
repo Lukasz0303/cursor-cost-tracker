@@ -100,17 +100,25 @@ describe('priceRequest', () => {
     expect(priced.costCoverage).toBe('tokens-only')
   })
 
-  it('unknown model leaves cost null and coverage tokens-only', () => {
+  it('unknown model uses the closest standard-list rate', () => {
     const priced = priceRequest({
-      model: 'not-in-catalog',
+      model: 'gpt-6.2-terra',
       billingMode: 'api',
-      usage: fixtureUsage,
+      usage: {
+        inputTokens: 100_000,
+        cachedInputTokens: 0,
+        cacheWriteInputTokens: null,
+        outputTokens: 0,
+        reasoningOutputTokens: null,
+        totalTokens: 100_000,
+        anomaly: false,
+      },
       reportedCostUsd: null,
-      catalog,
-      observedAt: '2026-10-14T12:00:00.000Z',
+      catalog: [],
+      observedAt: '2026-11-17T12:00:00.000Z',
     })
-    expect(priced.estimatedApiCostUsd).toBeNull()
-    expect(priced.costCoverage).toBe('tokens-only')
+    expect(priced.estimatedApiCostUsd).toBe('0.100000')
+    expect(priced.pricingVersion).toBe('openai-list:gpt-6.1-terra')
   })
 
   it('chatgpt-plan sets API-equivalent, keeps reported null, label starts with API-equiv.', () => {
@@ -157,7 +165,7 @@ describe('priceRequest', () => {
     expect(priced.costCoverage).not.toBe('complete')
   })
 
-  it('empty catalog yields null cost', () => {
+  it('empty catalog still prices from the closest standard-list rate', () => {
     const priced = priceRequest({
       model: 'gpt-fixture',
       billingMode: 'api',
@@ -166,8 +174,8 @@ describe('priceRequest', () => {
       catalog: EMPTY_CATALOG,
       observedAt: '2026-10-14T12:00:00.000Z',
     })
-    expect(priced.estimatedApiCostUsd).toBeNull()
-    expect(priced.pricingVersion).toBeNull()
+    expect(priced.estimatedApiCostUsd).not.toBeNull()
+    expect(priced.pricingVersion?.startsWith('openai-list:')).toBe(true)
   })
 
   it('prices unknown billing as an API estimate', () => {
@@ -304,6 +312,36 @@ describe('priceRequest', () => {
     // (40k × $10 + 160k × $1 + 1k × $50) / 1e6 = 0.61
     expect(priced.estimatedApiCostUsd).toBe('0.610000')
     expect(priced.pricingVersion).toBe('openai-list:gpt-6-astra')
+  })
+
+  it('prices gpt-6.1-terra and codex-auto-review from the standard list', () => {
+    const usage = {
+      inputTokens: 100_000,
+      cachedInputTokens: 0,
+      cacheWriteInputTokens: null,
+      outputTokens: 0,
+      reasoningOutputTokens: null,
+      totalTokens: 100_000,
+      anomaly: false,
+    }
+    const terra = priceRequest({
+      model: 'gpt-6.1-terra',
+      billingMode: 'unknown',
+      usage,
+      reportedCostUsd: null,
+      catalog: [],
+      observedAt: '2026-11-17T12:00:00.000Z',
+    })
+    const review = priceRequest({
+      model: 'codex-auto-review',
+      billingMode: 'unknown',
+      usage,
+      reportedCostUsd: null,
+      catalog: [],
+      observedAt: '2026-11-17T12:00:00.000Z',
+    })
+    expect(terra.estimatedApiCostUsd).toBe('0.100000')
+    expect(review.estimatedApiCostUsd).toBe('0.020000')
   })
 
   it('uses the long-context list rate above 272K input', () => {

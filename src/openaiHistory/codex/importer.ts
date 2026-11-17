@@ -11,6 +11,7 @@ import {
   shortThreadTitle,
   unknownScopeKey,
 } from '../ids'
+import { earlierObservedAt, isUnknownObservedAt, laterObservedAt } from '../observedAt'
 import type {
   Checkpoint,
   ImportBatch,
@@ -270,15 +271,17 @@ function ensureConversation(
     if (parentConversationId !== null && existing.row.parentConversationId === null) {
       existing.row.parentConversationId = parentConversationId
     }
-    if (observedAt && observedAt < existing.row.firstObservedAt) {
-      existing.row.firstObservedAt = observedAt
+    const first = earlierObservedAt(existing.row.firstObservedAt, observedAt || null)
+    const last = laterObservedAt(existing.row.lastObservedAt, observedAt || null)
+    if (first !== null) {
+      existing.row.firstObservedAt = first
     }
-    if (observedAt && observedAt > existing.row.lastObservedAt) {
-      existing.row.lastObservedAt = observedAt
+    if (last !== null) {
+      existing.row.lastObservedAt = last
     }
     return existing
   }
-  const when = observedAt || '1970-01-01T00:00:00.000Z'
+  const when = isUnknownObservedAt(observedAt) ? '' : observedAt
   const state: ConversationState = {
     row: {
       id: conversationRowId(scope.accountScopeKey, conversationId),
@@ -629,6 +632,9 @@ function handleOutcome(
     observedAt: candidate.observedAt || '1970-01-01T00:00:00.000Z',
     attributesSpend,
   })
+  if (outcome.rateLimit) {
+    builder.rateLimits.push(toRateLimitRow(outcome.rateLimit, ctx.fileId, ctx.generation))
+  }
   return outcome.context
 }
 

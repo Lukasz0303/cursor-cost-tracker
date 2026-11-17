@@ -13,9 +13,28 @@ export type CodexWindowChart = {
   forecast: (number | null | [number, number])[]
   ideal: (number | null)[]
   runOutDate: string | null
+  forecastEnd: number
   resetDate: string | null
   resetMidday: boolean
 }
+
+export function codexWindowReadout(pace: {
+  unit?: string
+  used?: number | null
+  asOfMs?: number
+  windowStartMs?: number
+  resetsAtMs?: number
+}): {
+  used: number
+  allowanceNow: number
+  dailyBudget: number
+  elapsedUnits: number
+  totalUnits: number
+  paceRate: number
+  forecastEnd: number
+  over: boolean
+  runOutMs: number | null
+} | null
 
 export function buildCodexWindowChart(input: {
   pace: {
@@ -34,5 +53,5 @@ export function buildCodexWindowChart(input: {
     resetsAt?: number | null
     points?: { timestamp?: number; usedPercent?: number }[]
   }[]
-  dayRange: { from: number; to: number } | null
+  dayRange?: { from: number; to: number } | null
 }): CodexWindowChart | null

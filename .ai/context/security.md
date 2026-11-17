@@ -27,7 +27,7 @@
 ## Network
 
 - Usage and analytics: `cursor.com` only, with the session cookie, 15 s timeout.
-- OpenAI admin-key check: `api.openai.com` organization usage, only after the user connects. No product telemetry. Codex list prices are local.
+- OpenAI admin-key check: `api.openai.com` organization usage, only after the user connects. No product telemetry. Codex list prices are a local table. A named model with no exact row takes the closest row from that table. Nothing is fetched to fill the rate.
 - Model prices: public Cursor docs markdown. No cookie.
 - Support → Write a message: `POST` to FormSubmit with nickname, topic, body, consent, and the account email. The session token is not in that body. The mail app stays closed.
 - No product telemetry.
