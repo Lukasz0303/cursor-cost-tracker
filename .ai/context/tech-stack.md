@@ -1,6 +1,6 @@
 # Tech stack — Cursor Cost Tracker
 
-Updated: 2026-10-25. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`package.json` and `CHANGELOG.md` both open on 1.0.8).
+Updated: 2026-11-17. Mapped to [prd.md](./prd.md). Current tree: **1.8.2** (`package.json` and `CHANGELOG.md` both open on 1.8.2).
 
 ## 1. Product
 
@@ -50,6 +50,9 @@ Updated: 2026-10-25. Mapped to [prd.md](./prd.md). Current tree: **1.0.8** (`pac
 | Period-end charts | monthly forecast through month or billing-cycle end; Codex through its reset | 1.0.8 |
 | Quota card and forecast focus | Statistics quota card; All / Cursor Models / Other drives Current and Today | 1.0.8 |
 | Billed spend donut | Statistics chips over the loaded sample; grade JSON in settings | 1.0.8 |
+| Session decrypt | Mac keychain for `cursor-safe-storage:`; Windows DPAPI key from Cursor `Local State` | 1.8.1–1.8.2 |
+| Codex estimate and price list | closest standard-list rate for a named model; sortable list on Statistics | 1.8.2 |
+| Whole-cycle forecast | From–To snaps out to whole months or the billing cycle; vertical line at the range end | 1.8.2 |
 | Settings | `contributes.configuration` (`cursorCost.*`) | current keys in the PRD §10 |
 | Commands | show history, refresh, open dashboard, open pricing, export CSV | palette |
 | Product site | static `site/` | GitHub Pages, cursorcosttracker.com |
