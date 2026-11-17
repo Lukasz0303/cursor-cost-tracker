@@ -12,6 +12,7 @@ tmp/
 
 # Local Codex diagnosis notes and screenshots
 .ai/fix-codex/
+tmp-scan.js
 
 # Social launch copy (Facebook / LinkedIn) — local only
 docs/
