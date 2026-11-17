@@ -19,14 +19,14 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   clearSvg(svg)
   const width = 800
   const height = 280
-  const left = 52
-  const right = 20
-  const top = 16
+  const left = 36
+  const right = 8
+  const top = 8
   const count = points && points.length ? points.length : 0
   const axisGap =
     count <= 1 ? width - left - right : (width - left - right) / (count - 1)
   const stagger = count > 3 && axisGap < 46
-  const bottom = stagger ? 48 : 36
+  const bottom = stagger ? 36 : 26
   const plotW = width - left - right
   const plotH = height - top - bottom
   svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
@@ -135,7 +135,7 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
     )
     const leftLabel = svgNode('text', {
       class: 'chart-label',
-      x: String(left - 6),
+      x: String(left - 4),
       y: String(y + 3),
       'text-anchor': 'end',
     })
@@ -177,41 +177,96 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
     }
   }
 
-  if (windowKind === 'calendarMonth' && resetDate) {
-    let resetIdx = -1
-    for (let i = 0; i < points.length; i++) {
-      if (points[i] && points[i].date === resetDate) {
-        resetIdx = i
+  function forecastHigh(raw) {
+    if (Array.isArray(raw)) {
+      const n = Number(raw[0])
+      return Number.isFinite(n) ? n : null
+    }
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : null
+  }
+  function forecastLow(raw) {
+    if (raw === null || raw === undefined) {
+      return null
+    }
+    if (Array.isArray(raw)) {
+      const n = Number(raw[raw.length - 1])
+      return Number.isFinite(n) ? n : null
+    }
+    return forecastHigh(raw)
+  }
+  // A forecast that falls off to ~0 on the last day is the range boundary.
+  // Draw it as a vertical mark, the same way the Codex window ends.
+  function crashesAtEnd(values) {
+    if (!values || values.length < 2) {
+      return false
+    }
+    const low = forecastLow(values[values.length - 1])
+    let prev = null
+    for (let i = values.length - 2; i >= 0; i--) {
+      const n = forecastHigh(values[i])
+      if (n !== null) {
+        prev = n
         break
       }
     }
-    if (resetIdx >= 0) {
-      const resetX = pointX(resetIdx, points.length, left, plotW)
-      svg.appendChild(
+    return prev !== null && prev > 0.5 && low !== null && low < prev * 0.25
+  }
+  function drawResetMark(idx) {
+    if (idx < 0 || idx >= points.length) {
+      return
+    }
+    const resetX = pointX(idx, points.length, left, plotW)
+    svg.appendChild(
+      svgNode('line', {
+        class: 'chart-reset',
+        x1: String(resetX),
+        y1: String(top),
+        x2: String(resetX),
+        y2: String(top + plotH),
+      }),
+    )
+    if (!resetMidday) {
+      return
+    }
+    const hashWidth = Math.max(4, Math.min(18, groupW))
+    const hashGroup = svgNode('g', { class: 'chart-reset-hash' })
+    for (let x = resetX - hashWidth / 2; x < resetX + hashWidth / 2; x += 4) {
+      hashGroup.appendChild(
         svgNode('line', {
-          class: 'chart-reset',
-          x1: String(resetX),
-          y1: String(top),
-          x2: String(resetX),
-          y2: String(top + plotH),
+          x1: String(x),
+          y1: String(top + plotH),
+          x2: String(x + 7),
+          y2: String(top + plotH - 7),
         }),
       )
-      if (resetMidday) {
-        const hashWidth = Math.max(4, Math.min(18, groupW))
-        const hashGroup = svgNode('g', { class: 'chart-reset-hash' })
-        for (let x = resetX - hashWidth / 2; x < resetX + hashWidth / 2; x += 4) {
-          hashGroup.appendChild(
-            svgNode('line', {
-              x1: String(x),
-              y1: String(top + plotH),
-              x2: String(x + 7),
-              y2: String(top + plotH - 7),
-            }),
-          )
-        }
-        svg.appendChild(hashGroup)
+    }
+    svg.appendChild(hashGroup)
+  }
+  const drawnReset = Object.create(null)
+  function markReset(idx) {
+    if (idx < 0 || drawnReset[idx]) {
+      return
+    }
+    drawnReset[idx] = true
+    drawResetMark(idx)
+  }
+  if (windowKind === 'calendarMonth' && resetDate) {
+    for (let i = 0; i < points.length; i++) {
+      if (points[i] && points[i].date === resetDate) {
+        markReset(i)
+        break
       }
     }
+  }
+  const drawnForecast = []
+  for (let i = 0; i < lines.length; i++) {
+    const values = (lines[i].forecast || []).slice()
+    if (crashesAtEnd(values) && values.length === points.length) {
+      markReset(points.length - 1)
+      values[values.length - 1] = null
+    }
+    drawnForecast.push(values)
   }
 
   if (daily) {
@@ -231,7 +286,7 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
     for (let i = 0; i < lines.length; i++) {
       appendLine(
         svg,
-        lines[i].forecast,
+        drawnForecast[i],
         maxCum,
         left,
         plotW,
@@ -321,7 +376,7 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
         svg.appendChild(label)
       }
     } else if (!daily) {
-      const raw = line.forecast[lastIdx]
+      const raw = drawnForecast[i][lastIdx]
       // Handle reset array [high, low] - use the low value
       const end = Array.isArray(raw) ? raw[1] : raw
       if (end !== null && end !== undefined && end <= maxCum) {

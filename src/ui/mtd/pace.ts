@@ -711,6 +711,8 @@ export function toMtdPace(
       range,
       historyFromDate,
       historyToDate,
+      null,
+      forecastWindow,
     )
     const chartSeries =
       chartFrames === frames
@@ -736,6 +738,7 @@ export function toMtdPace(
                 historyFromDate,
                 historyToDate,
                 includedPoolForQuotaName(quotas[index]?.name ?? line.label),
+                forecastWindow,
               ),
               elapsed,
               MTD_PERCENT_MAX,
@@ -878,6 +881,8 @@ export function toMtdPace(
     range,
     historyFromDate,
     historyToDate,
+    null,
+    forecastWindow,
   )
   const chartSeries =
     chartFrames === frames

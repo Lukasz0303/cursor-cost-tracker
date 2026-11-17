@@ -1064,40 +1064,78 @@ tr.conversation-row.is-target {
 }
 
 /* cct-order: 823 */
-.codex-rate-row {
+.codex-rates {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.75rem;
-  align-items: end;
-  margin: 0.55rem 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.codex-rate-head,
+.codex-rate-row {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 0.85fr) repeat(5, minmax(4.2rem, 1fr));
+  gap: 0.35rem 0.45rem;
+  align-items: center;
+}
+
+.codex-rate-head {
+  padding: 0 0.6rem;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.75rem;
+}
+
+.codex-rate-row {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--ctl-border, var(--vscode-widget-border, transparent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vscode-foreground) 3.5%, transparent);
 }
 
 /* cct-order: 824 */
 .codex-rate-model {
-  flex: 1 0 100%;
   margin: 0;
+  overflow: hidden;
   font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* cct-order: 825 */
 .codex-rate-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 6.5rem;
+  display: block;
+  min-width: 0;
   color: var(--vscode-descriptionForeground);
   font-size: 0.85em;
 }
 
+.codex-rate-field span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 /* cct-order: 826 */
 .codex-rate-field input {
-  min-height: var(--ctl-height);
-  padding: 0.15rem 0.45rem;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.65rem;
+  padding: 0.1rem 0.4rem;
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
   background: var(--vscode-input-background, var(--ctl-grad-bot));
   color: var(--vscode-input-foreground, var(--vscode-foreground));
   font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.codex-rates > .action-btn {
+  align-self: flex-start;
+  margin-top: 0.2rem;
 }
 
 /* cct-order: 827 */

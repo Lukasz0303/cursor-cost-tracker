@@ -1,5 +1,5 @@
 /** Statistics tab body. Edit here; media/history.js is generated. */
-import { buildCodexWindowChart } from '../charts/codexForecast.js'
+import { buildCodexWindowChart, codexWindowReadout } from '../charts/codexForecast.js'
 import { renderSpendMix } from '../charts/spendMix.js'
 
 export function createStatsView(session) {
@@ -818,14 +818,6 @@ export function createStatsView(session) {
     return n.toFixed(Math.abs(n) >= 0.1 ? 1 : 2)
   }
 
-  function paceReady(pace) {
-    return (
-      pace.dailyPace !== null &&
-      pace.dailyPace !== undefined &&
-      Number.isFinite(Number(pace.dailyPace))
-    )
-  }
-
   function mirrorMoney(value) {
     if (value === null || value === undefined || !Number.isFinite(Number(value))) {
       return '—'
@@ -880,62 +872,185 @@ export function createStatsView(session) {
     return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime()
   }
 
-  /** Recent-queries From–To. Empty To means through today. */
+  /** Settings From is the chart start. The end is always the period reset. */
   function codexSettingsDayRange() {
     const from = isoMidnight(session.historyFromDate)
     if (from === null) {
       return null
     }
-    const to = isoMidnight(session.historyToDate)
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    const end = to === null ? today : to
-    if (end < from) {
-      return null
+    return { from: from, to: null }
+  }
+
+  function isoDayFromMs(ms) {
+    const date = new Date(ms)
+    if (!Number.isFinite(date.getTime())) {
+      return ''
     }
-    return { from: from, to: end }
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return date.getFullYear() + '-' + month + '-' + day
+  }
+
+  function lastChartNumber(list) {
+    const source = Array.isArray(list) ? list : []
+    for (let i = source.length - 1; i >= 0; i--) {
+      const value = Number(source[i])
+      if (Number.isFinite(value)) {
+        return value
+      }
+    }
+    return null
+  }
+
+  function codexCycleRangeLabel(pace) {
+    const from = isoDayFromMs(pace && pace.windowStartMs)
+    const end =
+      (pace && pace.resetsLabel) || isoDayFromMs(pace && pace.resetsAtMs)
+    if (from && end) {
+      return from + ' → ' + end
+    }
+    return end || from || '—'
   }
 
   function codexForecastPayload(pace) {
-    const hourly = pace.unit === 'hour'
+    const readout = codexWindowReadout(pace)
     const built = buildCodexWindowChart({
       pace: pace,
       series: session.codexLimitSeries || [],
-      dayRange: hourly ? null : codexSettingsDayRange(),
+      dayRange: codexSettingsDayRange(),
     })
-    if (!built) {
+    if (!built || !readout) {
       return null
     }
-    const hasPace =
-      pace.dailyPace !== null &&
-      pace.dailyPace !== undefined &&
-      Number.isFinite(Number(pace.dailyPace))
-    const usedNow = Math.max(0, Number(pace.used) || 0)
+    const forecastEnd = Number(built.forecastEnd)
+    const usedNow = readout.used
+    const planNow = readout.allowanceNow
+    const elapsed = Math.max(1, Number(readout.elapsedUnits) || 1)
+    const totalUnits = Math.max(elapsed, Number(readout.totalUnits) || elapsed)
+    const remaining = Math.max(0, totalUnits - elapsed)
+    const leftover = Math.max(0, 100 - usedNow)
+    const toLast = remaining > 0 ? leftover / remaining : leftover
+    const dailyPace = usedNow / elapsed
+    const overNow = usedNow > planNow + 0.05
+    const onPlan = Math.abs(usedNow - planNow) <= 0.05
     const axis = built.points
     const runOutDate = built.runOutDate
     const label = windowTitle(pace.kind)
-    const metrics = []
-    if (runOutDate) {
-      metrics.push({
-        id: 'end',
-        label: session.t('mtd.runsOutLabel'),
-        value: runOutDate,
-      })
-    }
+    const runOutText =
+      usedNow >= 100 - 0.05
+        ? session.t('mtd.alreadyAtLimit')
+        : runOutDate
+          ? session.t('mtd.runsOut', { date: runOutDate })
+          : session.t('codex.lastsUntilReset')
+    const todayStamp = (function () {
+      const date = new Date(Number(pace.asOfMs))
+      if (!Number.isFinite(date.getTime())) {
+        return ''
+      }
+      return (
+        String(date.getDate()).padStart(2, '0') +
+        '.' +
+        String(date.getMonth() + 1).padStart(2, '0')
+      )
+    })()
+    const todayIndex = axis.findIndex(function (point) {
+      return point && point.date === todayStamp
+    })
+    const todayRaw = todayIndex >= 0 ? Number(built.day[todayIndex]) : Number.NaN
+    const todayUsed = Number.isFinite(todayRaw) ? todayRaw : 0
+    const forecastValue = pctPoint(forecastEnd)
+    const hourWindow = pace.unit === 'hour'
+    const daysLeftHint = session.t(
+      hourWindow ? 'codex.paceWindowLeftHours' : 'codex.paceWindowLeft',
+      { n: String(remaining) },
+    )
     return {
       title: label,
       value: '',
-      body: '',
+      body: session.t('mtd.percentOk', { bits: label + ': ' + runOutText }),
       bars: [
         {
-          label: session.t('codex.measuredOn', { when: pace.asOfLabel || '' }),
-          value: pctPoint(usedNow),
+          label: label,
+          value: session.t('mtd.usedAmount', {
+            runOut: runOutText,
+            used: pctPoint(usedNow),
+            today: session.t('mtd.todayChunk', {
+              today: pctPoint(todayUsed === null ? usedNow : todayUsed),
+              budget: pctPoint(readout.dailyBudget),
+            }),
+          }),
           percent: Math.max(0, Math.min(100, usedNow)),
         },
       ],
-      metrics: metrics,
-      overPace: hasPace && pace.over === true,
-      verdict: hasPace && pace.over ? 'tight' : 'ok',
+      metrics: [
+        {
+          id: 'mtdForecast',
+          label: session.t('mtd.forecastSuffix', { label: label }),
+          value: forecastValue,
+          hint: session.t('mtd.ifDailyPace'),
+        },
+        {
+          id: 'mtdPace',
+          label: session.t('mtd.pace'),
+          value: overNow
+            ? session.t('mtd.over')
+            : onPlan
+              ? session.t('mtd.onPace')
+              : session.t('mtd.under'),
+          hint: overNow
+            ? session.t('mtd.overMtd', { amount: pctPoint(usedNow - planNow) })
+            : onPlan
+              ? session.t('mtd.onPaceMtd')
+              : session.t('mtd.underMtd', { amount: pctPoint(planNow - usedNow) }),
+          tone: overNow ? 'over' : 'ok',
+        },
+        {
+          id: 'mtdRunOut',
+          label: session.t('mtd.runsOutLabel'),
+          value: runOutText,
+          hint: session.t('mtd.ifDailyPace'),
+          tone: usedNow >= 100 - 0.05 || runOutDate ? 'over' : 'ok',
+        },
+        {
+          id: 'mtdAvg',
+          label: session.t('mtd.dailyPace'),
+          value: pctPoint(dailyPace),
+          hint: daysLeftHint,
+        },
+        {
+          id: 'mtdDaily',
+          label: session.t('mtd.dailyBudget'),
+          value: pctPoint(readout.dailyBudget),
+          hint: session.t(
+            hourWindow ? 'codex.dailyBudgetSplitHours' : 'codex.dailyBudgetSplit',
+            { n: String(totalUnits) },
+          ),
+        },
+        {
+          id: 'mtdToLast',
+          label: session.t('mtd.toLast'),
+          value: pctPoint(toLast),
+          hint: session.t(hourWindow ? 'codex.toLastHintHour' : 'codex.toLastHint'),
+        },
+        {
+          id: 'mtdDays',
+          label: session.t(hourWindow ? 'codex.spanHours' : 'mtd.daysSoFar'),
+          value: String(elapsed),
+        },
+        {
+          id: 'mtdDaysLeft',
+          label: session.t('stats.calendarDaysLeft'),
+          value: String(remaining),
+        },
+        {
+          id: 'mtdLeft',
+          label: session.t('mtd.quotaLeft'),
+          value: pctPoint(leftover),
+          hint: session.t('mtd.quotaLeftHint', { label: label }),
+        },
+      ],
+      overPace: overNow,
+      verdict: overNow ? 'over' : 'ok',
       unit: 'percent',
       max: 100,
       chart: axis,
@@ -1050,105 +1165,17 @@ export function createStatsView(session) {
     statsEl.appendChild(glossary)
 
     if (mirror.pace) {
-      const pace = mirror.pace
-      const span = Number(pace.elapsed) + Number(pace.left)
-      const byHour = pace.unit === 'hour'
-      const ready = paceReady(pace)
-      const paceSection = section(windowTitle(pace.kind))
-      const paceCards = []
-      if (ready) {
-        paceCards.push(
-          metricCard({
-            id: 'mtdAvg',
-            label: session.t('mtd.dailyPace'),
-            value: pctPoint(pace.dailyPace),
-            hint: session.t(byHour ? 'codex.paceWindowLeftHours' : 'codex.paceWindowLeft', {
-              n: spanCount(pace.left),
-            }),
-          }),
-        )
-      }
-      paceCards.push(
-        metricCard({
-          id: 'mtdDaily',
-          label: session.t('stats.dailyBudget'),
-          value: pctPoint(pace.dailyBudget),
-          hint: session.t(byHour ? 'codex.dailyBudgetSplitHours' : 'codex.dailyBudgetSplit', {
-            n: spanCount(span),
-          }),
-        }),
-        metricCard({
-          id: 'mtdToLast',
-          label: session.t('mtd.toLast'),
-          value: pctPoint(pace.toLast),
-          hint: session.t(byHour ? 'codex.toLastHintHour' : 'codex.toLastHint'),
-        }),
-        metricCard({
-          id: 'mtdDays',
-          label: session.t('codex.elapsedInWindow'),
-          value: spanCount(pace.elapsed),
-          hint: session.t(byHour ? 'codex.spanHours' : 'codex.spanDays'),
-        }),
-        metricCard({
-          id: 'mtdDaysLeft',
-          label: session.t('codex.leftInWindow'),
-          value: spanCount(pace.left),
-          hint: session.t(byHour ? 'codex.spanHours' : 'codex.spanDays'),
-        }),
-        metricCard({
-          id: 'mtdLeft',
-          label: session.t('mtd.quotaLeft'),
-          value: pctPoint(pace.remaining),
-          hint: windowTitle(pace.kind),
-        }),
-      )
-      paceSection.appendChild(metricGrid(paceCards, 'stats-grid-primary'))
-      const forecast = codexForecastPayload(pace)
+      const forecast = codexForecastPayload(mirror.pace)
       if (forecast) {
         applyMtdPayload(forecast)
-        paceSection.appendChild(mtdForecastCard(forecast))
+        statsEl.appendChild(mtdForecastSection(forecast))
         if (typeof session.redrawMtdForecastChart === 'function') {
           session.redrawMtdForecastChart()
         }
       }
-      const forecastCards = []
-      if (ready) {
-        const exceeds = Number(pace.forecast) >= 100
-        forecastCards.push(
-          metricCard({
-            id: 'mtdForecast',
-            label: windowTitle(pace.kind),
-            value: exceeds
-              ? session.t('codex.forecastExceeds')
-              : pctPoint(pace.forecast),
-            hint: exceeds
-              ? pace.runsOutLabel || session.t('codex.forecastExceeds')
-              : session.t('codex.forecastHeadroom'),
-          }),
-          metricCard(
-            {
-              id: 'mtdPace',
-              label: session.t('mtd.pace'),
-              value: pace.over ? session.t('mtd.over') : session.t('mtd.under'),
-              hint: windowTitle(pace.kind),
-            },
-            { highlight: pace.over },
-          ),
-          metricCard({
-            id: 'mtdRunOut',
-            label: session.t('mtd.runsOutLabel'),
-            value: pace.runsOutLabel || session.t('codex.lastsUntilReset'),
-            hint: session.t('mtd.ifDailyPace'),
-          }),
-        )
-      }
-      if (forecastCards.length > 0) {
-        paceSection.appendChild(metricGrid(forecastCards, 'stats-grid-detail'))
-      }
-      statsEl.appendChild(paceSection)
     }
 
-    const cycle = section(session.t('codex.limitWindow'))
+    const cycle = section(session.t('stats.billingCycle'))
     cycle.appendChild(
       cycleStrip([
         {
@@ -1159,11 +1186,8 @@ export function createStatsView(session) {
         },
         {
           id: 'cycle',
-          label: session.t('codex.limitReset'),
-          value:
-            (mirror.pace && mirror.pace.resetsLabel) ||
-            (fresh[0] && fresh[0].resetsLabel) ||
-            '—',
+          label: session.t('stats.billingCycleLabel'),
+          value: codexCycleRangeLabel(mirror.pace),
           meterLabel: session.t('codex.elapsedInWindow'),
           percent:
             mirror.pace && Number.isFinite(Number(mirror.pace.windowElapsedPercent))

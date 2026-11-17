@@ -22,8 +22,19 @@ export function toMtdSeries(
   for (const frame of frames) {
     spent += frame.usd
   }
-  const resetIndex = frames.findIndex((frame) => frame.reset)
+  const firstReset = frames.findIndex((frame) => frame.reset)
   const today = todayIndex(frames)
+  const segmentStartAt = (index: number): number => {
+    let start = 0
+    for (let i = 1; i <= index; i++) {
+      if (frames[i]?.reset) {
+        start = i
+      }
+    }
+    return start
+  }
+  const resetIndex =
+    firstReset >= 0 && today >= firstReset ? segmentStartAt(today) : firstReset
   const activeBranchStartsAtReset = resetIndex >= 0 && today >= resetIndex
   const activeStart = activeBranchStartsAtReset ? resetIndex : 0
   const activeEnd =
@@ -73,15 +84,6 @@ export function toMtdSeries(
   const resetPaceCount =
     resetIndex >= 0 ? (frames[resetIndex]?.paceCount ?? 0) : 0
   const segmentScale = new Map<number, number | null>()
-  const segmentStartAt = (index: number): number => {
-    let start = 0
-    for (let i = 1; i <= index; i++) {
-      if (frames[i]?.reset) {
-        start = i
-      }
-    }
-    return start
-  }
   const scaleAt = (index: number): number | null => {
     const start = segmentStartAt(index)
     const cached = segmentScale.get(start)

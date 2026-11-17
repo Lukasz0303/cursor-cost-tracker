@@ -149,13 +149,9 @@ export function toForecastFrames(
       range.end.getMonth(),
       range.end.getDate(),
     )
-    const lastDay =
-      range.end.getHours() !== 0 ||
-      range.end.getMinutes() !== 0 ||
-      range.end.getSeconds() !== 0 ||
-      range.end.getMilliseconds() !== 0
-        ? end
-        : new Date(end.getTime() - 24 * 60 * 60 * 1000)
+    // The labeled cycle end (2026-11-30) is the last day on the axis. A
+    // midnight timestamp is that calendar day, not the day before it.
+    const lastDay = end
     let paceCount = 0
     for (
       const date = start;
@@ -293,6 +289,17 @@ export function chartFromFrames(
 }
 
 export function resetDateForFrames(frames: DayFrame[]): string | null {
+  const today = todayIndex(frames)
+  let active: string | null = null
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index]
+    if (frame?.reset && (today < 0 || index <= today)) {
+      active = frame.date
+    }
+  }
+  if (active !== null) {
+    return active
+  }
   return frames.find((frame) => frame.reset)?.date ?? null
 }
 
@@ -330,13 +337,45 @@ function labeledDayMs(label: string, now: Date): number | null {
   return new Date(year, month, day).getTime()
 }
 
+function startOfMonthMs(ms: number): number {
+  const date = new Date(ms)
+  return new Date(date.getFullYear(), date.getMonth(), 1).getTime()
+}
+
+function endOfLocalDayMs(ms: number): number {
+  const date = new Date(ms)
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999,
+  ).getTime()
+}
+
+function endOfMonthMs(ms: number): number {
+  const date = new Date(ms)
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+}
+
+function cycleDayMs(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
+function localDayNumber(date: Date): number {
+  return Math.round(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000,
+  )
+}
+
 /**
- * Chart axis for a set From date. The line starts on that local day and always
- * runs through the end of the current period: the last frame, which is the
- * last day of the calendar month or the last day of the billing cycle. A To
- * date can extend the axis further. It does not cut the period short. Days
- * before the current cycle keep that earlier cycle's spend and the current
- * cycle starts again at zero.
+ * Chart axis for a set From date. A From or To that lands inside a month is
+ * pulled out to that whole month, and the current period is never cut short.
+ * 12 Sep–15 Nov therefore draws 1 Sep through 30 Nov. Each whole cycle on
+ * that axis starts again at zero: a calendar month on the 1st, a billing
+ * cycle on its own start.
  */
 export function framesForHistoryRange(
   frames: DayFrame[],
@@ -347,6 +386,7 @@ export function framesForHistoryRange(
   fromIso: string | null | undefined,
   toIso: string | null | undefined,
   pool?: IncludedModelPool | null,
+  window: ForecastWindow = 'calendarMonth',
 ): DayFrame[] {
   if (!fromIso) {
     return frames
@@ -357,15 +397,45 @@ export function framesForHistoryRange(
   }
   const end = new Date(bounds.endMs)
   const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime()
-  const drawEnd = Math.max(endDay, periodEndMs(frames, now) ?? endDay)
-  const cycleStart =
-    range === null
-      ? null
-      : new Date(
-          range.start.getFullYear(),
-          range.start.getMonth(),
-          range.start.getDate(),
-        ).getTime()
+  const periodEnd = periodEndMs(frames, now)
+  const cycleStart = range === null ? null : cycleDayMs(range.start)
+  const cycleEnd = range === null ? null : cycleDayMs(range.end)
+  const horizonMs = Math.max(periodEnd ?? 0, cycleEnd ?? 0)
+  const horizon = horizonMs > 0 ? endOfLocalDayMs(horizonMs) : null
+  const monthEnd = endOfMonthMs(endDay)
+  // A To date inside the current period stays inside that period when the
+  // period ends before the calendar month (a billing cycle ending on the 30th).
+  const cappedMonthEnd =
+    horizon !== null && endDay <= horizon && monthEnd > horizon ? horizon : monthEnd
+  const drawEnd = Math.max(cappedMonthEnd, horizon ?? cappedMonthEnd)
+  const monthStart = startOfMonthMs(bounds.startMs)
+  const axisStart =
+    window === 'billingCycle' &&
+    cycleStart !== null &&
+    monthStart > cycleStart &&
+    bounds.startMs >= cycleStart
+      ? cycleStart
+      : monthStart
+  const axisStartDay = cycleDayMs(new Date(axisStart))
+  const cycleLengthDays =
+    range === null ? 0 : localDayNumber(range.end) - localDayNumber(range.start)
+  const opensNewCycle = (date: Date): boolean => {
+    if (cycleDayMs(date) === axisStartDay) {
+      return false
+    }
+    const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+    if (next.getTime() > drawEnd) {
+      return false
+    }
+    if (window === 'billingCycle' && range !== null) {
+      if (cycleLengthDays <= 0) {
+        return false
+      }
+      const delta = localDayNumber(date) - localDayNumber(range.start)
+      return delta % cycleLengthDays === 0
+    }
+    return date.getDate() === 1
+  }
   const buckets = new Map<string, DayFrame[]>()
   for (const frame of frames) {
     const list = buckets.get(frame.date) ?? []
@@ -374,9 +444,8 @@ export function framesForHistoryRange(
   }
   const axis: DayFrame[] = []
   let priorPace = 0
-  let priorDays = 0
   for (
-    const date = new Date(bounds.startMs);
+    const date = new Date(axisStart);
     date.getTime() <= drawEnd;
     date.setDate(date.getDate() + 1)
   ) {
@@ -389,21 +458,22 @@ export function framesForHistoryRange(
       !beforeCycle && bucket !== undefined && bucket.length > 0
         ? bucket.shift()
         : undefined
+    const opensCycle = opensNewCycle(date)
     if (existing !== undefined) {
       axis.push({
         ...existing,
-        reset:
-          cycleStart !== null && priorDays > 0 && axis.length === priorDays
-            ? true
-            : existing.reset,
+        reset: opensCycle ? true : existing.reset,
       })
       continue
+    }
+    if (opensCycle) {
+      priorPace = 0
     }
     if (paceDay) {
       priorPace += 1
     }
-    priorDays += 1
     const key = forecastLocalDayKey(date)
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
     let usd = 0
     for (const query of queries) {
       if (queryDayKey(query.timestamp) !== key) {
@@ -426,9 +496,9 @@ export function framesForHistoryRange(
       weekday,
       workingDayIndex: paceDay ? priorPace : null,
       workingCount: priorPace,
-      future: false,
+      future: date.getTime() > todayStart,
       usd,
-      reset: false,
+      reset: opensCycle,
       paceCount: priorPace,
     })
   }
@@ -440,8 +510,12 @@ export function activeFrameUsed(frames: DayFrame[]): number {
   if (today < 0) {
     return 0
   }
-  const reset = frames.findIndex((frame) => frame.reset)
-  const start = reset >= 0 && today >= reset ? reset : 0
+  let start = 0
+  for (let index = 0; index <= today; index += 1) {
+    if (frames[index]?.reset) {
+      start = index
+    }
+  }
   return frames
     .slice(start, today + 1)
     .reduce((sum, frame) => sum + frame.usd, 0)

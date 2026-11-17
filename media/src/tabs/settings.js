@@ -445,6 +445,22 @@ export function createSettingsView(session) {
     if (models.length === 0) {
       return
     }
+    const fields = [
+      ['inputRate', 'settings.codexRateInput'],
+      ['cachedInputRate', 'settings.codexRateCached'],
+      ['outputRate', 'settings.codexRateOutput'],
+      ['reasoningRate', 'settings.codexRateReasoning'],
+      ['cacheWriteRate', 'settings.codexRateCacheWrite'],
+    ]
+    const head = document.createElement('div')
+    head.className = 'codex-rate-head'
+    head.appendChild(document.createElement('span'))
+    for (let f = 0; f < fields.length; f++) {
+      const span = document.createElement('span')
+      session.setText(span, session.t(fields[f][1]))
+      head.appendChild(span)
+    }
+    root.appendChild(head)
     const saved = Object.create(null)
     for (let i = 0; i < savedRates.length; i++) {
       if (savedRates[i] && savedRates[i].model) {
@@ -457,13 +473,6 @@ export function createSettingsView(session) {
         listed[listRates[i].model] = listRates[i]
       }
     }
-    const fields = [
-      ['inputRate', 'settings.codexRateInput'],
-      ['cachedInputRate', 'settings.codexRateCached'],
-      ['outputRate', 'settings.codexRateOutput'],
-      ['reasoningRate', 'settings.codexRateReasoning'],
-      ['cacheWriteRate', 'settings.codexRateCacheWrite'],
-    ]
     for (let i = 0; i < models.length; i++) {
       const model = models[i]
       const rate = saved[model] || {}
@@ -484,8 +493,9 @@ export function createSettingsView(session) {
         input.type = 'text'
         input.setAttribute('inputmode', 'decimal')
         input.dataset.rate = fields[f][0]
-        input.value = rate[fields[f][0]] || ''
-        input.placeholder = fallback[fields[f][0]] || ''
+        const listedValue = fallback[fields[f][0]] || ''
+        input.value = rate[fields[f][0]] || listedValue
+        input.placeholder = listedValue || '—'
         input.spellcheck = false
         label.appendChild(span)
         label.appendChild(input)

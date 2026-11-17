@@ -1,11 +1,10 @@
 /**
- * Codex limit chart, drawn like a billing-cycle forecast. Each window opens
- * at 0% and the solid line follows the samples (linear between them, then
- * held). The dashed line is the straight pace of that window: closed windows
- * run from 0 to their last reading, and the current window runs through the
- * latest reading and on to the reset. A missing host pace is the reading
- * divided by the age of the window, so the dashed line is still drawn. The
- * next window drops and starts again. Days outside every window stay empty.
+ * Codex limit chart for one window, drawn like the Cursor month forecast.
+ * The axis is that window. The solid line follows samples from 0 at the
+ * open. Older cycles of the same limit are drawn from their own samples and
+ * the line breaks between resets. The dashed forecast is only the current
+ * cycle's pace (used so far ÷ days open × days in the window). The pace
+ * needed to finish the leftover quota stays on the To last card.
  */
 
 function slotIndex(ts, originMs, hourly) {
@@ -67,10 +66,53 @@ function finiteNumber(value) {
 }
 
 /**
+ * Whole days (or hours) already open in the window. The current unit counts
+ * as one, so a reading a few hours after the open is not divided into a
+ * fraction of a day.
+ * @param {object} pace
+ */
+export function codexWindowReadout(pace) {
+  const startMs = finiteNumber(pace && pace.windowStartMs)
+  const endMs = finiteNumber(pace && pace.resetsAtMs)
+  const asOfMs = finiteNumber(pace && pace.asOfMs)
+  const used = Math.max(0, finiteNumber(pace && pace.used) || 0)
+  if (startMs === null || endMs === null || asOfMs === null || !(endMs > startMs)) {
+    return null
+  }
+  const unitMs = pace.unit === 'hour' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  const elapsedUnits = Math.max(1, Math.floor(Math.max(0, asOfMs - startMs) / unitMs) + 1)
+  const totalUnits = Math.max(elapsedUnits, Math.ceil((endMs - startMs) / unitMs - 1e-6))
+  const paceRate = used / elapsedUnits
+  const forecastEnd = paceRate * totalUnits
+  const allowanceNow = (elapsedUnits / totalUnits) * 100
+  const dailyBudget = 100 / totalUnits
+  let runOutMs = null
+  if (used >= 100 - 0.005) {
+    runOutMs = asOfMs
+  } else if (paceRate > 0 && forecastEnd >= 100 - 0.005) {
+    const hit = asOfMs + ((100 - used) / paceRate) * unitMs
+    if (hit < endMs - unitMs) {
+      runOutMs = hit
+    }
+  }
+  return {
+    used: used,
+    allowanceNow: allowanceNow,
+    dailyBudget: dailyBudget,
+    elapsedUnits: elapsedUnits,
+    totalUnits: totalUnits,
+    paceRate: paceRate,
+    forecastEnd: forecastEnd,
+    over: used > allowanceNow + 0.05,
+    runOutMs: runOutMs,
+  }
+}
+
+/**
  * @param {object} input
  * @param {object} input.pace
- * @param {object[]} input.series limit series already split by resetsAt
- * @param {{ from: number, to: number } | null} input.dayRange local midnights, inclusive
+ * @param {object[]} input.series limit samples for this reset
+ * @param {{ from: number, to: number } | null} [input.dayRange] settings From–To
  */
 export function buildCodexWindowChart(input) {
   const pace = input.pace
@@ -88,151 +130,75 @@ export function buildCodexWindowChart(input) {
     return null
   }
   const hourly = pace.unit === 'hour'
-  const windowOrigin = hourly ? hourFloor(startMs) : midnightOf(startMs)
-  const windowTotal = slotIndex(endMs, windowOrigin, hourly) + 1
-  if (!(windowTotal > 0) || windowTotal > 400) {
+  const bounds = chartBounds(startMs, endMs, hourly, input.dayRange)
+  if (bounds === null) {
     return null
   }
-  let origin = windowOrigin
-  let total = windowTotal
-  if (!hourly && input.dayRange && Number.isFinite(input.dayRange.from)) {
-    const rangeTo = Number.isFinite(input.dayRange.to) ? input.dayRange.to : endMs
-    const horizon = Math.max(rangeTo, midnightOf(endMs))
-    origin = input.dayRange.from
-    total = slotIndex(horizon, origin, false) + 1
-    if (total > 400) {
-      const endDay = new Date(horizon)
-      origin = new Date(endDay.getFullYear(), endDay.getMonth(), endDay.getDate() - 399).getTime()
-      total = 400
-    }
-  }
-  if (!(total > 0)) {
-    return null
-  }
+  const origin = bounds.origin
+  const total = bounds.total
 
-  const paceRate = finiteNumber(pace.dailyPace)
   const unitMs = hourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000
-  const currentReset = endMs / 1000
-  const windows = collectWindows(input.series, pace, currentReset, startMs, endMs)
+  const readout = codexWindowReadout(pace)
+  const elapsed = readout ? readout.elapsedUnits : 1
+  const totalUnits = readout ? readout.totalUnits : elapsed
+  const live = Math.max(0, usedNow)
+  const paceRate = readout ? readout.paceRate : null
+  const paceEnd = readout ? readout.forecastEnd : live
+  const cycles = cyclesForKind(input.series, pace, endMs - startMs)
+
   const used = new Array(total).fill(null)
-  const day = new Array(total).fill(null)
   const forecast = new Array(total).fill(null)
-  const perWindow = []
-  const anchors = []
-
-  for (let w = 0; w < windows.length; w++) {
-    const slots = new Array(total).fill(null)
-    const points = windows[w].points
-      .slice()
-      .sort(function (left, right) {
-        return left.timestamp - right.timestamp
-      })
-    for (let p = 0; p < points.length; p++) {
-      const slot = slotIndex(points[p].timestamp, origin, hourly)
-      if (slot < 0 || slot >= total) {
-        continue
-      }
-      slots[slot] = points[p].usedPercent
-    }
-    perWindow.push(slots)
-    anchors.push(windowAnchors(windows[w], asOfMs))
-  }
-
-  const owners = new Array(total).fill(null)
-  let resetIndex = -1
-  let previousOwner = null
+  const points = []
+  let runOutDate = null
   for (let i = 0; i < total; i++) {
     const slotStart = slotStartMs(origin, i, hourly)
     const slotEnd = slotStartMs(origin, i + 1, hourly)
-    const owner = ownerForSlot(windows, slotStart, slotEnd)
-    owners[i] = owner
-    if (owner === null) {
-      continue
-    }
-    if (
-      previousOwner !== null &&
-      owner !== previousOwner &&
-      owner.startMs > previousOwner.startMs
-    ) {
-      resetIndex = i
-    }
-    previousOwner = owner
-    const ownerIndex = windows.indexOf(owner)
-    const curve = ownerIndex >= 0 ? anchors[ownerIndex] : null
-    const usedAt = usedReadingTime(slotStart, slotEnd, owner, asOfMs)
-    if (curve && usedAt !== null) {
-      used[i] = valueOnCurve(curve, usedAt)
-    }
-    forecast[i] = forecastReading(
-      owner,
-      curve,
-      slotStart,
-      slotEnd,
-      asOfMs,
-      usedNow,
-      paceRate,
-      unitMs,
-    )
-  }
-
-  if (resetIndex > 0) {
-    const prev = forecast[resetIndex - 1]
-    const prevN = Array.isArray(prev) ? prev[prev.length - 1] : prev
-    const next = forecast[resetIndex]
-    const nextN = Array.isArray(next) ? next[next.length - 1] : next
-    if (
-      typeof prevN === 'number' &&
-      typeof nextN === 'number' &&
-      nextN + 0.5 < prevN
-    ) {
-      forecast[resetIndex] = [prevN, nextN]
-    }
-  }
-
-  for (let i = 0; i < total; i++) {
-    day[i] = stepFrom(used, i)
-  }
-
-  let resetMidday = false
-  if (resetIndex >= 0 && owners[resetIndex]) {
-    const start = new Date(owners[resetIndex].startMs)
-    resetMidday =
-      start.getHours() !== 0 ||
-      start.getMinutes() !== 0 ||
-      start.getSeconds() !== 0
-  }
-
-  const points = []
-  const originDate = new Date(origin)
-  let runOutDate = null
-  const current = windows.find(function (window) {
-    return window.current
-  })
-  for (let i = 0; i < total; i++) {
-    const at = new Date(slotStartMs(originDate.getTime(), i, hourly))
-    const slotStart = at.getTime()
-    const slotEnd = slotStartMs(origin, i + 1, hourly)
+    const at = new Date(slotStart)
     points.push({
       date: slotStamp(at, hourly),
       weekday: at.getDay() !== 0 && at.getDay() !== 6,
       workingDayIndex: i,
-      allowanceUsd: allowanceAt(slotStart, slotEnd, windows, perWindow, i),
+      allowanceUsd: allowanceForSlot(
+        slotStart,
+        slotEnd,
+        startMs,
+        endMs,
+        cycles,
+      ),
       dayAllowanceUsd: null,
     })
-    if (runOutDate !== null || owners[i] !== current || current === null) {
+    used[i] = usedOnSlot(cycles, slotStart, slotEnd, asOfMs, endMs, live)
+    const units = paceUnitsThrough(slotEnd, startMs, endMs, unitMs, totalUnits)
+    if (units <= 0) {
       continue
     }
-    const raw = forecast[i]
-    const continuing = Array.isArray(raw) ? raw[raw.length - 1] : raw
-    if (continuing === null || continuing === undefined || !(continuing >= 100)) {
+    const onSample = slotStart <= asOfMs && asOfMs < slotEnd
+    if (!onSample && slotStart <= asOfMs && used[i] === null) {
       continue
     }
-    const hitAt = forecastTime(slotStart, slotEnd, current, asOfMs)
-    if (hitAt !== null && hitAt < current.endMs - unitMs) {
+    const projected = onSample ? live : forecastAt(units, elapsed, live, paceRate)
+    forecast[i] = projected
+    if (
+      runOutDate === null &&
+      units > elapsed &&
+      units < totalUnits &&
+      projected >= 100 - 0.005
+    ) {
       runOutDate = points[i].date
     }
   }
 
+  const day = new Array(total).fill(null)
+  for (let i = 0; i < total; i++) {
+    day[i] = stepFrom(used, i)
+  }
+
+  const resetSlot = hourly ? hourFloor(endMs) : midnightOf(endMs)
+  const resetDate = slotStamp(new Date(resetSlot), hourly)
+  const resetClock = new Date(endMs)
+  const hasReset = points.some(function (point) {
+    return point.date === resetDate
+  })
   return {
     points: points,
     day: day,
@@ -240,65 +206,72 @@ export function buildCodexWindowChart(input) {
     forecast: forecast,
     ideal: new Array(total).fill(null),
     runOutDate: runOutDate,
-    resetDate: resetIndex >= 0 && points[resetIndex] ? points[resetIndex].date : null,
-    resetMidday: resetMidday,
+    forecastEnd: paceEnd,
+    resetDate: hasReset ? resetDate : null,
+    resetMidday:
+      hasReset &&
+      (resetClock.getHours() !== 0 ||
+        resetClock.getMinutes() !== 0 ||
+        resetClock.getSeconds() !== 0 ||
+        resetClock.getMilliseconds() !== 0),
   }
 }
 
-function collectWindows(series, pace, currentReset, fallbackStart, fallbackEnd) {
-  const list = []
+function chartBounds(startMs, endMs, hourly, dayRange) {
+  // Same shape as Cursor's billing cycle: Settings From is the first day,
+  // and the axis always runs through the period reset. Settings To never
+  // cuts that reset off.
+  let origin = hourly ? hourFloor(startMs) : midnightOf(startMs)
+  const horizon = endMs
+  if (dayRange && Number.isFinite(dayRange.from)) {
+    const from = hourly ? hourFloor(dayRange.from) : dayRange.from
+    if (from < horizon) {
+      origin = from
+    }
+  }
+  if (!(horizon >= origin)) {
+    return null
+  }
+  let total = slotIndex(horizon, origin, hourly) + 1
+  if (!(total > 0)) {
+    return null
+  }
+  if (total > 400) {
+    const endSlot = slotStartMs(origin, total - 1, hourly)
+    origin = slotStartMs(endSlot, -(400 - 1), hourly)
+    total = 400
+  }
+  return { origin: origin, total: total }
+}
+
+function cyclesForKind(series, pace, windowMs) {
+  const out = []
   const source = Array.isArray(series) ? series : []
   for (let i = 0; i < source.length; i++) {
     const item = source[i]
-    if (!item || item.kind !== pace.kind) {
+    if (!item) {
+      continue
+    }
+    if (pace.kind && item.kind && item.kind !== pace.kind) {
       continue
     }
     const resetsAt = finiteNumber(item.resetsAt)
-    const minutes = finiteNumber(item.windowMinutes)
-    if (resetsAt === null || minutes === null || !(minutes > 0)) {
+    if (resetsAt === null) {
       continue
     }
-    const windowMs = minutes * 60 * 1000
+    const minutes = finiteNumber(item.windowMinutes)
+    const cycleMs = minutes !== null && minutes > 0 ? minutes * 60 * 1000 : windowMs
+    if (!(cycleMs > 0)) {
+      continue
+    }
     const end = resetsAt * 1000
-    list.push({
-      startMs: end - windowMs,
-      endMs: end,
-      windowMs: windowMs,
-      current: Math.abs(resetsAt - currentReset) <= 60,
-      points: readPoints(item.points),
-    })
-  }
-  let current = null
-  for (let i = 0; i < list.length; i++) {
-    if (list[i].current) {
-      current = list[i]
-      break
+    const points = readPoints(item.points)
+    if (points.length === 0) {
+      continue
     }
+    out.push({ startMs: end - cycleMs, endMs: end, points: points })
   }
-  if (current === null) {
-    current = {
-      startMs: fallbackStart,
-      endMs: fallbackEnd,
-      windowMs: fallbackEnd - fallbackStart,
-      current: true,
-      points: [],
-    }
-    list.push(current)
-  }
-  const asOfMs = finiteNumber(pace.asOfMs)
-  const usedNow = finiteNumber(pace.used)
-  if (asOfMs !== null && usedNow !== null) {
-    const already = current.points.some(function (point) {
-      return Math.abs(point.timestamp - asOfMs) < 1000
-    })
-    if (!already) {
-      current.points.push({ timestamp: asOfMs, usedPercent: usedNow })
-    }
-  }
-  list.sort(function (left, right) {
-    return left.endMs - right.endMs
-  })
-  return list
+  return out
 }
 
 function readPoints(points) {
@@ -316,59 +289,31 @@ function readPoints(points) {
   return out
 }
 
-function slotsHaveSample(slots) {
-  for (let i = 0; i < slots.length; i++) {
-    if (slots[i] !== null && slots[i] !== undefined) {
-      return true
-    }
-  }
-  return false
-}
-
-function ownerForSlot(windows, slotStart, slotEnd) {
-  let best = null
-  for (let i = 0; i < windows.length; i++) {
-    const window = windows[i]
-    if (!window.points || window.points.length === 0) {
-      continue
-    }
-    if (!(slotEnd > window.startMs && slotStart < window.endMs)) {
-      continue
-    }
-    if (best === null || window.startMs >= best.startMs) {
-      best = window
-    }
-  }
-  return best
-}
-
-/** 0% at the open, then each sample. A sample on the open replaces the zero. */
-function windowAnchors(window, asOfMs) {
-  const anchors = [{ t: window.startMs, v: 0 }]
-  let hasSample = false
-  const points = window.points
-    .slice()
-    .sort(function (left, right) {
-      return left.timestamp - right.timestamp
-    })
+function readingAnchors(startMs, endMs, asOfMs, usedNow, samples) {
+  const anchors = [{ t: startMs, v: 0 }]
+  const points = samples.slice().sort(function (left, right) {
+    return left.timestamp - right.timestamp
+  })
   for (let i = 0; i < points.length; i++) {
     const ts = points[i].timestamp
-    if (ts < window.startMs || ts > window.endMs) {
+    if (ts < startMs || ts > endMs || ts > asOfMs) {
       continue
     }
-    if (window.current && ts > asOfMs) {
-      continue
-    }
-    hasSample = true
-    const prev = anchors[anchors.length - 1]
-    if (Math.abs(prev.t - ts) < 1000) {
-      prev.v = points[i].usedPercent
-      prev.t = ts
-      continue
-    }
-    anchors.push({ t: ts, v: points[i].usedPercent })
+    placeAnchor(anchors, ts, points[i].usedPercent)
   }
-  return hasSample ? anchors : null
+  const liveAt = Math.min(Math.max(asOfMs, startMs), endMs)
+  placeAnchor(anchors, liveAt, usedNow)
+  return anchors
+}
+
+function placeAnchor(anchors, ts, value) {
+  const prev = anchors[anchors.length - 1]
+  if (Math.abs(prev.t - ts) < 1000) {
+    prev.v = value
+    prev.t = ts
+    return
+  }
+  anchors.push({ t: ts, v: value })
 }
 
 function valueOnCurve(anchors, t) {
@@ -393,69 +338,96 @@ function valueOnCurve(anchors, t) {
   return last.v
 }
 
-/** Cumulative reading through this slot, and nothing after the live sample. */
-function usedReadingTime(slotStart, slotEnd, window, asOfMs) {
+function usedAt(anchors, slotStart, slotEnd, startMs, endMs, asOfMs) {
   if (slotStart > asOfMs) {
     return null
   }
-  const end = window.current ? Math.min(window.endMs, asOfMs) : window.endMs
-  if (!(slotEnd > window.startMs && slotStart < end)) {
+  const t = asOfMs < slotEnd ? asOfMs : Math.min(slotEnd, endMs)
+  if (t < startMs) {
     return null
   }
-  if (window.current && asOfMs >= slotStart && asOfMs < slotEnd) {
-    return asOfMs
-  }
-  return Math.min(slotEnd, end)
+  return valueOnCurve(anchors, t)
 }
 
-function forecastTime(slotStart, slotEnd, window, asOfMs) {
-  if (!(slotEnd > window.startMs && slotStart < window.endMs)) {
-    return null
+function paceUnitsThrough(slotEnd, startMs, endMs, unitMs, totalUnits) {
+  const covered = Math.min(slotEnd, endMs) - startMs
+  if (!(covered > 0) || !(unitMs > 0)) {
+    return 0
   }
-  if (window.current && asOfMs >= slotStart && asOfMs < slotEnd) {
-    return asOfMs
-  }
-  if (window.current && slotStart > asOfMs) {
-    return Math.min(slotEnd, window.endMs)
-  }
-  if (window.current && slotEnd <= asOfMs) {
-    return Math.min(slotEnd, asOfMs)
-  }
-  return Math.min(slotEnd, window.endMs)
+  const count = Math.max(1, Math.ceil(covered / unitMs - 1e-6))
+  return Math.min(totalUnits, count)
 }
 
-function forecastReading(window, curve, slotStart, slotEnd, asOfMs, usedNow, paceRate, unitMs) {
-  const t = forecastTime(slotStart, slotEnd, window, asOfMs)
-  if (t === null) {
+function sameCycle(endMs, cycleEndMs) {
+  return Math.abs(endMs - cycleEndMs) <= 60 * 1000
+}
+
+function usedOnSlot(cycles, slotStart, slotEnd, asOfMs, currentEndMs, live) {
+  let best = null
+  for (let c = 0; c < cycles.length; c++) {
+    const cycle = cycles[c]
+    const points = cycle.points
+    for (let p = 0; p < points.length; p++) {
+      const point = points[p]
+      if (point.timestamp < cycle.startMs || point.timestamp > cycle.endMs) {
+        continue
+      }
+      if (point.timestamp < slotStart || point.timestamp >= slotEnd || point.timestamp > asOfMs) {
+        continue
+      }
+      if (best === null || point.timestamp >= best.timestamp) {
+        best = point
+      }
+    }
+  }
+  if (slotStart <= asOfMs && asOfMs < slotEnd) {
+    for (let c = 0; c < cycles.length; c++) {
+      if (sameCycle(currentEndMs, cycles[c].endMs)) {
+        return live
+      }
+    }
+    return live
+  }
+  return best === null ? null : best.usedPercent
+}
+
+function allowanceForSlot(slotStart, slotEnd, currentStart, currentEnd, cycles) {
+  if (slotEnd > currentStart && slotStart < currentEnd) {
+    return evenPlan(currentStart, currentEnd, slotStart, slotEnd)
+  }
+  for (let c = cycles.length - 1; c >= 0; c--) {
+    const cycle = cycles[c]
+    if (slotEnd > cycle.startMs && slotStart < cycle.endMs) {
+      return evenPlan(cycle.startMs, cycle.endMs, slotStart, slotEnd)
+    }
+  }
+  return null
+}
+
+function forecastAt(units, elapsed, used, paceRate) {
+  const done = Math.max(1, elapsed)
+  if (units <= done) {
+    return used * (units / done)
+  }
+  if (paceRate === null) {
+    return used
+  }
+  return Math.max(0, used + paceRate * (units - done))
+}
+
+function evenPlan(startMs, endMs, slotStart, slotEnd) {
+  if (!(slotEnd > startMs && slotStart < endMs)) {
     return null
   }
-  if (!window.current) {
-    if (!curve) {
-      return null
-    }
-    const closing = curve[curve.length - 1].v
-    const span = window.endMs - window.startMs
-    if (!(span > 0)) {
-      return null
-    }
-    return (closing * (t - window.startMs)) / span
+  const span = endMs - startMs
+  if (!(span > 0)) {
+    return null
   }
-  let rate = paceRate
-  if (rate === null) {
-    const ageUnits = (asOfMs - window.startMs) / unitMs
-    rate = ageUnits > 0 ? Math.max(0, usedNow) / ageUnits : null
+  const raw = ((Math.min(slotEnd, endMs) - startMs) / span) * 100
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return null
   }
-  if (t <= asOfMs) {
-    const age = asOfMs - window.startMs
-    if (!(age > 0)) {
-      return Math.max(0, usedNow)
-    }
-    return Math.max(0, usedNow * ((t - window.startMs) / age))
-  }
-  if (rate === null) {
-    return Math.max(0, usedNow)
-  }
-  return Math.max(0, usedNow) + rate * ((t - asOfMs) / unitMs)
+  return Math.min(100, raw)
 }
 
 function stepFrom(values, index) {
@@ -478,36 +450,4 @@ function stepFrom(values, index) {
     return Math.max(0, n)
   }
   return Math.max(0, n - prev)
-}
-
-function allowanceAt(slotStart, slotEnd, windows, perWindow, index) {
-  let latest = null
-  let sampleOwner = null
-  for (let w = 0; w < windows.length; w++) {
-    const window = windows[w]
-    if (!slotsHaveSample(perWindow[w])) {
-      continue
-    }
-    if (!(slotEnd > window.startMs && slotStart < window.endMs)) {
-      continue
-    }
-    if (latest === null || window.endMs >= latest.endMs) {
-      latest = window
-    }
-    const sample = perWindow[w][index]
-    if (sample !== null && sample !== undefined) {
-      if (sampleOwner === null || window.endMs >= sampleOwner.endMs) {
-        sampleOwner = window
-      }
-    }
-  }
-  const owner = sampleOwner || latest
-  if (owner === null || !(owner.windowMs > 0)) {
-    return null
-  }
-  const raw = ((slotEnd - owner.startMs) / owner.windowMs) * 100
-  if (!Number.isFinite(raw) || raw <= 0) {
-    return null
-  }
-  return Math.min(100, raw)
 }
