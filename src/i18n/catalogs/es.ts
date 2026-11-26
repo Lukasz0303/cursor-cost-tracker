@@ -527,6 +527,7 @@ export const ES = {
     "usdSpentCalendar": "El gasto mensual ya alcanzó el límite del presupuesto diario para este mes.",
     "usdEarly": "A este {pace}: {bits}. Las barras representan dólares acumulados. Las líneas ideales punteadas muestran el presupuesto restante distribuido uniformemente hasta fin de mes.",
     "usdOk": "{bits}. Las barras representan dólares acumulados. Las líneas ideales punteadas muestran el presupuesto restante hasta fin de mes.",
+    "poolGap": "Las solicitudes cargadas suman {events}. Este pronóstico usa el fondo del ciclo {pool}. {gap} no tiene desglose diario y se incluye en el total acumulado desde el inicio de este ciclo.",
     "usedToday": "{runOut} · {used} usados · hoy {today} / {budget}",
     "usedAmount": "{runOut} · {used} usados{today}",
     "todayChunk": " · hoy {today} / {budget}",

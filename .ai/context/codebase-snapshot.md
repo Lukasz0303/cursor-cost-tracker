@@ -4,7 +4,7 @@
 **Version in the tree:** **1.8.3** (`package.json` and `CHANGELOG.md` both open on 1.8.3).  
 **This cut:** everything in **1.0.0–1.8.3**. The history panel can show local Codex sessions. The status bar stays on Cursor. A Codex limit observation older than 30 minutes is out of date and is not forecast. A dollar forecast uses the cycle pool when the loaded requests are only part of it. `CHANGELOG.md` has no Unreleased heading. GitHub Actions runs typecheck, Vitest, and esbuild.
 
-`npm test` on this date: **100 files, 1135 passed, 9 failed, 2 skipped**. The nine failures are `mtd.poolGap` missing from locale catalogs other than English and Polish; the runtime catalog still fills that key from English. CI is `.github/workflows/ci.yml` (Node 20, `npm ci`). The landing page stays on `.github/workflows/pages.yml`.
+`npm test` on this date: **100 files, 1146 passed, 2 skipped**. CI is `.github/workflows/ci.yml` (Node 20, `npm ci`). The landing page stays on `.github/workflows/pages.yml`.
 
 ## Shipped history
 

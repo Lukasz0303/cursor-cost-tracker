@@ -527,6 +527,7 @@ export const ZH_CN = {
     "usdSpentCalendar": "本月支出已达到本月每日预算上限。",
     "usdEarly": "按此{pace}：{bits}。柱形表示累计金额。理想值点线表示均匀分配至月末的剩余预算。",
     "usdOk": "{bits}。柱形表示累计金额。理想值点线表示到月末的剩余预算。",
+    "poolGap": "已加载请求合计 {events}。此预测使用周期额度 {pool}。{gap} 没有按日明细，并计入本周期开始以来的累计总额。",
     "usedToday": "{runOut} · 已用 {used} · 今天 {today} / {budget}",
     "usedAmount": "{runOut} · 已用 {used}{today}",
     "todayChunk": " · 今天 {today} / {budget}",

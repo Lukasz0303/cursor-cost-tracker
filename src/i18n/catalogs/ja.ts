@@ -527,6 +527,7 @@ export const JA = {
     "usdSpentCalendar": "今月の支出は、今月の日次予算上限にすでに達しています。",
     "usdEarly": "この{pace}では：{bits}。棒は累積金額です。理想値の点線は、残予算を月末まで均等に配分した値です。",
     "usdOk": "{bits}。棒は累積金額です。理想値の点線は月末までの残予算を示します。",
+    "poolGap": "読み込んだリクエストの合計は {events} です。この予測はサイクルのプール {pool} を使います。{gap} には日別の内訳がなく、このサイクルの開始からの累計に含まれます。",
     "usedToday": "{runOut} · {used} 使用済み · 今日 {today} / {budget}",
     "usedAmount": "{runOut} · {used} 使用済み{today}",
     "todayChunk": " · 今日 {today} / {budget}",

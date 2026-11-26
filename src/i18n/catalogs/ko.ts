@@ -527,6 +527,7 @@ export const KO = {
     "usdSpentCalendar": "월간 지출이 이번 달 일일 예산 상한에 이미 도달했습니다.",
     "usdEarly": "이 {pace} 기준: {bits}. 막대는 누적 금액입니다. 이상적 점선은 남은 예산을 월말까지 균등하게 분배한 값입니다.",
     "usdOk": "{bits}. 막대는 누적 금액입니다. 이상적 점선은 월말까지 남은 예산을 보여 줍니다.",
+    "poolGap": "불러온 요청 합계는 {events}입니다. 이 예측은 주기 풀 {pool}을 사용합니다. {gap}에는 일별 내역이 없으며 이 주기 시작부터 누적 합계에 포함됩니다.",
     "usedToday": "{runOut} · {used} 사용 · 오늘 {today} / {budget}",
     "usedAmount": "{runOut} · {used} 사용{today}",
     "todayChunk": " · 오늘 {today} / {budget}",

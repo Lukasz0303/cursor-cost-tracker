@@ -527,6 +527,7 @@ export const FR = {
     "usdSpentCalendar": "La dépense du mois atteint déjà le plafond du budget quotidien pour ce mois.",
     "usdEarly": "À ce {pace} : {bits}. Les barres sont des dollars cumulés.",
     "usdOk": "{bits}. Les barres sont des dollars cumulés.",
+    "poolGap": "Les requêtes chargées totalisent {events}. Cette prévision utilise le quota du cycle {pool}. {gap} n’a pas de détail par jour et est inclus dans le total cumulé depuis le début de ce cycle.",
     "usedToday": "{runOut} · {used} utilisé · aujourd’hui {today} / {budget}",
     "usedAmount": "{runOut} · {used} utilisé{today}",
     "todayChunk": " · aujourd’hui {today} / {budget}",

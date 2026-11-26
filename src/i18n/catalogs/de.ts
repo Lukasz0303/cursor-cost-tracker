@@ -527,6 +527,7 @@ export const DE = {
     "usdSpentCalendar": "Die Ausgaben des Monats haben die Obergrenze des Tagesbudgets für diesen Monat bereits erreicht.",
     "usdEarly": "Bei diesem {pace}: {bits}. Die Balken sind kumulierte Dollar.",
     "usdOk": "{bits}. Die Balken sind kumulierte Dollar.",
+    "poolGap": "Geladene Anfragen ergeben zusammen {events}. Diese Prognose nutzt den Zykluspool {pool}. {gap} hat keine Tagesaufschlüsselung und ist ab Beginn dieses Zyklus in der kumulierten Summe enthalten.",
     "usedToday": "{runOut} · {used} verbraucht · heute {today} / {budget}",
     "usedAmount": "{runOut} · {used} verbraucht{today}",
     "todayChunk": " · heute {today} / {budget}",
