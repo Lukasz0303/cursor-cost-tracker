@@ -86,6 +86,76 @@ function monthCapUsd(snapshot: UsageSnapshot): number | null {
   return null
 }
 
+/**
+ * Dollar cycle total. Loaded requests are a sample; the usage API's pool is
+ * the same number Current shows. A short sample must not replace that pool.
+ */
+function cyclePoolUsed(snapshot: UsageSnapshot, observed: number): number {
+  if (snapshot.status !== 'ready' || monthCapUsd(snapshot) === null) {
+    return observed
+  }
+  const pool = snapshot.data.usedUsd
+  if (!Number.isFinite(pool) || pool <= observed + 0.5) {
+    return observed
+  }
+  return pool
+}
+
+/** Current-cycle days on a longer axis keep the cycle line, not a second pace. */
+function overlayCycleSeries(
+  line: MtdSeries,
+  cycle: MtdSeries,
+  chartFrames: DayFrame[],
+  cycleFrames: DayFrame[],
+): MtdSeries {
+  const at = new Map<string, number>()
+  for (let index = 0; index < cycleFrames.length; index += 1) {
+    const date = cycleFrames[index]?.date
+    if (date !== undefined) {
+      at.set(date, index)
+    }
+  }
+  const forecast = line.forecast.slice()
+  const used = line.used.slice()
+  const day = line.day.slice()
+  const ideal = line.ideal.slice()
+  for (let index = 0; index < chartFrames.length; index += 1) {
+    const date = chartFrames[index]?.date
+    if (date === undefined) {
+      continue
+    }
+    const cycleIndex = at.get(date)
+    if (cycleIndex === undefined) {
+      continue
+    }
+    const cycleForecast = cycle.forecast[cycleIndex]
+    const cycleUsed = cycle.used[cycleIndex]
+    const cycleDay = cycle.day[cycleIndex]
+    const cycleIdeal = cycle.ideal[cycleIndex]
+    if (cycleForecast !== undefined) {
+      forecast[index] = cycleForecast
+    }
+    if (cycleUsed !== undefined) {
+      used[index] = cycleUsed
+    }
+    if (cycleDay !== undefined) {
+      day[index] = cycleDay
+    }
+    if (cycleIdeal !== undefined) {
+      ideal[index] = cycleIdeal
+    }
+  }
+  return {
+    ...line,
+    forecast,
+    used,
+    day,
+    ideal,
+    runOutDate: cycle.runOutDate,
+    runOutLabel: cycle.runOutLabel,
+  }
+}
+
 function remainingDaysHint(
   remaining: number,
   basis: BudgetDayBasis,
@@ -795,7 +865,8 @@ export function toMtdPace(
     }
   }
 
-  const used = activeFrameUsed(frames)
+  const observed = activeFrameUsed(frames)
+  const used = cyclePoolUsed(snapshot, observed)
   const budget = dailyBudget(snapshot)
   const monthCap = weekdayTotal <= 0 ? null : monthCapUsd(snapshot)
   const paceBudget = monthCap === null ? null : monthCap / weekdayTotal
@@ -809,12 +880,13 @@ export function toMtdPace(
     toMtdSeries(
       'spend',
       copy.spend,
-      used,
+      observed,
       frames,
       elapsed,
       monthCap,
       weekdayTotal,
       locale,
+      used,
     ),
   ]
   const todayBudget = budget ?? paceBudget
@@ -833,7 +905,15 @@ export function toMtdPace(
             historyToDate,
           ),
         }
-      : usdVerdict(overPace, forecastEom, monthCap, series, frames, basis, locale)
+      : usdVerdict(
+          overPace,
+          forecastEom,
+          monthCap,
+          series,
+          frames,
+          basis,
+          locale,
+        )
   const today = todayIndex(frames)
   const bars: PeriodBar[] =
     todayBudget === null || paceBudget === null || elapsed <= 0
@@ -891,18 +971,35 @@ export function toMtdPace(
           toMtdSeries(
             series[0]?.id ?? 'spend',
             series[0]?.label ?? copy.spend,
-            used,
+            activeFrameUsed(chartFrames),
             chartFrames,
             elapsed,
             monthCap,
             weekdayTotal,
             locale,
+            used,
           ),
         ]
+  const cycleLine = series[0]
+  const shownSeries =
+    cycleLine === undefined || chartFrames === frames
+      ? chartSeries
+      : chartSeries.map((line) =>
+          overlayCycleSeries(line, cycleLine, chartFrames, frames),
+        )
+  const poolGap = used - observed
+  const body =
+    poolGap > 0.5 && elapsed > 0
+      ? `${answer.body} ${interpolate(copy.poolGap, {
+          events: formatDollars(observed),
+          pool: formatDollars(used),
+          gap: formatDollars(poolGap),
+        })}`
+      : answer.body
   return {
     title: copy.title,
     value: '',
-    body: answer.body,
+    body,
     bars,
     metrics,
     overPace: answer.verdict !== 'ok',
@@ -911,7 +1008,7 @@ export function toMtdPace(
     max: null,
     chart: chartFromFrames(chartFrames, paceBudget),
     forecast: toMtdDays(chartFrames, paceBudget),
-    series: chartSeries,
+    series: shownSeries,
     forecastWindow,
     billingCycleAvailable,
     resetDate,

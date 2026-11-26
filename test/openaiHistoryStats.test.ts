@@ -307,6 +307,32 @@ describe('runCodexStats', () => {
     await store.close()
   })
 
+  it('uses the latest Codex observation without mixing another limit pool', async () => {
+    const store = await openStore()
+    const db = (store as unknown as { db: { run: (sql: string, params?: unknown[]) => void } }).db
+    const insert = `INSERT INTO rate_limit_samples(
+      id, source_file_id, generation, byte_offset, observed_at, limit_id,
+      secondary_used_percent, secondary_window_minutes, secondary_resets_at
+    ) VALUES (?, 'file', 1, ?, ?, ?, ?, 10080, 1795173809)`
+    db.run(insert, ['morning', 1, '2026-11-18T06:46:00.000Z', 'codex', 31])
+    db.run(insert, ['afternoon', 2, '2026-11-18T12:51:00.000Z', 'codex', 55])
+    db.run(insert, ['other', 3, '2026-11-18T12:55:00.000Z', 'other', 90])
+    const nowMs = Date.parse('2026-11-18T13:00:00.000Z')
+    const stats = runCodexStats(store, emptyFilter, { nowMs })
+    expect(stats.limits?.secondary).toMatchObject({
+      usedPercent: 55, remainingPercent: 45, fresh: true,
+      observedAtMs: Date.parse('2026-11-18T12:51:00.000Z'),
+    })
+    expect(stats.mirror.pace?.used).toBe(55)
+    expect(runCodexLimitSeries(store, stats.limits?.limitId).flatMap((series) =>
+      series.points.map((point) => point.usedPercent),
+    )).toEqual([31, 55])
+    const old = runCodexStats(store, emptyFilter, { nowMs: nowMs + 60 * 60 * 1000 })
+    expect(old.limits?.secondary?.fresh).toBe(false)
+    expect(old.mirror.pace?.forecast).toBeNull()
+    await store.close()
+  })
+
   it('keeps the last measured percent when a newer snapshot has an empty window', async () => {
     const store = await openStore()
     const db = (store as unknown as { db: { run: (sql: string, params?: unknown[]) => void } }).db
@@ -626,7 +652,7 @@ describe('runCodexLimitSeries', () => {
     ) VALUES
       ('a', 'file-1', 1, 1, '2026-10-07T10:00:00.000Z', 'team', 'lim', 50, 300, 1760000000, 4, 10080, 1762000000, 1, 0, NULL, NULL),
       ('b', 'file-1', 1, 2, '2026-10-19T10:00:00.000Z', 'team', 'lim', 26, 300, 1760900000, 4, 10080, 1762000000, 1, 0, NULL, NULL)`)
-    const series = runCodexLimitSeries(store)
+    const series = runCodexLimitSeries(store, 'lim')
     const fives = series.filter((item) => item.kind === '5h')
     const week = series.find((item) => item.kind === '7d')
     expect(fives).toHaveLength(2)

@@ -19,38 +19,49 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   clearSvg(svg)
   const width = 800
   const height = 280
-  const left = 36
   const right = 8
   const top = 8
   const count = points && points.length ? points.length : 0
-  const axisGap =
+  let left = 36
+  let axisGap =
     count <= 1 ? width - left - right : (width - left - right) / (count - 1)
-  const stagger = count > 3 && axisGap < 46
-  const bottom = stagger ? 36 : 26
-  const plotW = width - left - right
-  const plotH = height - top - bottom
+  let stagger = count > 3 && axisGap < 46
+  let bottom = stagger ? 36 : 26
+  let plotW = width - left - right
+  let plotH = height - top - bottom
   svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
 
-  svg.appendChild(
-    svgNode('line', {
-      class: 'chart-axis',
-      x1: String(left),
-      y1: String(top),
-      x2: String(left),
-      y2: String(top + plotH),
-    }),
-  )
-  svg.appendChild(
-    svgNode('line', {
-      class: 'chart-axis',
-      x1: String(left),
-      y1: String(top + plotH),
-      x2: String(left + plotW),
-      y2: String(top + plotH),
-    }),
-  )
+  function drawAxes() {
+    svg.appendChild(
+      svgNode('line', {
+        class: 'chart-axis',
+        x1: String(left),
+        y1: String(top),
+        x2: String(left),
+        y2: String(top + plotH),
+      }),
+    )
+    svg.appendChild(
+      svgNode('line', {
+        class: 'chart-axis',
+        x1: String(left),
+        y1: String(top + plotH),
+        x2: String(left + plotW),
+        y2: String(top + plotH),
+      }),
+    )
+  }
+
+  function fitLeft(maxValue) {
+    const label = formatMtdAmount(maxValue)
+    if (label.indexOf('%') >= 0) {
+      return 36
+    }
+    return Math.max(64, Math.min(120, Math.ceil(label.length * 6.5) + 16))
+  }
 
   if (!points || points.length === 0) {
+    drawAxes()
     return
   }
 
@@ -120,6 +131,13 @@ export function drawMtdForecastChart(svg, points, series, max, resetDate, resetM
   const capped =
     !daily && typeof max === 'number' && Number.isFinite(max) && max > 0
   const maxCum = capped ? max : niceMax(dataMax)
+  left = fitLeft(maxCum)
+  axisGap = count <= 1 ? width - left - right : (width - left - right) / (count - 1)
+  stagger = count > 3 && axisGap < 46
+  bottom = stagger ? 36 : 26
+  plotW = width - left - right
+  plotH = height - top - bottom
+  drawAxes()
   const ticks = 4
   for (let t = 0; t <= ticks; t++) {
     const frac = t / ticks

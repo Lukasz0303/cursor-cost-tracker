@@ -42,7 +42,7 @@
 5. **Coding stats** — analysis of AI-generated code vs what actually landed: **`landed / AI = %`** (your effectiveness), the same if this branch merged to `main`/`master`, and **All on Cursor** (dashboard Lines Edited) split by project.
 6. **Codex local** — the same From–To window as Cursor. Group a thread, see context room, cache hit, and an API estimate. Files stay on this computer.
 
-Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. Both stay on **Cursor** usage. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start. The history panel can also show **local Codex** sessions (an API estimate, not an invoice). The Codex limit chart runs through that window’s reset. The monthly forecast snaps a From–To range out to whole cycles and marks the end with a vertical line. OpenAI API is not a selectable source in this version.
+Click **Current** or **Today** for Statistics (burn rate, model pricing, Coding stats, forecast). Click a **recent-query chip** for the Last N list. Both stay on **Cursor** usage. **Refresh** only syncs; **Export CSV** is on the Last N toolbar. **Run Optimize** pastes into the open Agent chat — savings appear after you press Start. The history panel can also show **local Codex** sessions (an API estimate, not an invoice). The Codex limit chart runs through that window’s reset. The monthly forecast snaps a From–To range out to whole cycles and marks the end with a vertical line. On a dollar plan the used amount is the cycle pool when the loaded queries are only part of it. A Codex limit observation older than 30 minutes is out of date and is not used for the forecast. OpenAI API is not a selectable source in this version.
 
 The panel has six tabs:
 
@@ -155,7 +155,7 @@ When the newest query hits your critical token or dollar threshold, a modal show
 
 ### 6. Monthly cost forecast — when money / limits run out
 
-Bars and solid lines are cumulative used on one scale; dashed lines are the forecast; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**.
+Bars and solid lines are cumulative used on one scale; dashed lines are the forecast; dotted ideal lines spread leftover budget to month end. Range: **Today** · **7 days** · **Month**. On a dollar plan the used amount is the cycle pool when the loaded queries are only part of it. Daily bars stay those queries. The rest of the pool is in the cumulative total from the start of the cycle, and the forecast says so. If the working-day pace reaches the limit on the last working day, Runs out names that day.
 
 **Team dollars (light)** — “Lasts the month”, daily pace, and month-end forecast if the working-day pace continues.
 
@@ -302,7 +302,7 @@ This extension keeps those numbers next to Git and Problems, adds a **monthly fo
 | Export recent queries as CSV | — | Yes |
 | Local Codex sessions in the history panel (same From–To window; closest list-price estimate; chart through the reset) | — | Yes |
 | Quota gauge, on-demand, and accepted lines | — | Yes |
-| OpenAI API as a selectable source | — | Not in 1.8.2 (the connect code remains) |
+| OpenAI API as a selectable source | — | Not in 1.8.3 (the connect code remains) |
 | OpenAI API calls listed in the query table | — | Not yet |
 | Support → Write a message to the author | — | Yes |
 | **Setup · language** | | |
@@ -329,7 +329,7 @@ Answer two questions without opening cursor.com:
 - **How much will this month cost** if the current working-day pace continues?
 - **When does included quota or Team money run out**, or will the dollar pool last the month?
 
-**Team / Business / Enterprise** — dollars: cumulative Spend bars + line on one scale, dashed forecast, dotted ideal leftover, working days so far, daily pace, and month forecast. **Pro** — included percent for Cursor Models and Other Models, run-out dates, and the same used / forecast / ideal chart. Range toggle: **Today** · **7 days** · **Month** (default Month). Same control on **Statistics** and **Charts**.
+**Team / Business / Enterprise** — dollars: cumulative Spend bars + line on one scale, dashed forecast, dotted ideal leftover, working days so far, daily pace, and month forecast. The used amount is the cycle pool when the loaded queries are only part of that pool. Daily bars stay the loaded queries, and the forecast says what is missing. A pace that reaches the limit on the last working day names that day. **Pro** — included percent for Cursor Models and Other Models, run-out dates, and the same used / forecast / ideal chart. Range toggle: **Today** · **7 days** · **Month** (default Month). Same control on **Statistics** and **Charts**.
 
 **Window:** calendar month by default. **Billing cycle** follows Cursor’s monthly cycle when the usage summary has a valid 26–35 day window (`cursorCost.forecastWindow`). A renewal inside the calendar month is marked and the series drops there. When **From** or **To** is set, the axis snaps out to whole months or the whole billing cycle. A To date in the middle of a cycle does not clip it. 12 Sep–15 Nov draws 1 Sep through 30 Nov, each month restarts at zero, and the cycle end day stays on the chart. The mark at the end of that range is a vertical line. Status bar and Today stay on the calendar month. ([#11](https://github.com/Lukasz0303/cursor-cost-tracker/pull/11) by [@milichev](https://github.com/milichev))
 
@@ -352,7 +352,7 @@ Six tabs: **Last N** · **Statistics** · **Charts** · **Optimize** · **Suppor
 
 ### Codex local
 
-**Codex local** reads sessions already on this computer (Codex home, default `~/.codex`). Import is on by default. Files stay on this machine. The list uses the same **From** / **To** dates as Cursor. Columns add context, cached input, and reasoning. Context is the newest request’s share of the 1.05 million token window. Dollars are an OpenAI list-price estimate. A named model with no exact row takes the closest list rate, so the cost is not blank. A saved rate in Settings wins. Refresh fills rows that had no estimate. The table total shows that estimate. It is not an invoice. Statistics can open the current standard price list; each column sorts. Statistics and Charts follow the same dates. The limit chart is that window in percent through the local day of its reset (a 7-day window ends at the reset, not on today). Green stays inside the even plan; red is the part above it. The dashed line is the current window’s pace. To last is the leftover rate. Earlier cycles of the same limit are drawn from their samples, with a gap at each reset. With From set, the Cursor monthly forecast snaps out to whole months or the whole billing cycle, and the end of that range is a vertical line. The coding-stats lines chart stays on Cursor. **OpenAI API** is not in the source list. The connect code can still check an organization admin key (kept in Secret Storage) or remember a JSONL path. Those calls are not listed in the query table in this version.
+**Codex local** reads sessions already on this computer (Codex home, default `~/.codex`). Import is on by default. Files stay on this machine. The list uses the same **From** / **To** dates as Cursor. Columns add context, cached input, and reasoning. Context is the newest request’s share of the 1.05 million token window. Dollars are an OpenAI list-price estimate. A named model with no exact row takes the closest list rate, so the cost is not blank. A saved rate in Settings wins. Refresh fills rows that had no estimate. The table total shows that estimate. It is not an invoice. Statistics can open the current standard price list; each column sorts. Statistics and Charts follow the same dates. The limit chart is that window in percent through the local day of its reset (a 7-day window ends at the reset, not on today). An observation older than 30 minutes is out of date and is not used for the forecast. Different limit pools are not mixed. A second editor window reads the imported copy instead of saving over it. The section is a limit window, not a billing cycle. Green stays inside the even plan; red is the part above it. The dashed line is the current window’s pace. To last is the leftover rate. Earlier cycles of the same limit are drawn from their samples, with a gap at each reset. With From set, the Cursor monthly forecast snaps out to whole months or the whole billing cycle, and the end of that range is a vertical line. The coding-stats lines chart stays on Cursor. **OpenAI API** is not in the source list. The connect code can still check an organization admin key (kept in Secret Storage) or remember a JSONL path. Those calls are not listed in the query table in this version.
 
 ### Statistics
 

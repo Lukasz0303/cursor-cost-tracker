@@ -331,18 +331,14 @@ function windowFrom(
   }
   const observedMs = Date.parse(observedAt)
   const observedOk = Number.isFinite(observedMs)
-  const shortWindow = minutes !== null && minutes < 24 * 60
-  const sameDay =
-    observedOk &&
-    localDayKey(new Date(observedMs).toISOString()) ===
-      localDayKey(new Date(nowMs).toISOString())
   const sampleAgeMs = observedOk ? nowMs - observedMs : Number.POSITIVE_INFINITY
   const resetAhead = resetsAt !== null && resetsAt * 1000 > nowMs
   const fresh =
     observedOk &&
+    used !== null &&
     resetAhead &&
     sampleAgeMs >= -60_000 &&
-    (shortWindow ? sampleAgeMs <= 30 * 60 * 1000 : sameDay)
+    sampleAgeMs <= 30 * 60 * 1000
   return {
     kind: limitKind(minutes),
     windowMinutes: minutes,
@@ -387,6 +383,7 @@ function readLatestLimits(db: Database, nowMs: number): CodexLimitsView | null {
   const row = queryOne(
     db,
     `SELECT * FROM rate_limit_samples
+     WHERE limit_id = 'codex' OR limit_id IS NULL
      ORDER BY observed_at DESC, byte_offset DESC
      LIMIT 1`,
   )
@@ -404,10 +401,11 @@ function readLatestLimits(db: Database, nowMs: number): CodexLimitsView | null {
     const filled = queryOne(
       db,
       `SELECT * FROM rate_limit_samples
-       WHERE primary_used_percent IS NOT NULL
-          OR secondary_used_percent IS NOT NULL
+       WHERE limit_id IS ? AND (primary_used_percent IS NOT NULL
+          OR secondary_used_percent IS NOT NULL)
        ORDER BY observed_at DESC, byte_offset DESC
        LIMIT 1`,
+      [asString(row.limit_id)],
     )
     if (filled !== null) {
       const older = windowsFromLimitRow(filled, nowMs)
@@ -778,6 +776,7 @@ const DAY_MS = 24 * HOUR_MS
 function readPaceSamples(
   db: Database,
   windowView: CodexLimitWindowView,
+  limitId: string | null,
 ): RateLimitPaceSample[] {
   if (windowView.windowMinutes === null || windowView.resetsAt === null) {
     return []
@@ -789,7 +788,9 @@ function readPaceSamples(
        primary_used_percent, primary_window_minutes, primary_resets_at,
        secondary_used_percent, secondary_window_minutes, secondary_resets_at
      FROM rate_limit_samples
+     WHERE limit_id IS ?
      ORDER BY observed_at ASC, byte_offset ASC`,
+    [limitId],
   )
   const byTimestamp = new Map<number, RateLimitPaceSample>()
   const add = (
@@ -835,6 +836,7 @@ function paceFromWindow(
   db: Database,
   windowView: CodexLimitWindowView | null,
   nowMs: number,
+  limitId: string | null,
 ): CodexMirrorPace | null {
   if (
     windowView === null ||
@@ -844,7 +846,7 @@ function paceFromWindow(
   ) {
     return null
   }
-  const samples = readPaceSamples(db, windowView)
+  const samples = readPaceSamples(db, windowView, limitId)
   const last = samples[samples.length - 1]
   const asOfMs = last?.observedAt ?? windowView.observedAtMs
   if (asOfMs === null || !Number.isFinite(asOfMs)) {
@@ -1084,7 +1086,7 @@ function readCodexMirror(
       cachedRate: price.cachedInputRate,
       outputRate: price.outputRate,
     })),
-    pace: paceFromWindow(db, pickPaceWindow(limits), options.nowMs),
+    pace: paceFromWindow(db, pickPaceWindow(limits), options.nowMs, limits?.limitId ?? null),
     plan: limits?.planType ?? null,
     includedInPlan: limits?.includedInPlan === true,
   }

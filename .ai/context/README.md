@@ -26,7 +26,7 @@ If this summary and the PRD disagree, [prd.md](./prd.md) wins.
 | Polling | 1 min, AbortController, `activate` must not block UI |
 | Network | `cursor.com` usage APIs; `api.openai.com` only to check an organization admin key (buckets are not stored). Codex list prices are local |
 
-**Repo stage:** Phase 7 / MVP wired, then **1.0.0–1.8.2**. Current tree is **1.8.2** (`package.json` and `CHANGELOG.md` both open on 1.8.2): Burn Rate Guard, Coding stats, 11 UI languages, model pricing, billing-cycle forecast, Play on a red query (opens that conversation), list price, To date, Group by conversation (default off), chart day detail and zoom, local Codex history, a quota card, forecast focus on the status bar, and a billed-spend donut. Run Optimize pastes into the open Agent chat. OpenAI API can store an admin key or a JSONL path, is not a selectable source, and does not fill the query table. History of each version: [codebase-snapshot.md](./codebase-snapshot.md).
+**Repo stage:** Phase 7 / MVP wired, then **1.0.0–1.8.3**. Current tree is **1.8.3** (`package.json` and `CHANGELOG.md` both open on 1.8.3): Burn Rate Guard, Coding stats, 11 UI languages, model pricing, billing-cycle forecast, Play on a red query (opens that conversation), list price, To date, Group by conversation (default off), chart day detail and zoom, local Codex history, a quota card, forecast focus on the status bar, and a billed-spend donut. A dollar forecast uses the cycle pool when the loaded requests are only part of it. A Codex limit observation older than 30 minutes is out of date. Run Optimize pastes into the open Agent chat. OpenAI API can store an admin key or a JSONL path, is not a selectable source, and does not fill the query table. History of each version: [codebase-snapshot.md](./codebase-snapshot.md).
 
 ## 2. Target stack
 
@@ -57,7 +57,7 @@ Open VSX / VSIX: [publishing.md](./publishing.md).
 | [../implementation-plans/generated-lines-insight.md](../implementation-plans/generated-lines-insight.md) | Generated Lines Insight (1.0.4) |
 | [../implementation-plans/additional/README.md](../implementation-plans/additional/README.md) | deferred feature plans (backlog) |
 | [../implementation-plans/market-2026-09/README.md](../implementation-plans/market-2026-09/README.md) | market review 30 Sep 2026 and follow-up slices (several are already in the 1.0.6 tree) |
-| [../implementation-plans/openai-codex/README.md](../implementation-plans/openai-codex/README.md) | Codex local history and OpenAI requests (behavior that landed is in the 1.8.2 PRD, not in the older “not started” plan status) |
+| [../implementation-plans/openai-codex/README.md](../implementation-plans/openai-codex/README.md) | Codex local history and OpenAI requests (behavior that landed is in the 1.8.3 PRD, not in the older “not started” plan status) |
 | [../../.cursor/commands/11-sync-product-docs.md](../../.cursor/commands/11-sync-product-docs.md) | one command to refresh context, README, CHANGELOG, and the site version together |
 
 ## 4. House rules

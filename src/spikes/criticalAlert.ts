@@ -15,11 +15,14 @@ export const DEFAULT_CRITICAL_COST_USD_THRESHOLD = 5
 export const MIN_CRITICAL_COST_USD_THRESHOLD = 0.01
 /** First-seen historical queries older than this do not open a modal. */
 export const DEFAULT_CRITICAL_ALERT_GRACE_MS = 5 * 60_000
+/** Snooze on the critical modal hides the next alert for half an hour. */
+export const CRITICAL_ALERT_SNOOZE_MS = 30 * 60_000
 
 export const CRITICAL_ALERT_SEEN_KEY = 'cursorCost.lastCriticalSeenKey'
 export const CRITICAL_ALERT_STATE_KEY = 'cursorCost.lastCriticalAlertKey'
 /** Timestamp of the last query that already showed (or was Ignored on) the critical modal. */
 export const CRITICAL_ALERT_ALERTED_TS_KEY = 'cursorCost.lastCriticalAlertedTimestamp'
+export const CRITICAL_ALERT_SNOOZE_UNTIL_KEY = 'cursorCost.criticalAlertSnoozeUntil'
 
 export type CriticalAlertThresholds = {
   tokenThreshold: number
@@ -137,9 +140,19 @@ export function decideCriticalAlert(input: {
   lastSeenKey: string | undefined
   /** When set, do not re-alert the same query if API later revises tokens/cost. */
   lastAlertedTimestamp?: number
+  /** While this instant is still ahead, do not open the modal. */
+  snoozeUntilMs?: number
   nowMs?: number
   graceMs?: number
 }): CriticalAlertDecision {
+  const nowMs = input.nowMs ?? Date.now()
+  if (
+    input.snoozeUntilMs !== undefined &&
+    Number.isFinite(input.snoozeUntilMs) &&
+    nowMs < input.snoozeUntilMs
+  ) {
+    return { kind: 'skip' }
+  }
   const newest = newestQuery(input.queries)
   if (newest === undefined) {
     return { kind: 'skip' }
@@ -170,7 +183,6 @@ export function decideCriticalAlert(input: {
   }
 
   const breach = criticalBreach(critical, input.thresholds)
-  const nowMs = input.nowMs ?? Date.now()
   const graceMs =
     input.graceMs === undefined
       ? DEFAULT_CRITICAL_ALERT_GRACE_MS
