@@ -987,7 +987,7 @@ export class HistoryPanel {
         spikeTokenThreshold: config.spikeTokenThreshold,
       })
       const charts = runCodexCharts(host.getStore(), filter)
-      const limitSeries = runCodexLimitSeries(host.getStore())
+      const limitSeries = runCodexLimitSeries(host.getStore(), stats.limits?.limitId ?? null)
       void this.panel.webview.postMessage({
         type: 'codex.result',
         ...page,

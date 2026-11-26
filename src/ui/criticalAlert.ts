@@ -4,6 +4,8 @@ import { catalogFor } from '../i18n'
 import {
   CRITICAL_ALERT_ALERTED_TS_KEY,
   CRITICAL_ALERT_SEEN_KEY,
+  CRITICAL_ALERT_SNOOZE_MS,
+  CRITICAL_ALERT_SNOOZE_UNTIL_KEY,
   CRITICAL_ALERT_STATE_KEY,
   decideCriticalAlert,
   formatCriticalAlertCopy,
@@ -25,6 +27,7 @@ export class CriticalAlertController implements vscode.Disposable {
 
   private lastSeenKey: string | undefined
   private lastAlertedTimestamp: number | undefined
+  private snoozeUntilMs = 0
   private showing = false
   private readonly disposables: vscode.Disposable[] = []
 
@@ -38,6 +41,9 @@ export class CriticalAlertController implements vscode.Disposable {
     this.lastAlertedTimestamp = readStoredTimestamp(
       this.context.globalState.get(CRITICAL_ALERT_ALERTED_TS_KEY),
     )
+    this.snoozeUntilMs = readStoredTimestamp(
+      this.context.globalState.get(CRITICAL_ALERT_SNOOZE_UNTIL_KEY),
+    ) ?? 0
     this.disposables.push(
       this.service.onDidChange(() => {
         this.evaluate()
@@ -78,6 +84,7 @@ export class CriticalAlertController implements vscode.Disposable {
       enabled: config.showCriticalAlert,
       lastSeenKey: this.lastSeenKey,
       lastAlertedTimestamp: this.lastAlertedTimestamp,
+      snoozeUntilMs: this.snoozeUntilMs,
     })
     if (decision.kind === 'skip') {
       return
@@ -92,6 +99,20 @@ export class CriticalAlertController implements vscode.Disposable {
   private async remember(key: string): Promise<void> {
     this.lastSeenKey = key
     await this.context.globalState.update(CRITICAL_ALERT_SEEN_KEY, key)
+  }
+
+  private async snooze(decisionKey: string): Promise<void> {
+    this.snoozeUntilMs = Date.now() + CRITICAL_ALERT_SNOOZE_MS
+    await this.context.globalState.update(
+      CRITICAL_ALERT_SNOOZE_UNTIL_KEY,
+      this.snoozeUntilMs,
+    )
+    if (this.lastSeenKey === decisionKey) {
+      this.lastSeenKey = undefined
+      await this.context.globalState.update(CRITICAL_ALERT_SEEN_KEY, undefined)
+    }
+    this.lastAlertedTimestamp = undefined
+    await this.context.globalState.update(CRITICAL_ALERT_ALERTED_TS_KEY, undefined)
   }
 
   private async rememberAlerted(timestamp: number): Promise<void> {
@@ -123,15 +144,20 @@ export class CriticalAlertController implements vscode.Disposable {
       const alerts = catalogFor(config.language).alerts
       const ignore = alerts.ignore
       const openHistory = alerts.openHistory
+      const snooze = alerts.snooze
       // Persist before the modal so Cancel / Ignore / revised API totals do not re-fire.
       await this.remember(decision.key)
       await this.rememberAlerted(decision.query.timestamp)
       const choice = await vscode.window.showErrorMessage(
         copy.message,
         { modal: true, detail: copy.detail },
+        snooze,
         ignore,
         openHistory,
       )
+      if (choice === snooze) {
+        await this.snooze(decision.key)
+      }
       if (choice === openHistory) {
         await vscode.commands.executeCommand(SHOW_HISTORY_COMMAND)
       }

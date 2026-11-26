@@ -17,7 +17,12 @@ export function toMtdSeries(
   ceiling: number | null = null,
   weekdayTotal = 0,
   locale: Locale = DEFAULT_LOCALE,
+  paceTotal?: number,
 ): MtdSeries {
+  // `total` weights the daily bars. `level` is the cycle amount behind the
+  // pace, the ideal line, and the run-out. They differ when loaded requests
+  // are only part of the dollar pool.
+  const level = paceTotal ?? total
   let spent = 0
   for (const frame of frames) {
     spent += frame.usd
@@ -51,9 +56,9 @@ export function toMtdSeries(
   const scale = activeSpent > 0.000001 ? total / activeSpent : null
   const paceElapsed =
     resetIndex >= 0 && today >= 0 ? (frames[today]?.paceCount ?? elapsed) : elapsed
-  const perWorkingDay = paceElapsed > 0 ? total / paceElapsed : null
+  const perWorkingDay = paceElapsed > 0 ? level / paceElapsed : null
   const remaining = Math.max(0, weekdayTotal - elapsed)
-  const left = ceiling === null ? null : Math.max(0, ceiling - total)
+  const left = ceiling === null ? null : Math.max(0, ceiling - level)
   const tailPace = frames[frames.length - 1]?.paceCount ?? paceElapsed
   // A chart clipped at today must not treat today as the end of the cycle.
   // weekdayTotal is the full cycle, so the estimate does not jump to the cap
@@ -127,6 +132,10 @@ export function toMtdSeries(
     } else {
       if (frame.reset) {
         running = 0
+      }
+      // Unitemized pool spend sits in the cumulative total, not in a day's bar.
+      if (i === activeStart && scale !== null && level > total + 0.5) {
+        running += level - total
       }
       const branchScale = scaleAt(i)
       const value =
@@ -220,25 +229,30 @@ export function toMtdSeries(
     if (ceiling === null || left === null || today < 0) {
       ideal.push(null)
     } else if (landOnCeiling && today > 0 && i === today - 1) {
-      ideal.push(total)
+      ideal.push(level)
     } else if (i < today) {
       ideal.push(null)
     } else if (landOnCeiling) {
       ideal.push(ceiling)
     } else if (i === today) {
-      ideal.push(total)
+      ideal.push(level)
     } else if (remaining <= 0) {
-      ideal.push(Math.min(ceiling, total))
+      ideal.push(Math.min(ceiling, level))
     } else {
-      ideal.push(total + (left * (frame.workingCount - elapsed)) / remaining)
+      ideal.push(level + (left * (frame.workingCount - elapsed)) / remaining)
     }
   }
   const lastWorking = lastPaceDate(frames)
   const rawRunOut =
     ceiling === null ? null : firstRunOutDate(forecast, frames, ceiling)
-  // Hitting the ceiling on the last pace day still "lasts the month".
+  // A line lifted onto the ceiling only on the last pace day still lasts
+  // the period. A pace that actually reaches the ceiling that day does not.
+  const paceCrossesCeiling =
+    ceiling !== null && paceEnd !== null && paceEnd >= ceiling - 0.005
   const runOutDate =
-    rawRunOut !== null && rawRunOut === lastWorking ? null : rawRunOut
+    rawRunOut !== null && rawRunOut === lastWorking && !paceCrossesCeiling
+      ? null
+      : rawRunOut
   return {
     id,
     label,
@@ -247,7 +261,7 @@ export function toMtdSeries(
     forecast,
     ideal,
     runOutDate,
-    runOutLabel: runOutLabelFor(total, ceiling, runOutDate, locale),
+    runOutLabel: runOutLabelFor(level, ceiling, runOutDate, locale),
   }
 }
 

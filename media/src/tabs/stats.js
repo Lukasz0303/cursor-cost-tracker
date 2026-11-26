@@ -838,6 +838,16 @@ export function createStatsView(session) {
     return session.t('codex.limitCustom')
   }
 
+  // `fresh` only means the sample is under 30 minutes old. The percent stays
+  // on screen until that limit window resets.
+  function limitHasReading(windowView) {
+    return (
+      !!windowView &&
+      windowView.stale !== true &&
+      Number.isFinite(Number(windowView.usedPercent))
+    )
+  }
+
   function kindLabel(kind, included) {
     if (included) {
       return session.t('codex.includedEstimate')
@@ -1089,46 +1099,49 @@ export function createStatsView(session) {
     const glossary = section(session.t('stats.statusBar'))
     const glossaryGrid = session.el('div', 'status-explain')
     const fresh = windows.filter(function (windowView) {
-      return (
-        windowView &&
-        !windowView.stale &&
-        windowView.usedPercent !== null &&
-        windowView.usedPercent !== undefined
-      )
+      return windowView && windowView.fresh && limitHasReading(windowView)
     })
+    const shown = windows.filter(limitHasReading)
     const notes = []
+    for (let i = 0; i < fresh.length; i++) {
+      const windowView = fresh[i]
+      notes.push(
+        windowTitle(windowView.kind) +
+          ' · ' +
+          session.t('codex.limitLastDetail', {
+            used: formatLimitPercent(windowView.usedPercent),
+            when: windowView.observedLabel || '—',
+          }),
+      )
+    }
     for (let i = 0; i < windows.length; i++) {
       const windowView = windows[i]
-      if (!windowView || !windowView.stale) {
+      if (!windowView || windowView.fresh) {
         continue
       }
       notes.push(
         windowTitle(windowView.kind) +
           ' · ' +
-          session.t('codex.limitStaleSince', { reset: windowView.resetsLabel || '—' }),
+          session.t('codex.limitObservationOld') + ' · ' +
+          session.t('codex.limitLastDetail', {
+            used: formatLimitPercent(windowView.usedPercent),
+            when: windowView.observedLabel || '—',
+          }),
       )
     }
-    if (fresh.length > 0) {
-      const when =
-        (limits && limits.observedLabel) || fresh[0].observedLabel || '—'
-      notes.unshift(
-        session.t('codex.limitMeasuredAt', { when: when }) +
-          ' ' +
-          session.t('codex.limitNotLive'),
-      )
-    }
+    notes.push(session.t('codex.limitNotLive'))
     const currentCard = glossaryCard({
       id: 'current',
       title: session.t('stats.current'),
       value:
-        fresh.length === 0
+        shown.length === 0
           ? '—'
-          : fresh
+          : shown
               .map(function (windowView) {
                 return windowTitle(windowView.kind) + ' ' + pctPoint(windowView.usedPercent)
               })
               .join(' · '),
-      bars: fresh.map(function (windowView) {
+      bars: shown.map(function (windowView) {
         return {
           label: windowTitle(windowView.kind),
           value: pctPoint(windowView.usedPercent),
@@ -1164,7 +1177,7 @@ export function createStatsView(session) {
     glossary.appendChild(glossaryGrid)
     statsEl.appendChild(glossary)
 
-    if (mirror.pace) {
+    if (mirror.pace && mirror.pace.fresh) {
       const forecast = codexForecastPayload(mirror.pace)
       if (forecast) {
         applyMtdPayload(forecast)
@@ -1175,7 +1188,7 @@ export function createStatsView(session) {
       }
     }
 
-    const cycle = section(session.t('stats.billingCycle'))
+    const cycle = section(session.t('codex.limitWindow'))
     cycle.appendChild(
       cycleStrip([
         {
@@ -1186,7 +1199,7 @@ export function createStatsView(session) {
         },
         {
           id: 'cycle',
-          label: session.t('stats.billingCycleLabel'),
+          label: session.t('codex.limitWindow'),
           value: codexCycleRangeLabel(mirror.pace),
           meterLabel: session.t('codex.elapsedInWindow'),
           percent:
@@ -1661,6 +1674,9 @@ export function createStatsView(session) {
   }
 
   function formatLimitPercent(value) {
+    if (value === null || value === undefined) {
+      return '—'
+    }
     const n = Number(value)
     if (!Number.isFinite(n)) {
       return '—'
@@ -1754,6 +1770,11 @@ export function createStatsView(session) {
     card.appendChild(scale)
     card.appendChild(axis)
     card.appendChild(when)
+    if (windowView.fresh === false) {
+      const aged = session.el('p', 'codex-limit-when')
+      session.setText(aged, session.t('codex.limitObservationOld'))
+      card.appendChild(aged)
+    }
     return card
   }
 
@@ -1765,7 +1786,9 @@ export function createStatsView(session) {
       title,
       limitWindowTitle(windowView) +
         ' · ' +
-        session.t('codex.limitStaleSince', { reset: reset }),
+        (windowView.stale
+          ? session.t('codex.limitStaleSince', { reset: reset })
+          : session.t('codex.limitObservationOld')),
     )
     const details = session.el('details', 'codex-limit-last')
     const summary = session.el('summary')
@@ -1823,7 +1846,7 @@ export function createStatsView(session) {
     })
     let liveSeen = false
     for (let i = 0; i < windows.length; i++) {
-      if (windows[i].stale) {
+      if (!limitHasReading(windows[i])) {
         wrap.appendChild(renderStaleLimit(windows[i]))
         continue
       }

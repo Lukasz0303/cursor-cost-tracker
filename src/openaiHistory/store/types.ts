@@ -150,6 +150,8 @@ export type RequestStore = {
     sourceInstanceId: string,
   ): Promise<{ requests: number; inputTokens: number; outputTokens: number }>
   exportBytes(): Uint8Array
+  /** Swap the in-memory database for bytes another window already saved. */
+  reload(bytes: Uint8Array | null): void
   flush(destinationPath: string): Promise<void>
   close(): Promise<void>
   setLeaseRole(role: 'writer' | 'reader'): void

@@ -44,6 +44,10 @@ export type HistoryServiceOptions = {
   scanIntervalMs?: number
   /** Fired after a scan so the open Codex view can repaint. */
   onAfterRefresh?: () => void
+  /** Load the database file written by the window that holds the import lease. */
+  reloadStore?: () => Promise<void>
+  /** Save this window's database so another editor can read the same rows. */
+  flushStore?: () => Promise<void>
   setIntervalFn?: typeof setInterval
   clearIntervalFn?: typeof clearInterval
   setTimeoutFn?: typeof setTimeout
@@ -53,7 +57,7 @@ export type HistoryServiceOptions = {
 export class HistoryService {
   private readonly options: HistoryServiceOptions
   private running = false
-  private refreshInFlight = false
+  private refreshInFlight: Promise<void> | null = null
   private dirty = false
   private timer: ReturnType<typeof setInterval> | null = null
   private watcher: { close(): void } | null = null
@@ -81,12 +85,16 @@ export class HistoryService {
     })
   }
 
-  async refresh(): Promise<void> {
-    if (this.refreshInFlight) {
+  refresh(): Promise<void> {
+    if (this.refreshInFlight !== null) {
       this.dirty = true
-      return
+      return this.refreshInFlight
     }
-    this.refreshInFlight = true
+    this.refreshInFlight = this.runRefresh()
+    return this.refreshInFlight
+  }
+
+  private async runRefresh(): Promise<void> {
     try {
       do {
         this.dirty = false
@@ -94,7 +102,7 @@ export class HistoryService {
       } while (this.dirty)
       this.options.onAfterRefresh?.()
     } finally {
-      this.refreshInFlight = false
+      this.refreshInFlight = null
     }
   }
 
@@ -170,6 +178,7 @@ export class HistoryService {
     const role = await this.options.lease()
     this.options.store.setLeaseRole(role)
     if (role !== 'writer') {
+      await this.options.reloadStore?.()
       return
     }
 
@@ -207,6 +216,7 @@ export class HistoryService {
     await this.applyTitles(root)
     repairUnknownConversationBounds(this.options.store)
     repriceUnpricedRequests(this.options.store)
+    await this.options.flushStore?.()
   }
 
   private async applyTitles(

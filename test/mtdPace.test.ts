@@ -81,7 +81,7 @@ describe('toMtdPace', () => {
   it('meters month spend against elapsed working days × daily budget', () => {
     const now = new Date(2026, 8, 7, 18, 0, 0)
     const stats = toMtdPace(
-      ready(),
+      ready({ usedUsd: 42 }),
       [
         query({ timestamp: new Date(2026, 8, 1, 9, 0, 0).getTime(), costUsd: 12 }),
         query({ timestamp: new Date(2026, 8, 3, 9, 0, 0).getTime(), costUsd: 20 }),
@@ -182,6 +182,7 @@ describe('toMtdPace', () => {
       ready({
         plan: 'enterprise',
         spendDisplay: 'usd',
+        usedUsd: 22,
         includedQuotas: [
           { name: 'Cursor Models', used: 25, limit: 100, percent: 25 },
           { name: 'Other Models', used: 31, limit: 100, percent: 31 },
@@ -205,7 +206,7 @@ describe('toMtdPace', () => {
   it('flags over-pace when month spend exceeds the MTD allowance', () => {
     const now = new Date(2026, 8, 2, 18, 0, 0)
     const stats = toMtdPace(
-      ready({ dailyBudgetUsd: 10 }),
+      ready({ dailyBudgetUsd: 10, usedUsd: 27 }),
       [
         query({ timestamp: new Date(2026, 8, 1, 9, 0, 0).getTime(), costUsd: 15 }),
         query({ timestamp: new Date(2026, 8, 2, 9, 0, 0).getTime(), costUsd: 12 }),
@@ -412,7 +413,12 @@ describe('calendar day budget basis', () => {
   it('paces month spend across all calendar days', () => {
     const now = new Date(2026, 8, 5, 12, 0, 0)
     const stats = toMtdPace(
-      ready({ dailyBudgetUsd: 10, limitUsd: 300, remainingUsd: 200 }),
+      ready({
+        dailyBudgetUsd: 10,
+        limitUsd: 300,
+        remainingUsd: 280,
+        usedUsd: 20,
+      }),
       [query({ timestamp: now.getTime(), costUsd: 20 })],
       { now, budgetDayBasis: 'calendarDays' },
     )
@@ -591,6 +597,72 @@ describe('toMtdSeries', () => {
   })
 })
 
+describe('cycle pool vs loaded requests', () => {
+  it('forecasts the cycle pool when the loaded requests are only part of it', () => {
+    const now = new Date(2026, 10, 26, 15, 0, 0)
+    const queries = [
+      query({
+        timestamp: new Date(2026, 10, 16, 9, 0, 0).getTime(),
+        costUsd: 40,
+      }),
+      query({
+        timestamp: new Date(2026, 10, 26, 9, 0, 0).getTime(),
+        costUsd: 40.1,
+      }),
+    ]
+    const snapshot = ready({
+      usedUsd: 324.4,
+      limitUsd: 350,
+      remainingUsd: 25.6,
+      dailyBudgetUsd: 8.53,
+      todayUsedUsd: 6.22,
+      billingCycleStart: '2026-11-01T00:00:00.000Z',
+      billingCycleEnd: '2026-12-01T00:00:00.000Z',
+    })
+    const stats = toMtdPace(snapshot, queries, { now })
+    const narrowed = toMtdPace(snapshot, queries, {
+      now,
+      historyFromDate: '2026-11-16',
+    })
+
+    expect(stats.bars[0]?.value).toContain('324.40 $ used')
+    expect(stats.bars[0]?.value).not.toContain('Lasts the month')
+    expect(stats.bars[0]?.value).toContain('Runs out ~30.11')
+    expect(stats.metrics.find((row) => row.id === 'mtdForecast')?.value).toBe(
+      '358.55 $',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdRunOut')?.value).toBe(
+      'Spend ~30.11',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdToLast')?.value).toBe(
+      '12.80 $',
+    )
+    expect(stats.metrics.find((row) => row.id === 'mtdPace')?.value).toBe('Over')
+    expect(stats.series[0]?.runOutDate).toBe('30.11')
+    expect(stats.body).toContain('80.10 $')
+    expect(stats.body).toContain('324.40 $')
+    const today = stats.forecast.findIndex((point) => point.date === '26.11')
+    const loaded = stats.forecast.findIndex((point) => point.date === '16.11')
+    expect(stats.series[0]?.day[0]).toBe(0)
+    expect(stats.series[0]?.used[0]).toBeCloseTo(244.3)
+    expect(stats.series[0]?.day[loaded]).toBeCloseTo(40)
+    expect(stats.series[0]?.used[today]).toBeCloseTo(324.4)
+    expect(stats.series[0]?.day[today]).toBeCloseTo(40.1)
+
+    expect(narrowed.bars[0]?.value).toContain('324.40 $ used')
+    expect(narrowed.metrics.find((row) => row.id === 'mtdForecast')?.value).toBe(
+      '358.55 $',
+    )
+    expect(narrowed.metrics.find((row) => row.id === 'mtdRunOut')?.value).toBe(
+      'Spend ~30.11',
+    )
+    expect(narrowed.series[0]?.runOutDate).toBe('30.11')
+    const narrowedToday = narrowed.forecast.findIndex((point) => point.date === '26.11')
+    expect(narrowed.series[0]?.day[narrowedToday]).toBeCloseTo(40.1)
+    expect(narrowed.series[0]?.used[narrowedToday]).toBeCloseTo(324.4)
+  })
+})
+
 describe('billing-cycle forecast windows', () => {
   it('uses a continuous billing-cycle axis', () => {
     const billingCycleStart = '2026-09-01T00:00:00.000Z'
@@ -613,6 +685,7 @@ describe('billing-cycle forecast windows', () => {
   it('drops calendar series at a mid-month renewal and marks midday resets', () => {
     const stats = toMtdPace(
       ready({
+        usedUsd: 0,
         billingCycleStart: '2026-09-26T13:51:29.000Z',
         billingCycleEnd: '2026-10-26T13:51:29.000Z',
       }),

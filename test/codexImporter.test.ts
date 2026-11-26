@@ -19,7 +19,7 @@ import { discoverRolloutFiles, type FsDeps } from '../src/openaiHistory/codex/di
 import { importDiscoveredFile } from '../src/openaiHistory/codex/importer'
 import type { ResolvedCodexRoot } from '../src/openaiHistory/codex/sourceRoot'
 import { HistoryService } from '../src/openaiHistory/historyService'
-import { openRequestStore } from '../src/openaiHistory/store/sqlJsRequestStore'
+import { countRequests, openRequestStore } from '../src/openaiHistory/store/sqlJsRequestStore'
 import { listObservations } from '../src/openaiHistory/store/sqlJsRequestStore'
 import type { RequestStore } from '../src/openaiHistory/store/types'
 import type { Database, SqlValue } from 'sql.js'
@@ -451,6 +451,34 @@ describe('codex importer', () => {
     await store.close()
   })
 
+  it('waits for the queued scan when refresh is requested during a scan', async () => {
+    const sql = await loadSql()
+    const store = openRequestStore(null, sql)
+    const rootPath = await tempRoot()
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    let calls = 0
+    const resolveRoot = vi.fn(async () => {
+      calls += 1
+      if (calls === 1) await gate
+      return rootFor(rootPath)
+    })
+    const service = new HistoryService({
+      importEnabled: false, resolveRoot, discover: discoverRolloutFiles, store,
+      lease: async () => 'writer', now: () => 1, fsDeps: nodeFsDeps(),
+    })
+    const first = service.refresh()
+    const second = service.refresh()
+    let finished = false
+    void second.then(() => { finished = true })
+    await Promise.resolve()
+    expect(finished).toBe(false)
+    release()
+    await Promise.all([first, second])
+    expect(resolveRoot).toHaveBeenCalledTimes(2)
+    await store.close()
+  })
+
   it('scans on the settings interval and notifies after each refresh', async () => {
     const sql = await loadSql()
     const store = openRequestStore(null, sql)
@@ -483,6 +511,73 @@ describe('codex importer', () => {
     service.stop()
     expect(clearIntervalFn).toHaveBeenCalled()
     await store.close()
+  })
+
+  it('a reader window loads the file the writer saved and does not overwrite it', async () => {
+    const sql = await loadSql()
+    const writer = openRequestStore(null, sql)
+    const readerIo = {
+      writeFile: vi.fn(async () => undefined),
+      rename: vi.fn(async () => undefined),
+      unlink: vi.fn(async () => undefined),
+      readFile: vi.fn(async () => null),
+    }
+    const reader = openRequestStore(null, sql, readerIo)
+    const rootPath = await tempRoot()
+    const line =
+      '{"timestamp":"2026-10-07T10:00:00.000Z","type":"token_usage_record","payload":{"thread_id":"t","response_id":"resp","usage":{"input_tokens":4,"output_tokens":1,"total_tokens":5}}}\n'
+    await writeSession(rootPath, 'rollout-shared.jsonl', line)
+    let saved: Uint8Array | null = null
+    let notify: () => void = () => undefined
+    const notified = new Promise<void>((resolve) => {
+      notify = resolve
+    })
+    const writerService = new HistoryService({
+      importEnabled: true,
+      resolveRoot: async () => rootFor(rootPath),
+      discover: discoverRolloutFiles,
+      store: writer,
+      lease: async () => 'writer',
+      now: () => 1,
+      deviceId: 'device-test',
+      fsDeps: nodeFsDeps(),
+      onAfterRefresh: notify,
+      setIntervalFn: () => 1 as unknown as ReturnType<typeof setInterval>,
+      clearIntervalFn: () => undefined,
+      flushStore: async () => {
+        saved = writer.exportBytes()
+      },
+    })
+    writerService.start()
+    await notified
+    writerService.stop()
+    expect(saved).not.toBeNull()
+    expect(countRequests(writer)).toBe(1)
+
+    reader.setLeaseRole('reader')
+    await reader.flush('codex.sqlite')
+    expect(readerIo.writeFile).not.toHaveBeenCalled()
+
+    const readerService = new HistoryService({
+      importEnabled: true,
+      resolveRoot: async () => rootFor(rootPath),
+      discover: discoverRolloutFiles,
+      store: reader,
+      lease: async () => 'reader',
+      now: () => 2,
+      deviceId: 'device-test',
+      fsDeps: nodeFsDeps(),
+      reloadStore: async () => {
+        reader.reload(saved)
+      },
+      flushStore: async () => {
+        throw new Error('reader must not save over the writer file')
+      },
+    })
+    await readerService.refresh()
+    expect(countRequests(reader)).toBe(1)
+    await writer.close()
+    await reader.close()
   })
 
   it('prefers plain jsonl over a sibling zst and skips cache', async () => {

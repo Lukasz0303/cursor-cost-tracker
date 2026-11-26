@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.3 — 2026-11-26
+
+### Fixed
+
+- **Cursor dollar forecast** — the used amount is the cycle pool from Cursor, even when the loaded query range is only part of that pool. Daily bars stay the loaded requests. The cumulative total includes the rest from the start of the cycle, and the forecast says so. If the working-day pace reaches the limit on the last working day, Runs out names that day instead of saying the month lasts.
+- **Codex local limits** — an observation older than 30 minutes is out of date and is not used for the forecast. Different limit pools are not mixed. A second editor window reads the imported copy instead of saving over it. A refresh started during a scan waits for that scan. The limit section is a limit window, not a billing cycle.
+- **Critical alert** — the dialog has **Snooze 30 min**. That choice hides the next alert for half an hour. Ignore still skips that query for good.
+
 ## 1.8.2 — 2026-11-17
 
 ### Fixed

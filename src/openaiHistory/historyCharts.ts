@@ -246,7 +246,10 @@ function pushLimitPoint(
 }
 
 /** Account limit samples over time, split by window. The line stops at the last sample. */
-export function runCodexLimitSeries(store: RequestStore): CodexLimitSeries[] {
+export function runCodexLimitSeries(
+  store: RequestStore,
+  limitId: string | null = 'codex',
+): CodexLimitSeries[] {
   const db = getDb(store)
   const rows = queryAll(
     db,
@@ -255,28 +258,29 @@ export function runCodexLimitSeries(store: RequestStore): CodexLimitSeries[] {
        primary_used_percent, primary_window_minutes, primary_resets_at,
        secondary_used_percent, secondary_window_minutes, secondary_resets_at
      FROM rate_limit_samples
+     WHERE limit_id IS ?
      ORDER BY observed_at ASC, byte_offset ASC`,
+    [limitId],
   )
-  const primary = new Map<string, CodexLimitSeries>()
-  const secondary = new Map<string, CodexLimitSeries>()
+  const windows = new Map<string, CodexLimitSeries>()
   for (const row of rows) {
     const observedAt = asString(row.observed_at) ?? ''
     pushLimitPoint(
-      primary,
+      windows,
       asNumber(row.primary_window_minutes),
       asNumber(row.primary_used_percent),
       asNumber(row.primary_resets_at),
       observedAt,
     )
     pushLimitPoint(
-      secondary,
+      windows,
       asNumber(row.secondary_window_minutes),
       asNumber(row.secondary_used_percent),
       asNumber(row.secondary_resets_at),
       observedAt,
     )
   }
-  const series = [...primary.values(), ...secondary.values()].filter(
+  const series = [...windows.values()].filter(
     (item) => item.points.length > 0,
   )
   series.sort((a, b) => (b.windowMinutes ?? 0) - (a.windowMinutes ?? 0))

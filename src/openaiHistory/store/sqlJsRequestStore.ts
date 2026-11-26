@@ -729,6 +729,14 @@ class SqlJsRequestStore implements RequestStore {
     this.leaseRole = role
   }
 
+  reload(bytes: Uint8Array | null): void {
+    this.assertOpen()
+    const next = bytes === null ? new this.sql.Database() : new this.sql.Database(bytes)
+    migrateSchema(next)
+    this.db.close()
+    this.db = next
+  }
+
   assertWriter(): void {
     if (this.leaseRole !== 'writer') {
       throw new Error('Import lease is held by another writer')
@@ -795,7 +803,10 @@ class SqlJsRequestStore implements RequestStore {
 
   async flush(destinationPath: string): Promise<void> {
     this.assertOpen()
-    this.assertWriter()
+    // A second window must not write its older copy over the file the writer just saved.
+    if (this.leaseRole !== 'writer') {
+      return
+    }
     const tmpPath = `${destinationPath}.tmp`
     const bytes = this.db.export()
     try {

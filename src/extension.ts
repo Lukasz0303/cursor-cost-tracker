@@ -155,6 +155,15 @@ async function bootstrapCodexHost(
     onAfterRefresh: () => {
       HistoryPanel.refreshOpenCodex()
     },
+    reloadStore: async () => {
+      const fresh = existsSync(storePath)
+        ? new Uint8Array(readFileSync(storePath))
+        : null
+      options.store.reload(fresh)
+    },
+    flushStore: async () => {
+      await options.store.flush(storePath)
+    },
     deviceId,
     fsDeps,
     readFrom: async (path, offset) => {

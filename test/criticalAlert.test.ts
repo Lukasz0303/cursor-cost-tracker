@@ -116,6 +116,30 @@ describe('decideCriticalAlert', () => {
     expect(decision.breach).toEqual({ tokens: true, cost: true })
   })
 
+  it('stays quiet while snooze has time left', () => {
+    const decision = decideCriticalAlert({
+      queries: [cheap, expensive],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(cheap),
+      nowMs,
+      snoozeUntilMs: nowMs + 30 * 60_000,
+    })
+    expect(decision).toEqual({ kind: 'skip' })
+  })
+
+  it('alerts again after snooze has ended', () => {
+    const decision = decideCriticalAlert({
+      queries: [cheap, expensive],
+      thresholds: DEFAULTS,
+      enabled: true,
+      lastSeenKey: queryFingerprint(cheap),
+      nowMs,
+      snoozeUntilMs: nowMs - 1,
+    })
+    expect(decision.kind).toBe('alert')
+  })
+
   it('does not re-alert the same last query', () => {
     const decision = decideCriticalAlert({
       queries: [expensive],
